@@ -1,6 +1,6 @@
 import { Song, DJStyle, DJVoice, AppLanguage } from '../../types';
 
-console.log("Hori-s.FM Content Script Loaded (State Machine v2.3 - Hardened)");
+console.log("Hori-s.FM Content Script Loaded (Styles v2.4 - Smooth Fades)");
 
 // --- TYPES & STATE ---
 type DJState = 'IDLE' | 'GENERATING' | 'READY' | 'PLAYING' | 'COOLDOWN';
@@ -9,7 +9,7 @@ interface State {
     status: DJState;
     currentSongSig: string; // ID to track if song changed
     bufferedAudio: string | null; // Base64 audio
-    generatedForSig: string | null; // CONTEXT VALIDATION: Which song was this audio generated for?
+    generatedForSig: string | null; // CONTEXT VALIDATION
     lastTime: number;
 }
 
@@ -25,10 +25,8 @@ let state: State = {
 const getMoviePlayer = () => document.querySelector('video');
 
 const getSongInfo = () => {
-    // 1. Current Song Parsers - SCOPED TO PLAYER BAR (Fixes 'Chinese Tea Ceremony' page title issue)
+    // 1. Current Song Parsers - SCOPED TO PLAYER BAR
     const playerBar = document.querySelector('ytmusic-player-bar');
-
-    // Fallback? If bar isn't loaded, return empty.
     if (!playerBar) return { current: { title: "", artist: "", album: "" }, next: { title: "", artist: "" } };
 
     const titleEl = playerBar.querySelector('.content-info-wrapper .title');
@@ -38,12 +36,10 @@ const getSongInfo = () => {
     let artist = "";
     let album = "";
 
-    // Parse Subtitle: "Artist • Album • Year • Views"
     if (subtitleEl && subtitleEl.textContent) {
         const parts = subtitleEl.textContent.split('•').map(s => s.trim());
         if (parts.length >= 1) artist = parts[0];
         if (parts.length >= 2) album = parts[1];
-        // We ignore the rest
     }
 
     // 2. Next Song Logic
@@ -53,7 +49,6 @@ const getSongInfo = () => {
     const queueItems = document.querySelectorAll('ytmusic-player-queue-item');
     let foundCurrent = false;
 
-    // Helper: Find the *active* item, then pick the next one.
     for (const item of queueItems) {
         if (item.hasAttribute('selected')) {
             foundCurrent = true;
@@ -77,54 +72,83 @@ const audioEl = document.createElement('audio');
 audioEl.id = 'horis-fm-dj-voice';
 document.body.appendChild(audioEl);
 
-// ACTIVE DUCKING SYSTEM
-// We need to continuously force volume down because YTM resets it on track change
+// --- VOLUME CONTROL SYSTEM ---
 let duckingInterval: any = null;
+let fadeInterval: any = null;
 
-const startActiveDucking = (originalVolume: number) => {
+const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
+
+const fadeVolume = (targetVol: number, duration: number = 800): Promise<void> => {
+    return new Promise((resolve) => {
+        const video = getMoviePlayer();
+        if (!video) { resolve(); return; }
+
+        if (fadeInterval) clearInterval(fadeInterval);
+
+        const startVol = video.volume;
+        const startTime = Date.now();
+
+        console.log(`[Audio] Fading volume: ${startVol.toFixed(2)} -> ${targetVol} (${duration}ms)`);
+
+        fadeInterval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const progress = clamp(elapsed / duration, 0, 1);
+
+            // Linear interpolation
+            const newVol = startVol + (targetVol - startVol) * progress;
+
+            if (video) video.volume = clamp(newVol, 0, 1);
+
+            if (progress >= 1) {
+                clearInterval(fadeInterval);
+                fadeInterval = null;
+                resolve();
+            }
+        }, 50); // 20fps updates is smooth enough for volume
+    });
+};
+
+const startActiveDucking = async (originalVolume: number) => {
+    // 1. Fade Down
+    const targetVolume = originalVolume * 0.15;
+    await fadeVolume(targetVolume, 1000); // 1s fade out for smoothness
+
+    // 2. Enforce Low Volume (The Fix for Track Changes)
     if (duckingInterval) clearInterval(duckingInterval);
 
-    const targetVolume = originalVolume * 0.15;
-    console.log(`[Audio] Starting active ducking. Target: ${targetVolume}`);
+    console.log(`[Audio] Engaging Volume Enforcer at ${targetVolume.toFixed(2)}`);
 
     const enforce = () => {
         const video = getMoviePlayer();
         if (video) {
-            // Only duck if it's significantly higher than our target (allow small user deviations?)
-            // Actually, enforce strict ducking to be safe.
+            // Strict enforcement if it jumps up
             if (video.volume > targetVolume + 0.05) {
+                // Snap back instantly if it drifted (e.g. track change reset)
                 video.volume = targetVolume;
             }
         }
     };
-
-    // Run immediately
-    enforce();
-
-    // Run repeatedly
     duckingInterval = setInterval(enforce, 200);
 };
 
-const stopActiveDucking = (restoreTo: number) => {
+const stopActiveDucking = async (restoreTo: number) => {
+    // 1. Stop Enforcing
     if (duckingInterval) {
         clearInterval(duckingInterval);
         duckingInterval = null;
     }
 
-    const video = getMoviePlayer();
-    if (video) {
-        console.log(`[Audio] Restoring volume to ${restoreTo}`);
-        video.volume = restoreTo;
-    }
+    // 2. Fade Up
+    await fadeVolume(restoreTo, 1000); // 1s fade in
 };
 
 
 const playBufferedAudio = async () => {
     if (!state.bufferedAudio) return;
 
-    // CONTEXT VALIDATION: Ensure we are still on the same song!
+    // CONTEXT VALIDATION
     if (state.generatedForSig !== state.currentSongSig) {
-        console.warn(`[Audio] Validation Failed! Stale buffer. Generated for: "${state.generatedForSig}", Current: "${state.currentSongSig}"`);
+        console.warn(`[Audio] Validation Failed! Stale buffer.`);
         state.status = 'IDLE';
         state.bufferedAudio = null;
         state.generatedForSig = null;
@@ -142,6 +166,9 @@ const playBufferedAudio = async () => {
     const video = getMoviePlayer();
     const originalVolume = video ? video.volume : 1.0;
 
+    // Start Ducking (Async, but we start playing voice immediately or after fade?)
+    // Usually standard radio style: Fade starts, DJ starts shortly after or same time.
+    // Let's run parallel.
     startActiveDucking(originalVolume);
 
     try {
@@ -149,18 +176,16 @@ const playBufferedAudio = async () => {
     } catch (e) {
         console.error("[Audio] Playback failed:", e);
         stopActiveDucking(originalVolume);
-        state.status = 'IDLE'; // Reset on failure
+        state.status = 'IDLE';
     }
 
     audioEl.onended = () => {
         console.log("[Audio] Playback finished.");
         stopActiveDucking(originalVolume);
 
-        // Enter COOLDOWN to prevent immediately triggering again if times are weird
         state.status = 'COOLDOWN';
-        state.bufferedAudio = null; // Clear buffer
+        state.bufferedAudio = null;
 
-        // Release cooldown after a few seconds
         setTimeout(() => {
             if (state.status === 'COOLDOWN') state.status = 'IDLE';
         }, 5000);
@@ -173,26 +198,21 @@ setInterval(() => {
     if (!video || video.paused || !video.duration) return;
 
     const { current, next } = getSongInfo();
-
-    // We use Title + Artist as a unique signature. 
     const sig = `${current.title}|${current.artist}`;
     const currentTime = video.currentTime;
     const timeLeft = video.duration - currentTime;
 
     // --- RESET LOGIC ---
-    // 1. Song Change detected via text
     if (sig !== state.currentSongSig) {
-        console.log(`[State] New Song detected: "${current.title}" by "${current.artist}"`);
+        console.log(`[State] New Song detected: "${current.title}"`);
         state.currentSongSig = sig;
         state.status = 'IDLE';
         state.bufferedAudio = null;
         state.generatedForSig = null;
     }
 
-    // 2. Time Jump detected (User seeked back or song restarted)
-    // If time jumps BACK by >5s, hard reset.
     if (state.lastTime > currentTime + 5) {
-        console.log(`[State] Seek detected (${state.lastTime} -> ${currentTime}). Resetting.`);
+        console.log(`[State] Seek detected. Resetting.`);
         state.status = 'IDLE';
         state.bufferedAudio = null;
         state.generatedForSig = null;
@@ -200,28 +220,23 @@ setInterval(() => {
     state.lastTime = currentTime;
 
     // --- STATE MACHINE ---
-
-    // TRIGGER CONDITION: 45s before end (to generate) -> Buffer
-    // We only generate if we are IDLE.
     if (state.status === 'IDLE' && timeLeft < 45 && timeLeft > 10) {
+        if (!current.title || !current.artist) return;
 
-        // Check Validity
-        if (!current.title || !current.artist) {
-            console.warn("[Generator] Skipping: Missing metadata.");
+        state.status = 'GENERATING';
+        state.generatedForSig = sig;
+        console.log("[Generator] Starting pre-generation...");
+
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+            console.error("[Generator] Extension API not available.");
             return;
         }
-
-        // START GENERATION
-        state.status = 'GENERATING';
-        state.generatedForSig = sig; // LOCK CONTEXT
-        console.log("[Generator] Starting pre-generation...");
 
         chrome.storage.local.get(['horisFmSettings'], (result) => {
             const settings = (result as any).horisFmSettings || { enabled: true, voice: 'Kore' };
 
             if (!settings.enabled) {
-                console.log("[Generator] DJ Disabled in settings.");
-                state.status = 'COOLDOWN'; // Wait until song changes
+                state.status = 'COOLDOWN';
                 return;
             }
 
@@ -230,32 +245,24 @@ setInterval(() => {
                 data: {
                     currentSong: { title: current.title, artist: current.artist, id: 'ytm-current' },
                     nextSong: { title: next.title || "Next Track", artist: next.artist || "Unknown", id: 'ytm-next' },
-                    style: 'STANDARD',
+                    style: settings.style || 'STANDARD',
                     voice: settings.voice,
                     language: 'en'
                 }
             }, (response) => {
-                // CALLBACK: Check if we are still generating for the same valid context
-                if (state.currentSongSig !== sig) {
-                    console.warn("[Generator] Discarding response: Song changed during generation.");
-                    return;
-                }
+                if (state.currentSongSig !== sig) return;
 
                 if (response && response.audio) {
                     console.log("[Generator] Audio received & Buffered.");
                     state.bufferedAudio = response.audio;
                     state.status = 'READY';
                 } else {
-                    console.warn("[Generator] Failed to generate audio.");
                     state.status = 'COOLDOWN';
                 }
             });
         });
     }
 
-    // PLAY CONDITION: Song is ending (e.g., < 2s left) OR Song Just Changed (Crossfade scenario)
-    // For YTM, usually handling it at < 15s (before standard fade) is good.
-    // Let's refine: If we are READY and time < 10s, PLAY.
     if (state.status === 'READY' && timeLeft < 12) {
         playBufferedAudio();
     }

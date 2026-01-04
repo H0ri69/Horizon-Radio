@@ -4,11 +4,181 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hori-s.FM Settings</title>
+    <title>Hori-s.FM AI DJ</title>
+    <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Audiowide&family=Press+Start+2P&family=Rajdhani:wght@500;700&family=VT323&family=Quicksand:wght@500;700&family=Fredoka:wght@400;600&display=swap"
+        rel="stylesheet">
+
+    <!-- Theme Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            black: 'var(--bg-black)',
+                            dark: 'var(--bg-dark)',
+                            panel: 'var(--bg-panel)',
+                            pink: 'var(--accent-primary)',
+                            blue: 'var(--accent-secondary)',
+                            green: 'var(--accent-tertiary)',
+                            yellow: 'var(--accent-quaternary)',
+                            dim: 'rgba(var(--accent-secondary-rgb), 0.1)'
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['var(--font-mono)', 'monospace'],
+                        display: ['var(--font-display)', 'cursive'],
+                        pixel: ['"Press Start 2P"', 'cursive'],
+                        tech: ['var(--font-tech)', 'sans-serif'],
+                        rounded: ['"Fredoka"', 'sans-serif'],
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'scan': 'scan 4s linear infinite',
+                        'glitch': 'glitch 1s linear infinite',
+                    },
+                    keyframes: {
+                        scan: {
+                            '0%': { backgroundPosition: '0% 0%' },
+                            '100%': { backgroundPosition: '0% 100%' }
+                        },
+                        glitch: {
+                            '2%, 64%': { transform: 'translate(2px,0) skew(0deg)' },
+                            '4%, 60%': { transform: 'translate(-2px,0) skew(0deg)' },
+                            '62%': { transform: 'translate(0,0) skew(5deg)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Global Styles -->
+    <style>
+        :root {
+            /* Default Cyber Theme */
+            --bg-black: #0a0a0f;
+            --bg-dark: #13131f;
+            --bg-panel: #1a1a24;
+
+            --accent-primary: #ff2a6d;
+            --accent-secondary: #05d9e8;
+            --accent-tertiary: #00ff9f;
+            --accent-quaternary: #d1f7ff;
+
+            --accent-secondary-rgb: 5, 217, 232;
+
+            --font-mono: "Share Tech Mono";
+            --font-display: "Audiowide";
+            --font-tech: "Rajdhani";
+
+            --radius-sm: 0px;
+            --radius-md: 0px;
+            --radius-full: 9999px;
+        }
+
+        body {
+            background-color: var(--bg-black);
+            color: #e0e0e0;
+            overflow: hidden;
+            /* Popup usually small */
+            width: 400px;
+            height: 600px;
+            font-family: var(--font-tech);
+        }
+
+        /* Background FX */
+        .bg-grid {
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+        }
+
+        .crt-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0.1;
+        }
+
+        .scanline-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: var(--accent-secondary);
+            opacity: 0.2;
+            animation: scanline 8s linear infinite;
+            pointer-events: none;
+            z-index: 51;
+        }
+
+        @keyframes scanline {
+            0% {
+                transform: translateY(-10vh);
+            }
+
+            100% {
+                transform: translateY(110vh);
+            }
+        }
+
+        /* Utilities */
+        .cyber-border {
+            border: 1px solid var(--accent-secondary);
+            background: rgba(20, 20, 30, 0.8);
+            box-shadow: 0 0 10px rgba(5, 217, 232, 0.2);
+        }
+
+        .text-shadow-blue {
+            text-shadow: 0 0 5px var(--accent-secondary);
+        }
+
+        .text-shadow-pink {
+            text-shadow: 0 0 5px var(--accent-primary);
+        }
+
+        /* Inputs */
+        select,
+        input,
+        textarea {
+            background: var(--bg-dark);
+            border: 1px solid var(--accent-secondary);
+            color: var(--accent-secondary);
+            font-family: var(--font-mono);
+            outline: none;
+        }
+
+        select:focus,
+        input:focus {
+            box-shadow: 0 0 8px var(--accent-secondary);
+        }
+    </style>
 </head>
 
-<body class="bg-gray-900 text-white w-64 h-auto p-4">
+<body>
+    <div class="bg-grid"></div>
+    <div class="crt-overlay"></div>
+    <div class="scanline-bar"></div>
     <div id="root"></div>
     <script type="module" src="./popup.tsx"></script>
 </body>
