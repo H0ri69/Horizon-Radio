@@ -1,7 +1,0 @@
-{
-  "name": "Horis's AI Radio",
-  "description": "An intelligent retro-neon web DJ that harmonically mixes your tracks and provides AI-generated voiceovers.",
-  "requestFramePermissions": [
-    "microphone"
-  ]
-}

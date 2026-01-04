@@ -92,6 +92,7 @@ document.body.appendChild(audioEl);
 // --- VOLUME CONTROL SYSTEM ---
 let duckingInterval: any = null;
 let fadeInterval: any = null;
+const FADE_DURATION = 3000; // Shared fade duration
 
 const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
 
@@ -128,7 +129,7 @@ const fadeVolume = (targetVol: number, duration: number = 800): Promise<void> =>
 const startActiveDucking = async (originalVolume: number) => {
     // 1. Fade Down
     const targetVolume = originalVolume * 0.15;
-    await fadeVolume(targetVolume, 1000); // 1s fade out for smoothness
+    await fadeVolume(targetVolume, FADE_DURATION);
 
     // 2. Enforce Low Volume (The Fix for Track Changes)
     if (duckingInterval) clearInterval(duckingInterval);
@@ -156,7 +157,7 @@ const stopActiveDucking = async (restoreTo: number) => {
     }
 
     // 2. Fade Up
-    await fadeVolume(restoreTo, 1000); // 1s fade in
+    await fadeVolume(restoreTo, FADE_DURATION);
 };
 
 

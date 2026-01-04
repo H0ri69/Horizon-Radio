@@ -131,9 +131,9 @@ const generateScript = async (prompt: string): Promise<string | null> => {
     const response: GenerateContentResponse = await callWithRetry(() => ai.models.generateContent({
       model: TEXT_MODEL,
       contents: [{ parts: [{ text: prompt }] }],
+      // , tools: [{ googleSearch: {} }] seems to not work.
       config: { responseMimeType: "application/json" }
     }));
-    console.log("AAAAAAAAAAAAAAAAAAA");
     return response.text || null;
   } catch (e) {
     console.error("Script generation failed", e);
