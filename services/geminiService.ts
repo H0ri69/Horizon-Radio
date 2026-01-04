@@ -131,9 +131,17 @@ const generateScript = async (prompt: string): Promise<string | null> => {
     const response: GenerateContentResponse = await callWithRetry(() => ai.models.generateContent({
       model: TEXT_MODEL,
       contents: [{ parts: [{ text: prompt }] }],
-      // , tools: [{ googleSearch: {} }] seems to not work.
-      config: { responseMimeType: "application/json" }
+      config: { tools: [{ googleSearch: {} }] }
     }));
+
+    // Log grounding metadata if available (to verify search is working)
+    const grounding = response.candidates?.[0]?.groundingMetadata;
+    if (grounding?.searchEntryPoint) {
+      console.log("[Gemini] 🔎 Search Performed. Grounding Metadata found.");
+    } else {
+      console.log("[Gemini] 🔎 Search Performed. Grounding Metadata NOT found.");
+    }
+
     return response.text || null;
   } catch (e) {
     console.error("Script generation failed", e);
