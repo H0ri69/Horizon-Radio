@@ -2,16 +2,10 @@ import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 import { Song, DJStyle, DJVoice, AppLanguage } from '../types';
 
 const getClient = () => {
-  let apiKey = '';
-  try {
-    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-      apiKey = process.env.API_KEY;
-    }
-  } catch (e) {
-    console.error("Environment variable access failed", e);
+  const apiKey = process.env.API_KEY;
+  if (!apiKey || apiKey === 'your_api_key_here') {
+    throw new Error("Invalid API Key. Please update .env");
   }
-  
-  if (!apiKey) throw new Error("API Key missing");
   return new GoogleGenAI({ apiKey });
 };
 
@@ -23,7 +17,7 @@ const createWavHeader = (dataLength: number, sampleRate: number = 24000) => {
   const bitsPerSample = 16;
   const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
   const blockAlign = numChannels * (bitsPerSample / 8);
-  
+
   const buffer = new ArrayBuffer(44);
   const view = new DataView(buffer);
 
@@ -58,18 +52,18 @@ const concatenateBuffers = (buffer1: ArrayBuffer, buffer2: ArrayBuffer) => {
 };
 
 const processAudioResponse = (response: any): ArrayBuffer | null => {
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) return null;
+  const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+  if (!base64Audio) return null;
 
-    const binaryString = atob(base64Audio);
-    const len = binaryString.length;
-    const pcmData = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      pcmData[i] = binaryString.charCodeAt(i);
-    }
+  const binaryString = atob(base64Audio);
+  const len = binaryString.length;
+  const pcmData = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    pcmData[i] = binaryString.charCodeAt(i);
+  }
 
-    const header = createWavHeader(pcmData.length);
-    return concatenateBuffers(header, pcmData.buffer);
+  const header = createWavHeader(pcmData.length);
+  return concatenateBuffers(header, pcmData.buffer);
 };
 
 // Robust Retry Logic for API Calls
@@ -78,11 +72,11 @@ async function callWithRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000)
     return await fn();
   } catch (e: any) {
     // Retry on Rate Limits (429) AND Internal Server Errors (500, 503)
-    const isRetryable = e.status === 429 || e.code === 429 || 
-                        e.status === 500 || e.code === 500 || 
-                        e.status === 503 || e.code === 503 ||
-                        (e.message && (e.message.includes('429') || e.message.includes('quota') || e.message.includes('500') || e.message.includes('503') || e.message.includes('INTERNAL')));
-    
+    const isRetryable = e.status === 429 || e.code === 429 ||
+      e.status === 500 || e.code === 500 ||
+      e.status === 503 || e.code === 503 ||
+      (e.message && (e.message.includes('429') || e.message.includes('quota') || e.message.includes('500') || e.message.includes('503') || e.message.includes('INTERNAL')));
+
     if (retries > 0 && isRetryable) {
       console.warn(`Gemini API Error (${e.status || e.code || 'Unknown'}). Retrying in ${delay}ms... (${retries} attempts left)`);
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -110,16 +104,16 @@ export const identifySongMetadata = async (filename: string): Promise<{ artist: 
     const prompt = `Analyze this filename: "${filename}". Extract the Artist and Song Title. 
     If the filename is generic (e.g. "track1.mp3"), try to guess if it's a famous song, otherwise use "Unknown Artist" and the filename as title.
     Return ONLY a JSON object with keys "artist" and "title".`;
-    
+
     const response: GenerateContentResponse = await callWithRetry(() => ai.models.generateContent({
       model: TEXT_MODEL,
       contents: [{ parts: [{ text: prompt }] }],
       config: { responseMimeType: "application/json" }
     }));
-    
+
     const text = response.text;
     if (!text) return { artist: 'Unknown Artist', title: filename };
-    
+
     return JSON.parse(text);
   } catch (e) {
     console.error("Metadata identification failed", e);
@@ -160,8 +154,8 @@ const speakText = async (text: string, voice: DJVoice): Promise<ArrayBuffer | nu
     // CRITICAL: Clean text before sending to TTS model
     const cleanedText = cleanTextForTTS(text);
     if (!cleanedText) {
-        console.warn("TTS skipped: Empty text after cleaning");
-        return null;
+      console.warn("TTS skipped: Empty text after cleaning");
+      return null;
     }
 
     // Prepend specific style instruction for the TTS model
@@ -196,7 +190,7 @@ const getVoiceDirection = (voice: DJVoice): string => {
   if (voice === 'Kore') {
     return "Acting Direction: You are a friendly, natural speaker. Write with a balanced, conversational tone. Avoid 'hype' words or exclamation marks. Keep it grounded and normal, like talking to a friend.";
   }
-  return ""; 
+  return "";
 };
 
 const getTimeOfDay = (): { context: string, greeting: string } => {
@@ -216,17 +210,17 @@ export const generateDJIntro = async (
   customPrompt?: string,
   upcomingSongTitles: string[] = []
 ): Promise<ArrayBuffer | null> => {
-  
-    let prompt = "";
-    const langInstruction = language === 'cs' ? "Speak in Czech language." : language === 'ja' ? "Speak in Japanese language." : "Speak in English.";
-    const voiceInstruction = getVoiceDirection(voice);
-    
-    // Explicitly use en-US to ensure 12-hour format with AM/PM for clarity
-    const timeString = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    const { context, greeting } = getTimeOfDay();
 
-    if (nextSong?.requestedBy) {
-       prompt = `
+  let prompt = "";
+  const langInstruction = language === 'cs' ? "Speak in Czech language." : language === 'ja' ? "Speak in Japanese language." : "Speak in English.";
+  const voiceInstruction = getVoiceDirection(voice);
+
+  // Explicitly use en-US to ensure 12-hour format with AM/PM for clarity
+  const timeString = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const { context, greeting } = getTimeOfDay();
+
+  if (nextSong?.requestedBy) {
+    prompt = `
        You are a Radio DJ on "Horis FM". A listener named "${nextSong.requestedBy}" has requested the song "${nextSong.title}" by "${nextSong.artist}".
        They sent this message: "${nextSong.requestMessage}".
        
@@ -236,9 +230,9 @@ export const generateDJIntro = async (
        Important: ${langInstruction}
        ${voiceInstruction}
        `;
-    } 
-    else if (style === DJStyle.CUSTOM && customPrompt) {
-        prompt = `
+  }
+  else if (style === DJStyle.CUSTOM && customPrompt) {
+    prompt = `
         You are a Radio DJ transitioning from "${currentSong.title}" by ${currentSong.artist} to "${nextSong?.title || 'Unknown'}" by ${nextSong?.artist || 'Unknown'}.
         
         FOLLOW THESE CUSTOM INSTRUCTIONS STRICTLY:
@@ -248,61 +242,61 @@ export const generateDJIntro = async (
         Important: ${langInstruction}
         ${voiceInstruction}
         `;
-    }
-    else {
-      // DYNAMIC SEGMENT GENERATION
-      // We roll a dice to see if the DJ should do something special
-      const roll = Math.random();
-      let specialInstruction = "";
-      let lengthConstraint = "Keep it brief (under 30 words).";
+  }
+  else {
+    // DYNAMIC SEGMENT GENERATION
+    // We roll a dice to see if the DJ should do something special
+    const roll = Math.random();
+    let specialInstruction = "";
+    let lengthConstraint = "Keep it brief (under 30 words).";
 
-      if (style === DJStyle.MINIMAL) {
-          specialInstruction = "Be extremely concise. Just say the song names.";
+    if (style === DJStyle.MINIMAL) {
+      specialInstruction = "Be extremely concise. Just say the song names.";
+    } else {
+      // New Distribution for Realism to match "Real Radio Station" feel
+
+      // 0.00 - 0.30: Standard / Short Transition
+      // 0.30 - 0.45: Station ID
+      // 0.45 - 0.60: Time Check
+      // 0.60 - 0.85: Music Fact / Trivia (Replaces high joke frequency)
+      // 0.85 - 0.95: Teaser (Upcoming tracks)
+      // 0.95 - 1.00: Joke (Rare, only 5%)
+
+      if (roll > 0.30 && roll <= 0.45) {
+        specialInstruction = `Mention that the listener is tuned into "Horis FM", the AI Radio Station. Make it sound professional and established.`;
+      } else if (roll > 0.45 && roll <= 0.60) {
+        specialInstruction = `Mention the current time is ${timeString}. You are broadcasting in the ${context}. Match the vibe (e.g. if Late Night, be chill. If Morning, be energetic).`;
+      } else if (roll > 0.60 && roll <= 0.85) {
+        // Music Fact Logic
+        const targetArtist = Math.random() > 0.5 ? currentSong.artist : (nextSong?.artist || 'Unknown Artist');
+        const isUnknown = !targetArtist || targetArtist.toLowerCase().includes('unknown') || targetArtist === 'Artist';
+
+        if (!isUnknown) {
+          specialInstruction = `Share a quick, interesting, real-world fact or bit of trivia about the artist "${targetArtist}". It makes the broadcast feel authentic.`;
+          lengthConstraint = "You can speak a bit longer (up to 50 words) to explain the fact.";
+        } else {
+          specialInstruction = `Comment on the specific energy or genre of the track that just played ("${currentSong.title}"). Act like a music critic.`;
+        }
+      } else if (roll > 0.85 && roll <= 0.95 && upcomingSongTitles.length > 0) {
+        const teaseList = upcomingSongTitles.slice(0, 2).join(" and ");
+        specialInstruction = `Tease that we have great tracks coming up later, specifically: ${teaseList}. Build anticipation.`;
+        lengthConstraint = "You can speak a bit longer (up to 50 words) to list the upcoming tracks.";
+      } else if (roll > 0.95) {
+        specialInstruction = `Tell a very short, clean, dry one-liner joke about music. Then transition to the song.`;
+        lengthConstraint = "Keep the joke punchy.";
       } else {
-          // New Distribution for Realism to match "Real Radio Station" feel
-          
-          // 0.00 - 0.30: Standard / Short Transition
-          // 0.30 - 0.45: Station ID
-          // 0.45 - 0.60: Time Check
-          // 0.60 - 0.85: Music Fact / Trivia (Replaces high joke frequency)
-          // 0.85 - 0.95: Teaser (Upcoming tracks)
-          // 0.95 - 1.00: Joke (Rare, only 5%)
-
-          if (roll > 0.30 && roll <= 0.45) {
-             specialInstruction = `Mention that the listener is tuned into "Horis FM", the AI Radio Station. Make it sound professional and established.`;
-          } else if (roll > 0.45 && roll <= 0.60) {
-             specialInstruction = `Mention the current time is ${timeString}. You are broadcasting in the ${context}. Match the vibe (e.g. if Late Night, be chill. If Morning, be energetic).`;
-          } else if (roll > 0.60 && roll <= 0.85) {
-             // Music Fact Logic
-             const targetArtist = Math.random() > 0.5 ? currentSong.artist : (nextSong?.artist || 'Unknown Artist');
-             const isUnknown = !targetArtist || targetArtist.toLowerCase().includes('unknown') || targetArtist === 'Artist';
-             
-             if (!isUnknown) {
-                 specialInstruction = `Share a quick, interesting, real-world fact or bit of trivia about the artist "${targetArtist}". It makes the broadcast feel authentic.`;
-                 lengthConstraint = "You can speak a bit longer (up to 50 words) to explain the fact.";
-             } else {
-                 specialInstruction = `Comment on the specific energy or genre of the track that just played ("${currentSong.title}"). Act like a music critic.`;
-             }
-          } else if (roll > 0.85 && roll <= 0.95 && upcomingSongTitles.length > 0) {
-             const teaseList = upcomingSongTitles.slice(0, 2).join(" and ");
-             specialInstruction = `Tease that we have great tracks coming up later, specifically: ${teaseList}. Build anticipation.`;
-             lengthConstraint = "You can speak a bit longer (up to 50 words) to list the upcoming tracks.";
-          } else if (roll > 0.95) {
-             specialInstruction = `Tell a very short, clean, dry one-liner joke about music. Then transition to the song.`;
-             lengthConstraint = "Keep the joke punchy.";
-          } else {
-             // Standard Fallback (0.00 - 0.30)
-             if (style === DJStyle.CHILL) {
-                 specialInstruction = `Be calm, relaxed, soft-spoken. It is currently ${context}. Match the energy.`;
-             } else if (style === DJStyle.TECHNICAL) {
-                 specialInstruction = "Mention a technical detail about the music theory or production.";
-             } else {
-                 specialInstruction = `Be professional, warm, and engaging. It is ${context}. Keep the flow moving.`;
-             }
-          }
+        // Standard Fallback (0.00 - 0.30)
+        if (style === DJStyle.CHILL) {
+          specialInstruction = `Be calm, relaxed, soft-spoken. It is currently ${context}. Match the energy.`;
+        } else if (style === DJStyle.TECHNICAL) {
+          specialInstruction = "Mention a technical detail about the music theory or production.";
+        } else {
+          specialInstruction = `Be professional, warm, and engaging. It is ${context}. Keep the flow moving.`;
+        }
       }
+    }
 
-      prompt = `
+    prompt = `
       You are a radio DJ hosting a show on "Horis FM". 
       Current song ending: "${currentSong.title}" by ${currentSong.artist}.
       Next song starting: "${nextSong?.title}" by ${nextSong?.artist}.
@@ -318,13 +312,13 @@ export const generateDJIntro = async (
       Important: ${langInstruction}
       ${voiceInstruction}
       `;
-    }
+  }
 
-    const script = await generateScript(prompt);
-    if (!script) return null;
-    console.log("DJ Script:", script);
+  const script = await generateScript(prompt);
+  if (!script) return null;
+  console.log("DJ Script:", script);
 
-    return speakText(script, voice);
+  return speakText(script, voice);
 };
 
 export const generateCallBridging = async (
@@ -334,7 +328,7 @@ export const generateCallBridging = async (
   voice: DJVoice,
   language: AppLanguage
 ): Promise<{ intro: ArrayBuffer | null, outro: ArrayBuffer | null }> => {
-  
+
   const langInstruction = language === 'cs' ? "Speak in Czech language." : language === 'ja' ? "Speak in Japanese language." : "Speak in English.";
   const voiceInstruction = getVoiceDirection(voice);
 
@@ -361,8 +355,8 @@ export const generateCallBridging = async (
   `;
 
   const [introText, outroText] = await Promise.all([
-     generateScript(introPrompt),
-     generateScript(outroPrompt)
+    generateScript(introPrompt),
+    generateScript(outroPrompt)
   ]);
 
   const [introBuffer, outroBuffer] = await Promise.all([

@@ -1,0 +1,33 @@
+{
+    "manifest_version": 3,
+    "name": "Hori-s.FM AI DJ",
+    "version": "1.0.0",
+    "description": "AI Radio Host for YouTube Music",
+    "permissions": [
+        "scripting",
+        "activeTab",
+        "storage"
+    ],
+    "host_permissions": [
+        "https://music.youtube.com/*",
+        "https://generativelanguage.googleapis.com/*"
+    ],
+    "background": {
+        "service_worker": "src/extension/background.ts",
+        "type": "module"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://music.youtube.com/*"
+            ],
+            "js": [
+                "src/extension/content.ts"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "action": {
+        "default_popup": "src/extension/popup.html"
+    }
+}
