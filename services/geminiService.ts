@@ -108,7 +108,7 @@ export const identifySongMetadata = async (filename: string): Promise<{ artist: 
     const response: GenerateContentResponse = await callWithRetry(() => ai.models.generateContent({
       model: TEXT_MODEL,
       contents: [{ parts: [{ text: prompt }] }],
-      config: { responseMimeType: "application/json" }
+      config: { responseMimeType: "application/json", tools: [{ googleSearch: {} }] }
     }));
 
     const text = response.text;
@@ -131,7 +131,9 @@ const generateScript = async (prompt: string): Promise<string | null> => {
     const response: GenerateContentResponse = await callWithRetry(() => ai.models.generateContent({
       model: TEXT_MODEL,
       contents: [{ parts: [{ text: prompt }] }],
+      config: { responseMimeType: "application/json" }
     }));
+    console.log("AAAAAAAAAAAAAAAAAAA");
     return response.text || null;
   } catch (e) {
     console.error("Script generation failed", e);
@@ -157,6 +159,7 @@ const speakText = async (text: string, voice: DJVoice): Promise<ArrayBuffer | nu
       console.warn("TTS skipped: Empty text after cleaning");
       return null;
     }
+    console.log(`[Gemini] 🗣️ TTS Input: "${cleanedText}"`);
 
     // Prepend specific style instruction for the TTS model
     const ttsInstruction = getTTSInstruction(voice);
@@ -208,16 +211,26 @@ export const generateDJIntro = async (
   voice: DJVoice,
   language: AppLanguage,
   customPrompt?: string,
-  upcomingSongTitles: string[] = []
+  upcomingSongTitles: string[] = [], // Kept for compat
+  playlistContext: string[] = [], // NEW: Immediate surroundings
+  history: string[] = [] // NEW: Previous voiceovers
 ): Promise<ArrayBuffer | null> => {
 
   let prompt = "";
   const langInstruction = language === 'cs' ? "Speak in Czech language." : language === 'ja' ? "Speak in Japanese language." : "Speak in English.";
   const voiceInstruction = getVoiceDirection(voice);
 
-  // Explicitly use en-US to ensure 12-hour format with AM/PM for clarity
   const timeString = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  const { context, greeting } = getTimeOfDay();
+  const { context } = getTimeOfDay();
+
+  // Construct Context Block
+  const historyBlock = history.length > 0
+    ? `PREVIOUS VOICEOVERS (For Context Only - Do not repeat): \n${history.join('\n')}`
+    : "No previous history.";
+
+  const playlistBlock = playlistContext.length > 0
+    ? `PLAYLIST CONTEXT (Surrounding Tracks): \n${playlistContext.join('\n')}`
+    : "No playlist context.";
 
   if (nextSong?.requestedBy) {
     prompt = `
@@ -244,79 +257,50 @@ export const generateDJIntro = async (
         `;
   }
   else {
-    // DYNAMIC SEGMENT GENERATION
-    // We roll a dice to see if the DJ should do something special
-    const roll = Math.random();
-    let specialInstruction = "";
-    let lengthConstraint = "Keep it brief (under 30 words).";
-
-    if (style === DJStyle.MINIMAL) {
-      specialInstruction = "Be extremely concise. Just say the song names.";
-    } else {
-      // New Distribution for Realism to match "Real Radio Station" feel
-
-      // 0.00 - 0.30: Standard / Short Transition
-      // 0.30 - 0.45: Station ID
-      // 0.45 - 0.60: Time Check
-      // 0.60 - 0.85: Music Fact / Trivia (Replaces high joke frequency)
-      // 0.85 - 0.95: Teaser (Upcoming tracks)
-      // 0.95 - 1.00: Joke (Rare, only 5%)
-
-      if (roll > 0.30 && roll <= 0.45) {
-        specialInstruction = `Mention that the listener is tuned into "Horis FM", the AI Radio Station. Make it sound professional and established.`;
-      } else if (roll > 0.45 && roll <= 0.60) {
-        specialInstruction = `Mention the current time is ${timeString}. You are broadcasting in the ${context}. Match the vibe (e.g. if Late Night, be chill. If Morning, be energetic).`;
-      } else if (roll > 0.60 && roll <= 0.85) {
-        // Music Fact Logic
-        const targetArtist = Math.random() > 0.5 ? currentSong.artist : (nextSong?.artist || 'Unknown Artist');
-        const isUnknown = !targetArtist || targetArtist.toLowerCase().includes('unknown') || targetArtist === 'Artist';
-
-        if (!isUnknown) {
-          specialInstruction = `Share a quick, interesting, real-world fact or bit of trivia about the artist "${targetArtist}". It makes the broadcast feel authentic.`;
-          lengthConstraint = "You can speak a bit longer (up to 50 words) to explain the fact.";
-        } else {
-          specialInstruction = `Comment on the specific energy or genre of the track that just played ("${currentSong.title}"). Act like a music critic.`;
-        }
-      } else if (roll > 0.85 && roll <= 0.95 && upcomingSongTitles.length > 0) {
-        const teaseList = upcomingSongTitles.slice(0, 2).join(" and ");
-        specialInstruction = `Tease that we have great tracks coming up later, specifically: ${teaseList}. Build anticipation.`;
-        lengthConstraint = "You can speak a bit longer (up to 50 words) to list the upcoming tracks.";
-      } else if (roll > 0.95) {
-        specialInstruction = `Tell a very short, clean, dry one-liner joke about music. Then transition to the song.`;
-        lengthConstraint = "Keep the joke punchy.";
-      } else {
-        // Standard Fallback (0.00 - 0.30)
-        if (style === DJStyle.CHILL) {
-          specialInstruction = `Be calm, relaxed, soft-spoken. It is currently ${context}. Match the energy.`;
-        } else if (style === DJStyle.TECHNICAL) {
-          specialInstruction = "Mention a technical detail about the music theory or production.";
-        } else {
-          specialInstruction = `Be professional, warm, and engaging. It is ${context}. Keep the flow moving.`;
-        }
-      }
-    }
-
     prompt = `
-      You are a radio DJ hosting a show on "Horis FM". 
-      Current song ending: "${currentSong.title}" by ${currentSong.artist}.
-      Next song starting: "${nextSong?.title}" by ${nextSong?.artist}.
-      Current Time Context: ${context} (${timeString}).
+      You are a specific persona: A Radio DJ on "Horis FM".
+      
+      CURRENT SITUATION:
+      - Song Ending: "${currentSong.title}" by ${currentSong.artist}
+      - Song Starting: "${nextSong?.title}" by ${nextSong?.artist}
+      - Time: ${context} (${timeString})
+      
+      ${historyBlock}
+      ${playlistBlock}
 
-      Instructions:
-      1. Transition smoothly between the tracks.
-      2. ${specialInstruction}
-      3. ${lengthConstraint}
-      4. STRICT RULE: Ensure time accuracy. If it is ${timeString}, DO NOT contradict this time. For example, if it is 12:00 PM (Noon), do NOT say "midnight is young". If it is 12:00 AM (Midnight), do NOT say "have a nice lunch".
-      5. Output ONLY the spoken text. Do not include stage directions like *laughs* or [music fades].
+      TASK:
+      Generate a short, engaging DJ transition between these two songs.
+      
+      TOOLS AVAILABLE:
+      - You have access to Google web Search tool.
+      - USE IT to find the **Genre**, **Year**, or **Interesting Trivia** about the songs/artists if you don't know them.
+      - Use this info to make the link relevant (e.g. "Keeping with the 80s vibes..." or "Switching from Jazz to Rock...").
+      
+      STYLE INSTRUCTIONS (${style}):
+      ${style === DJStyle.MINIMAL ? "Just say the song names." : "Be conversational, knowledgeable, and smooth."}
+      ${customPrompt ? `USER CUSTOM INSTRUCTION: ${customPrompt}` : ""}
+      
+      CONSTRAINTS:
+      - Keep it under 40 words.
+      - Do NOT output stage directions.
+      - Do NOT output the search results directly, just weave the knowledge into the speech.
+      - Reference previous tracks or future tracks from the playlist context ONLY if relevant to the flow.
       
       Important: ${langInstruction}
       ${voiceInstruction}
       `;
   }
 
+  console.log(`[Gemini] Generating for: Voice=${voice}, Style=${style}`);
   const script = await generateScript(prompt);
-  if (!script) return null;
-  console.log("DJ Script:", script);
+  if (!script) {
+    console.warn("[Gemini] Script generation failed (empty response).");
+    return null;
+  }
+
+  console.log("------------------------------------------------");
+  console.log(`[Gemini] 🤖 GENERATED SCRIPT:\n"${script}"`);
+  console.log("------------------------------------------------");
 
   return speakText(script, voice);
 };

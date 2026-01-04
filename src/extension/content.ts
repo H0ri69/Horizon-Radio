@@ -27,7 +27,7 @@ const getMoviePlayer = () => document.querySelector('video');
 const getSongInfo = () => {
     // 1. Current Song Parsers - SCOPED TO PLAYER BAR
     const playerBar = document.querySelector('ytmusic-player-bar');
-    if (!playerBar) return { current: { title: "", artist: "", album: "" }, next: { title: "", artist: "" } };
+    if (!playerBar) return { current: { title: "", artist: "", album: "" }, next: { title: "", artist: "" }, playlistContext: [] };
 
     const titleEl = playerBar.querySelector('.content-info-wrapper .title');
     const subtitleEl = playerBar.querySelector('.content-info-wrapper .subtitle');
@@ -42,30 +42,47 @@ const getSongInfo = () => {
         if (parts.length >= 2) album = parts[1];
     }
 
-    // 2. Next Song Logic
+    // 2. Queue Logic (Context)
+    const queueItems = document.querySelectorAll('ytmusic-player-queue-item');
+    let currentIndex = -1;
+    const playlistContext: string[] = [];
+
+    // Find current index
+    queueItems.forEach((item, index) => {
+        if (item.hasAttribute('selected')) currentIndex = index;
+    });
+
+    // Scrape surroundings (e.g. -5 to +5)
+    if (currentIndex !== -1) {
+        const start = Math.max(0, currentIndex - 5);
+        const end = Math.min(queueItems.length, currentIndex + 5);
+        for (let i = start; i < end; i++) {
+            const title = queueItems[i].querySelector('.song-title')?.textContent || "Unknown";
+            const artist = queueItems[i].querySelector('.byline')?.textContent || "Unknown";
+            playlistContext.push(`${itemIndexToLabel(i, currentIndex)}: ${title} by ${artist}`);
+        }
+    }
+
+    // Next Song (Immediate)
     let nextTitle = "";
     let nextArtist = "";
-
-    const queueItems = document.querySelectorAll('ytmusic-player-queue-item');
-    let foundCurrent = false;
-
-    for (const item of queueItems) {
-        if (item.hasAttribute('selected')) {
-            foundCurrent = true;
-            continue;
-        }
-        if (foundCurrent) {
-            nextTitle = item.querySelector('.song-title')?.textContent || "";
-            nextArtist = item.querySelector('.byline')?.textContent || "";
-            break;
-        }
+    if (currentIndex !== -1 && currentIndex + 1 < queueItems.length) {
+        nextTitle = queueItems[currentIndex + 1].querySelector('.song-title')?.textContent || "";
+        nextArtist = queueItems[currentIndex + 1].querySelector('.byline')?.textContent || "";
     }
 
     return {
         current: { title, artist, album },
-        next: { title: nextTitle, artist: nextArtist }
+        next: { title: nextTitle, artist: nextArtist },
+        playlistContext // New field
     };
 };
+
+function itemIndexToLabel(index: number, current: number): string {
+    if (index === current) return "[NOW PLAYING]";
+    if (index > current) return `[UP NEXT +${index - current}]`;
+    return `[PREVIOUS -${current - index}]`;
+}
 
 // --- AUDIO SYSTEM ---
 const audioEl = document.createElement('audio');
@@ -226,6 +243,8 @@ setInterval(() => {
         state.status = 'GENERATING';
         state.generatedForSig = sig;
         console.log("[Generator] Starting pre-generation...");
+        console.log(`[Generator] Context: "${current.title}" -> "${next.title}"`);
+        console.log(`[Generator] Sending request to Background...`);
 
         if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
             console.error("[Generator] Extension API not available.");
@@ -236,6 +255,7 @@ setInterval(() => {
             const settings = (result as any).horisFmSettings || { enabled: true, voice: 'Kore' };
 
             if (!settings.enabled) {
+                console.log("[Generator] Aborting: System Disabled");
                 state.status = 'COOLDOWN';
                 return;
             }
@@ -245,12 +265,18 @@ setInterval(() => {
                 data: {
                     currentSong: { title: current.title, artist: current.artist, id: 'ytm-current' },
                     nextSong: { title: next.title || "Next Track", artist: next.artist || "Unknown", id: 'ytm-next' },
+                    playlistContext: (current as any).playlistContext || [], // Pass the context
                     style: settings.style || 'STANDARD',
                     voice: settings.voice,
                     language: 'en'
                 }
             }, (response) => {
-                if (state.currentSongSig !== sig) return;
+                console.log("[Generator] Background Response Received.");
+
+                if (state.currentSongSig !== sig) {
+                    console.warn("[Generator] Discarding response: Song changed during generation.");
+                    return;
+                }
 
                 if (response && response.audio) {
                     console.log("[Generator] Audio received & Buffered.");
