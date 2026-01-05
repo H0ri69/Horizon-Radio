@@ -1,6 +1,6 @@
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 import { Song, DJStyle, DJVoice, AppLanguage } from '../types';
-import { GEMINI_CONFIG, DJ_STYLE_PROMPTS, VOICE_DIRECTIONS, TTS_INSTRUCTIONS, getLanguageInstruction, LENGTH_CONSTRAINT, DJ_PERSONA_NAMES } from '../src/config';
+import { GEMINI_CONFIG, DJ_STYLE_PROMPTS, getLanguageInstruction, LENGTH_CONSTRAINT, DJ_PERSONA_NAMES } from '../src/config';
 
 const getClient = () => {
   const apiKey = process.env.API_KEY;
@@ -131,10 +131,6 @@ const generateScript = async (prompt: string): Promise<string | null> => {
   }
 };
 
-const getTTSInstruction = (voice: DJVoice): string => {
-  return TTS_INSTRUCTIONS[voice] || "";
-};
-
 const speakText = async (
   text: string, 
   voice: DJVoice, 
@@ -166,8 +162,7 @@ const speakText = async (
             console.warn("TTS skipped: Empty text after cleaning");
             return null;
           }
-          const ttsInstruction = getTTSInstruction(voice);
-          finalTextInput = ttsInstruction + cleanedText;
+          finalTextInput = cleanedText;
     }
 
     console.log(`[Gemini] 🗣️ TTS Input (Dual=${isDualDj}): "${finalTextInput.substring(0, 100)}..."`);
@@ -215,11 +210,6 @@ const speakText = async (
   }
 };
 
-// Helper to provide specific acting directions based on the requested voice
-const getVoiceDirection = (voice: DJVoice): string => {
-  return VOICE_DIRECTIONS[voice] || "";
-};
-
 const getTimeOfDay = (): { context: string, greeting: string } => {
   const hour = new Date().getHours();
   if (hour >= 5 && hour < 12) return { context: "Morning", greeting: "Good morning" };
@@ -258,8 +248,6 @@ export const generateDJIntro = async (
 
   let prompt = "";
   const langInstruction = getLanguageInstruction(language);
-  const voiceInstruction = getVoiceDirection(voice);
-  const secondaryVoiceInstruction = getVoiceDirection(secondaryVoice);
 
   const timeString = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   const { context } = getTimeOfDay();
@@ -289,9 +277,9 @@ export const generateDJIntro = async (
     
     prompt = `
        You are TWO Radio DJs covering a shift together on "Horis FM".
-       HOST 1 (Main): Named "${host1Name}", voice is ${voice} (${getVoiceDirection(voice)})
-       HOST 2 (Co-Host): Named "${host2Name}", voice is ${secondaryVoice} (${getVoiceDirection(secondaryVoice)})
-       
+       HOST 1 (Main): Named "${host1Name}"
+       HOST 2 (Co-Host): Named "${host2Name}"
+
        CURRENT SITUATION:
        - Song Ending: "${currentSong.title}" by ${currentSong.artist}
        - Song Starting: "${nextSong?.title}" by "${nextSong?.artist}"
@@ -348,9 +336,8 @@ export const generateDJIntro = async (
        
        Transition from "${currentSong.title}", shout out the listener, react to their message, and intro the new track.
        ${LENGTH_CONSTRAINT} Do not use stage directions like *laughs*.
-       
+
        Important: ${langInstruction}
-       ${voiceInstruction}
        `;
   }
   else {
@@ -381,9 +368,8 @@ export const generateDJIntro = async (
       - Do NOT output stage directions (e.g. *scratches record*).
       - Do NOT say "Here is the script" or "Transition:".
       - Output ONLY the spoken words.
-      
+
       Important: ${langInstruction}
-      ${voiceInstruction}
       `;
   }
 
@@ -410,17 +396,15 @@ export const generateCallBridging = async (
 ): Promise<{ intro: ArrayBuffer | null, outro: ArrayBuffer | null }> => {
 
   const langInstruction = getLanguageInstruction(language);
-  const voiceInstruction = getVoiceDirection(voice);
 
   const introPrompt = `
     You are a radio DJ on Horis FM. You are about to take a live call from a listener named "${callerName}".
     ${reason ? `They want to talk about: "${reason}".` : ''}
     
-    Write a short, engaging introduction line to bring them on air. 
+    Write a short, engaging introduction line to bring them on air.
     Example: "We've got [Name] on the line! How's it going?"
     Keep it under 15 words. Output ONLY the text. No stage directions.
     Important: ${langInstruction}
-    ${voiceInstruction}
   `;
 
   const outroPrompt = `
@@ -431,7 +415,6 @@ export const generateCallBridging = async (
     Example: "Thanks for calling in, [Name]. Here's [Song] by [Artist]."
     Keep it under 20 words. Output ONLY the text. No stage directions.
     Important: ${langInstruction}
-    ${voiceInstruction}
   `;
 
   const [introText, outroText] = await Promise.all([

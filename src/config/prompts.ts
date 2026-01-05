@@ -52,18 +52,6 @@ export const DJ_STYLE_PROMPTS = {
   `,
 };
 
-export const VOICE_DIRECTIONS: Record<string, string> = {
-  'Charon': "Acting Direction: You are a late-night podcast host. Write with a deep, confidential, and professional persona. Use calm, steady, and authoritative phrasing. Do not rush. Use ellipses for pauses.",
-  'Kore': "Acting Direction: You are a friendly, natural speaker. Write with a balanced, conversational tone. Avoid 'hype' words or exclamation marks. Keep it grounded and normal, like talking to a friend.",
-};
-
-export const TTS_INSTRUCTIONS: Record<string, string> = {
-  'Charon': "Speak with a deep, resonant, confidential, and professional tone, like a late-night podcast host: ",
-  'Kore': "Speak in a clear, natural, balanced, and conversational tone, not overly hyped: ",
-};
-
-
-
 export const LENGTH_CONSTRAINT = "Limit your total output to 3 - 7 sentences, depending on whether you decide to make a shorter or a longer voiceover. If using multiple speakers, make it short.";
 
 export const getLanguageInstruction = (lang: AppLanguage) => 
