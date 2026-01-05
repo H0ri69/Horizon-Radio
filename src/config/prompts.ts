@@ -64,6 +64,6 @@ export const TTS_INSTRUCTIONS: Record<string, string> = {
 
 
 export const getLanguageInstruction = (lang: AppLanguage) => 
-  lang === 'cs' ? "Speak in Czech language." : 
-  lang === 'ja' ? "Speak in Japanese language." : 
+  lang === 'cs' ? "Speak in Czech language!!" : 
+  lang === 'ja' ? "Speak in Japanese language!!" : 
   "Speak in English.";

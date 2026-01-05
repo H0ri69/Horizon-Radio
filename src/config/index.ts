@@ -23,6 +23,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   djStyle: DJStyle.STANDARD,
   customStylePrompt: '',
   djFrequency: 0.8,
+  dualDjMode: false,
+  secondaryDjVoice: 'Kore',
   language: 'en'
 };
 
