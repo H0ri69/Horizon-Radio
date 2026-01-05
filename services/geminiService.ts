@@ -1,6 +1,6 @@
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 import { Song, DJStyle, DJVoice, AppLanguage } from '../types';
-import { GEMINI_CONFIG, DJ_STYLE_PROMPTS, VOICE_DIRECTIONS, TTS_INSTRUCTIONS, getLanguageInstruction } from '../src/config';
+import { GEMINI_CONFIG, DJ_STYLE_PROMPTS, VOICE_DIRECTIONS, TTS_INSTRUCTIONS, getLanguageInstruction, LENGTH_CONSTRAINT } from '../src/config';
 
 const getClient = () => {
   const apiKey = process.env.API_KEY;
@@ -295,7 +295,7 @@ export const generateDJIntro = async (
        ${voice}: [Text]
        ${secondaryVoice}: [Text]
        
-       MAX LENGTH: 4 exchanges total. Keep it snappy and natural.
+       ${LENGTH_CONSTRAINT}
        
        CONSTRAINTS:
        - Output ONLY the spoken words in the "Speaker: Text" format.
@@ -326,7 +326,7 @@ export const generateDJIntro = async (
        They sent this message: "${nextSong.requestMessage}".
        
        Transition from "${currentSong.title}", shout out the listener, react to their message, and intro the new track.
-       Keep it under 50 words. Do not use stage directions like *laughs*.
+       ${LENGTH_CONSTRAINT} Do not use stage directions like *laughs*.
        
        Important: ${langInstruction}
        ${voiceInstruction}
@@ -346,7 +346,7 @@ export const generateDJIntro = async (
 
       TASK:
       Generate a short, radio-realistic transition script.
-      MAX LENGTH: ${style === DJStyle.MINIMAL ? "15 words" : "45 words"}.
+      ${LENGTH_CONSTRAINT}
       
       STYLE PROTOCOL:
       ${styleInstruction}
