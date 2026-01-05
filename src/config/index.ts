@@ -1,8 +1,6 @@
-import { AppSettings, DJStyle } from '../../types';
-export * from './constants';
-export * from './prompts';
-
-
+import { AppSettings, DJStyle } from "../../types";
+export * from "./constants";
+export * from "./prompts";
 
 export const GEMINI_CONFIG = {
   TEXT_MODEL: "gemini-2.5-flash",
@@ -13,19 +11,12 @@ export const GEMINI_CONFIG = {
 };
 
 export const EXTENSION_CONFIG = {
-  MAX_HISTORY: 7
+  MAX_HISTORY: 7,
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  theme: 'CYBER',
-  palette: 'NEON',
-  djVoice: 'Charon', 
+  djVoice: "Charon",
   djStyle: DJStyle.STANDARD,
-  customStylePrompt: '',
-  djFrequency: 0.8,
-  dualDjMode: false,
-  secondaryDjVoice: 'Kore',
-  language: 'en'
+  customStylePrompt: "",
+  language: "en",
 };
-
-
