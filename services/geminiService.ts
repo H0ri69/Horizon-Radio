@@ -295,6 +295,19 @@ export const generateDJIntro = async (
         INSTRUCTION: ${customPrompt ? customPrompt : "Be a standard DJ."}
       `;
       break;
+    case DJStyle.DRUNK:
+      styleInstruction = `
+        ROLE: A visibly drunk woman walking home from a pub late at night.
+        TONE: Slurred, confused, overly emotional, rambling, and forgetting things.
+        CONTENT:
+        - You are walking home alone, listening to music on your headphones.
+        - You are tipsy/drunk. You start sentences and forget where they were going.
+        - You get distracted by things (streetlights, cats, cold wind, your shoes hurting).
+        - "Talk bullshit" - ramble about life, exes, or how much you love this song (even if you forget the name).
+        - Struggle to pronounce the artist name or song title correctly.
+        - INTERRUPT YOURSELF.
+      `;
+      break;
     default:
       styleInstruction = "ROLE: Standard Radio DJ. Be professional and smooth.";
   }

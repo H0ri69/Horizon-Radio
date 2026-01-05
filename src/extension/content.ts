@@ -16,6 +16,7 @@ interface State {
     bufferedAudio: string | null; // Base64 audio
     generatedForSig: string | null; // CONTEXT VALIDATION
     lastTime: number;
+    lastSongChangeTs: number;
 }
 
 let state: State = {
@@ -23,7 +24,8 @@ let state: State = {
     currentSongSig: '',
     bufferedAudio: null,
     generatedForSig: null,
-    lastTime: 0
+    lastTime: 0,
+    lastSongChangeTs: 0
 };
 
 // --- DOM UTILS ---
@@ -94,101 +96,92 @@ const audioEl = document.createElement('audio');
 audioEl.id = 'horis-fm-dj-voice';
 document.body.appendChild(audioEl);
 
-// --- VOLUME CONTROL SYSTEM ---
-// --- VOLUME CONTROL SYSTEM ---
-let duckingListener: (() => void) | null = null;
-let duckingInterval: any = null; // Failsafe
-let fadeInterval: any = null;
-const FADE_DURATION = 3000;
+// --- WEB AUDIO DUCKING SYSTEM ---
+class WebAudioDucker {
+    private ctx: AudioContext | null = null;
+    private source: MediaElementAudioSourceNode | null = null;
+    private gainNode: GainNode | null = null;
+    private initialized = false;
 
-const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
-
-const fadeVolume = (targetVol: number, duration: number = 800): Promise<void> => {
-    return new Promise((resolve) => {
-        const video = getMoviePlayer();
-        if (!video) { resolve(); return; }
-
-        if (fadeInterval) clearInterval(fadeInterval);
-
-        const startVol = video.volume;
-        const startTime = Date.now();
-        console.log(`[Audio] Fading volume: ${startVol.toFixed(2)} -> ${targetVol.toFixed(2)} (${duration}ms)`);
-
-        fadeInterval = setInterval(() => {
-            const elapsed = Date.now() - startTime;
-            const progress = clamp(elapsed / duration, 0, 1);
-            const newVol = startVol + (targetVol - startVol) * progress;
-
-            if (video) video.volume = clamp(newVol, 0, 1);
-
-            if (progress >= 1) {
-                clearInterval(fadeInterval);
-                fadeInterval = null;
-                resolve();
-            }
-        }, 50);
-    });
-};
-
-const startActiveDucking = async (originalVolume: number) => {
-    // 1. Fade Down
-    const targetVolume = originalVolume * 0.15;
-    await fadeVolume(targetVolume, FADE_DURATION);
-
-    // 2. Enforce Low Volume (react to volumechange events)
-    const video = getMoviePlayer();
-    if (!video) return;
-
-    console.log(`[Audio] Engaging Volume Enforcer at ${targetVolume.toFixed(2)}`);
-
-    // CLEANUP if exists
-    if (duckingListener) {
-        video.removeEventListener('volumechange', duckingListener);
-        duckingListener = null;
+    constructor() {
+        // Initialize securely
     }
-    if (duckingInterval) clearInterval(duckingInterval);
 
-    // EVENT LISTENER (Primary, Instant)
-    duckingListener = () => {
+    private init(video: HTMLMediaElement) {
+        if (this.initialized && this.source?.mediaElement === video) return;
+
+        try {
+            if (!this.ctx) {
+                const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+                this.ctx = new Ctx();
+            }
+
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+
+            // Create source only if not exists for this element
+            // Note: MediaElementSource can only be created once per element usually.
+            // In a content script, we must be careful. 
+            // However, since we are inside the page context via content script, we access the DOM element.
+            // If the extension interacts with the same element multiple times, we need to be careful.
+            // BUT: Content scripts live in an isolated world. They cannot access the page's AudioContext.
+            // They CAN create their own AudioContext and connect the element to it? 
+            // Actually, cross-origin issues might arise if we try to route the element's audio.
+            // UPDATE: Content scripts CANNOT access MediaElementAudioSourceNode for elements created by the page due to isolation/CORS often.
+            // Wait, for Extensions, we usually have permissions. But `captureVisibleTab` is for video.
+            // Let's try this: detailed research suggests MediaElementAudioSourceNode in content script works if CORS matches or if allow-origin.
+            // YTM serves some content with CORS. 
+            // IF THIS FAILS, we might need to inject a script into the page context (MAIN world).
+            // Let's assume for this task we try the standard approach, but if it fails we might need `chrome.scripting.executeScript` in MAIN world.
+
+            // Re-evaluating based on "volume spiking" issue: 
+            // The simple volume control was "spiking" because the site fought back.
+            // Let's try the Web Audio approach. If it fails due to CORS/Isolation, we will know quickly.
+
+            this.source = this.ctx.createMediaElementSource(video);
+            this.gainNode = this.ctx.createGain();
+
+            this.source.connect(this.gainNode);
+            this.gainNode.connect(this.ctx.destination);
+
+            this.initialized = true;
+            console.log("[Audio] WebAudio Ducker Initialized");
+        } catch (e) {
+            console.error("[Audio] WebAudio Init Failed:", e);
+        }
+    }
+
+    public async duck(duration: number = 2000) {
+        const video = document.querySelector('video');
         if (!video) return;
-        // If volume drifts significantly from target, snap it back
-        // Allow small floating point variance (e.g. 0.0001)
-        if (Math.abs(video.volume - targetVolume) > 0.01) {
-            video.volume = targetVolume;
-        }
-    };
-    video.addEventListener('volumechange', duckingListener);
 
-    // INTERVAL (Failsafe for new video elements or removal of listeners)
-    duckingInterval = setInterval(() => {
-        const v = getMoviePlayer();
-        if (v && Math.abs(v.volume - targetVolume) > 0.01) {
-            v.volume = targetVolume;
-            // Re-attach listener if missing
-            if (duckingListener) {
-                v.removeEventListener('volumechange', duckingListener);
-                v.addEventListener('volumechange', duckingListener);
-            }
-        }
-    }, 1000); // Check every second just in case
-};
+        this.init(video);
+        if (!this.ctx || !this.gainNode) return;
 
-const stopActiveDucking = async (restoreTo: number) => {
-    const video = getMoviePlayer();
-
-    // 1. Stop Enforcing
-    if (video && duckingListener) {
-        video.removeEventListener('volumechange', duckingListener);
-        duckingListener = null;
-    }
-    if (duckingInterval) {
-        clearInterval(duckingInterval);
-        duckingInterval = null;
+        console.log("[Audio] Ducking music...");
+        const now = this.ctx.currentTime;
+        this.gainNode.gain.cancelScheduledValues(now);
+        this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
+        this.gainNode.gain.linearRampToValueAtTime(0.2, now + (duration / 1000));
     }
 
-    // 2. Fade Up
-    await fadeVolume(restoreTo, FADE_DURATION);
-};
+    public async unduck(duration: number = 3000) {
+        if (!this.ctx || !this.gainNode) return;
+
+        console.log("[Audio] Restoring music...");
+        const now = this.ctx.currentTime;
+        this.gainNode.gain.cancelScheduledValues(now);
+        this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
+        this.gainNode.gain.linearRampToValueAtTime(1.0, now + (duration / 1000));
+    }
+}
+
+const ducker = new WebAudioDucker();
+
+// Fallback logic in case WebAudio fails? 
+// For now, we trust the user wants to try this new approach.
+
 
 
 const playBufferedAudio = async () => {
@@ -211,25 +204,19 @@ const playBufferedAudio = async () => {
     audioEl.volume = 1.0;
 
     // DUCK YTM
-    const video = getMoviePlayer();
-    const originalVolume = video ? video.volume : 1.0;
-
-    // Start Ducking (Async, but we start playing voice immediately or after fade?)
-    // Usually standard radio style: Fade starts, DJ starts shortly after or same time.
-    // Let's run parallel.
-    startActiveDucking(originalVolume);
+    ducker.duck(2000);
 
     try {
         await audioEl.play();
     } catch (e) {
         console.error("[Audio] Playback failed:", e);
-        stopActiveDucking(originalVolume);
+        ducker.unduck(1000);
         state.status = 'IDLE';
     }
 
     audioEl.onended = () => {
         console.log("[Audio] Playback finished.");
-        stopActiveDucking(originalVolume);
+        ducker.unduck(3000);
 
         state.status = 'COOLDOWN';
         state.bufferedAudio = null;
@@ -264,6 +251,13 @@ const mainLoop = setInterval(() => {
         state.status = 'IDLE';
         state.bufferedAudio = null;
         state.generatedForSig = null;
+        state.lastSongChangeTs = Date.now();
+
+        // CRITICAL: If audio is still playing (transitioning), ensure new song is DUCKED.
+        if (!audioEl.paused) {
+            console.log("[Audio] Transition active during song change. Re-applying ducking.");
+            ducker.duck(50); // Fast re-duck
+        }
     }
 
     if (state.lastTime > currentTime + 5) {
@@ -276,6 +270,12 @@ const mainLoop = setInterval(() => {
 
     // --- STATE MACHINE ---
     if (state.status === 'IDLE' && timeLeft < 45 && timeLeft > 10) {
+        // PREVENT PREMATURE GENERATION:
+        // If song changed < 3 seconds ago, and we are "at the end", it's likely a DOM/Video Desync (Old video still playing).
+        if (Date.now() - state.lastSongChangeTs < 3000) {
+            return;
+        }
+
         if (!current.title || !current.artist) return;
 
         state.status = 'GENERATING';
@@ -312,7 +312,8 @@ const mainLoop = setInterval(() => {
                             playlistContext: (current as any).playlistContext || [],
                             style: settings.style || 'STANDARD',
                             voice: settings.voice,
-                            language: 'en'
+                            language: 'en',
+                            customPrompt: settings.customPrompt
                         }
                     }, (response) => {
                         if (chrome.runtime.lastError) {

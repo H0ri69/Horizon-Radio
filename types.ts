@@ -5,6 +5,7 @@ export const DJStyle = {
   TECHNICAL: 'Music Nerd (Facts & Stats)',
   MINIMAL: 'Minimal (Just Song Names)',
   CUSTOM: 'Custom (User Defined)',
+  DRUNK: 'Drunk (Chaotic)',
 } as const;
 
 export type DJStyle = typeof DJStyle[keyof typeof DJStyle];
@@ -133,7 +134,7 @@ export interface LayoutProps {
   duration: number;
   volume: number;
   statusText: string;
-  
+
   // Settings / State
   settings: AppSettings;
   visMode: VisualizerMode;
