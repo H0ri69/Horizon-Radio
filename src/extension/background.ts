@@ -16,7 +16,7 @@ const MAX_HISTORY = 5;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'GENERATE_INTRO') {
-        const { currentSong, nextSong, style, voice, language, playlistContext } = message.data;
+        const { currentSong, nextSong, style, voice, language, playlistContext, customPrompt } = message.data;
 
         console.log("Generating Intro for:", currentSong.title, "->", nextSong.title);
 
@@ -31,7 +31,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 style as DJStyle,
                 voice as DJVoice,
                 language,
-                undefined,
+                customPrompt,
                 [],
                 playlistContext || [],
                 history
