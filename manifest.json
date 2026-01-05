@@ -26,12 +26,5 @@
             ],
             "run_at": "document_idle"
         }
-    ],
-    "action": {
-        "default_popup": "src/extension/popup.html"
-    },
-    "options_ui": {
-        "page": "src/extension/options.html",
-        "open_in_tab": true
-    }
+    ]
 }
