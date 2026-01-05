@@ -135,7 +135,7 @@ const getTTSInstruction = (voice: DJVoice): string => {
   return TTS_INSTRUCTIONS[voice] || "";
 };
 
-const speakText = async (text: string, voice: DJVoice): Promise<ArrayBuffer | null> => {
+const speakText = async (text: string, voice: DJVoice, secondaryVoice?: DJVoice): Promise<ArrayBuffer | null> => {
   try {
     // CRITICAL: Clean text before sending to TTS model
     // Clean text - but KEEP "Speaker 1:" / "Speaker 2:" prefixes if present (for Dual DJ)
@@ -155,13 +155,16 @@ const speakText = async (text: string, voice: DJVoice): Promise<ArrayBuffer | nu
     if (isDualDj) {
         // partial cleaning for Dual DJ - keep headers
         // We still want to remove *actions* etc.
-         finalTextInput = text
+         const cleanedScript = text
             .replace(/\*.*?\*/g, '')
             .replace(/\[.*?\]/g, '')
             .replace(/\(.*?\)/g, '')
             .trim();
-         // Do NOT add standard voice instruction for Dual DJ, the model should infer from "Speaker X" 
-         // or we can add a generic one if needed, but User requested "Speaker 1"/"Speaker 2" rule.
+         
+         // CRITICAL: Prepend direction instruction for multi-speaker TTS
+         // Format: "Read aloud in [tone]\nSpeaker 1: ...\nSpeaker 2: ..."
+         const direction = "Read aloud in a natural, conversational radio DJ tone";
+         finalTextInput = `${direction}\n${cleanedScript}`;
     } else {
          const cleanedText = cleanTextForTTS(text);
           if (!cleanedText) {
@@ -175,16 +178,39 @@ const speakText = async (text: string, voice: DJVoice): Promise<ArrayBuffer | nu
     console.log(`[Gemini] 🗣️ TTS Input (Dual=${isDualDj}): "${finalTextInput.substring(0, 100)}..."`);
 
     const ai = getClient();
+    
+    // Build speech config based on single vs dual DJ mode
+    const speechConfig: any = isDualDj && secondaryVoice ? {
+      // Multi-speaker configuration
+      multiSpeakerVoiceConfig: {
+        speakerVoiceConfigs: [
+          {
+            speaker: "Speaker 1",
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: voice },
+            },
+          },
+          {
+            speaker: "Speaker 2",
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: secondaryVoice },
+            },
+          },
+        ],
+      },
+    } : {
+      // Single speaker configuration
+      voiceConfig: {
+        prebuiltVoiceConfig: { voiceName: voice },
+      },
+    };
+
     const response = await callWithRetry(() => ai.models.generateContent({
       model: TTS_MODEL,
       contents: [{ parts: [{ text: finalTextInput }] }],
       config: {
         responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: voice },
-          },
-        },
+        speechConfig,
       },
     }), 2, 2000); // Specific retry strategy for TTS
     return processAudioResponse(response);
@@ -212,7 +238,7 @@ const synthesizeDialogue = async (script: string, voiceA: DJVoice, voiceB: DJVoi
     // Just pass the full script with "Speaker 1:" / "Speaker 2:" directly to TTS.
     // The model (gemini-2.5-flash-preview-tts) handles multi-speaker generation if formatted correctly.
     console.log(`[Dual DJ] Synthesizing full conversation at once...`);
-    return speakText(script, voiceA); 
+    return speakText(script, voiceA, voiceB); // Pass both voices
 };
 
 export const generateDJIntro = async (
@@ -274,15 +300,22 @@ export const generateDJIntro = async (
 
        TASK:
        Write a short, banter-filled dialogue script between the two DJs transitioning the songs.
-       FORMAT:
-       Speaker 1: [Text]
-       Speaker 2: [Text]
+       
+       OUTPUT FORMAT (STRICT):
+       Every single line MUST start with either "Speaker 1: " or "Speaker 2: " followed by their dialogue.
+       Example:
+       Speaker 1: That was incredible!
+       Speaker 2: Absolutely loved it! Now here's something special...
+       Speaker 1: You're going to love this next track.
        
        ${LENGTH_CONSTRAINT}
        
-       CONSTRAINTS:
-       - Output ONLY the spoken words in the "Speaker 1: Text" / "Speaker 2: Text" format.
-       - No stage directions.
+       CRITICAL CONSTRAINTS:
+       - DO NOT include ANY text that is not prefixed with "Speaker 1: " or "Speaker 2: "
+       - DO NOT add stage directions, descriptions, or narration
+       - DO NOT add introductory text like "Here's the script:" or concluding text
+       - Every line MUST have the speaker prefix
+       - Output ONLY the dialogue lines in the exact format shown above
        
        Important: ${langInstruction}
      `;
