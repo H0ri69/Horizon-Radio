@@ -8,7 +8,10 @@ interface Settings {
     voice: string;
     style: any;
     customPrompt?: string;
-    visualizerEnabled?: boolean; // New setting
+    visualizerEnabled?: boolean;
+    dualDjMode?: boolean;
+    secondaryDjVoice?: string;
+    visualTheme?: string;
 }
 
 export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -17,13 +20,15 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         voice: 'Kore',
         style: DJStyle.STANDARD,
         customPrompt: '',
-        visualizerEnabled: true
+        visualizerEnabled: true,
+        dualDjMode: false,
+        secondaryDjVoice: 'Puck'
     });
 
     useEffect(() => {
         chrome.storage.local.get(['horisFmSettings'], (result) => {
             if (result.horisFmSettings) {
-                setSettings(prev => ({ ...prev, ...result.horisFmSettings }));
+                setSettings(prev => ({ ...prev, ...(result.horisFmSettings as Settings) }));
             }
         });
     }, []);
@@ -57,8 +62,8 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                                 key={theme}
                                 onClick={() => saveSettings({ ...settings, visualTheme: theme })}
                                 className={`p-4 rounded-lg text-left border transition-all ${(settings as any).visualTheme === theme
-                                        ? 'bg-indigo-600/20 border-indigo-500 text-white'
-                                        : 'bg-white/5 border-white/5 text-white/70 hover:bg-white/10'
+                                    ? 'bg-indigo-600/20 border-indigo-500 text-white'
+                                    : 'bg-white/5 border-white/5 text-white/70 hover:bg-white/10'
                                     }`}
                             >
                                 <div className="font-medium text-lg">{theme}</div>
@@ -84,6 +89,43 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                             </button>
                         ))}
                     </div>
+                </section>
+
+                <section className="mb-8">
+                    <h2 className="text-lg font-semibold text-white mb-4">Dual DJ Mode</h2>
+                    <div className="flex items-center justify-between bg-white/5 p-4 rounded-lg border border-white/5 mb-4">
+                        <div>
+                            <div className="font-medium text-white">Enable Co-Host</div>
+                            <div className="text-sm text-white/50">Two DJs will banter during transitions</div>
+                        </div>
+                        <button
+                            onClick={() => saveSettings({ ...settings, dualDjMode: !settings.dualDjMode })}
+                            className={`w-12 h-6 rounded-full transition-colors relative ${settings.dualDjMode ? 'bg-indigo-500' : 'bg-white/20'}`}
+                        >
+                            <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${settings.dualDjMode ? 'translate-x-6' : ''}`} />
+                        </button>
+                    </div>
+
+                    {settings.dualDjMode && (
+                        <div className="ml-4 pl-4 border-l-2 border-white/10">
+                            <h3 className="text-sm font-medium text-white/70 mb-2">Secondary Voice (Co-Host)</h3>
+                            <div className="grid grid-cols-2 gap-3">
+                                {VOICE_PROFILES.filter(p => p.id !== settings.voice).map(profile => (
+                                    <button
+                                        key={profile.id}
+                                        onClick={() => saveSettings({ ...settings, secondaryDjVoice: profile.id })}
+                                        className={`p-3 rounded-lg text-left border transition-all ${settings.secondaryDjVoice === profile.id
+                                            ? 'bg-indigo-600/20 border-indigo-500 text-white'
+                                            : 'bg-white/5 border-white/5 text-white/70 hover:bg-white/10'
+                                            }`}
+                                    >
+                                        <div className="font-medium text-sm">{profile.name}</div>
+                                        <div className="text-[10px] opacity-50">{profile.tone}</div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </section>
 
                 <section>

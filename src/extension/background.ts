@@ -17,7 +17,7 @@ const MAX_HISTORY = EXTENSION_CONFIG.MAX_HISTORY;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'GENERATE_INTRO') {
-        const { currentSong, nextSong, style, voice, language, playlistContext, customPrompt } = message.data;
+        const { currentSong, nextSong, style, voice, language, playlistContext, customPrompt, dualDjMode, secondaryVoice } = message.data;
 
         console.log("Generating Intro for:", currentSong.title, "->", nextSong.title);
 
@@ -35,7 +35,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 customPrompt,
                 [],
                 playlistContext || [],
-                history
+                history,
+                dualDjMode,
+                secondaryVoice
             ).then((arrayBuffer) => {
                 if (arrayBuffer) {
                     console.log("Audio generated.");

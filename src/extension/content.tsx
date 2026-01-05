@@ -125,8 +125,6 @@ const getSongInfo = () => {
         }
     }
 
-    // Strategy C: Automix/Radio Warning logic could go here if needed
-
     return {
         current: { title, artist, album },
         next: { title: nextTitle, artist: nextArtist },
@@ -326,7 +324,13 @@ const mainLoop = setInterval(() => {
     // --- STATE MACHINE ---
     if (state.status === 'IDLE' && timeLeft < 45 && timeLeft > 10) {
         // PREVENT PREMATURE GENERATION:
-        if (Date.now() - state.lastSongChangeTs < 3000) {
+        // 1. Guard against start of song (if song is shorter than 60s, we might need adjustments, but >20s played is safe rule)
+        if (currentTime < 20) {
+            return;
+        }
+
+        // 2. Guard against recent song changes
+        if (Date.now() - state.lastSongChangeTs < 5000) { // Increased to 5s
             return;
         }
 
@@ -367,7 +371,9 @@ const mainLoop = setInterval(() => {
                             style: settings.style || 'STANDARD',
                             voice: settings.voice,
                             language: 'en',
-                            customPrompt: settings.customPrompt
+                            customPrompt: settings.customPrompt,
+                            dualDjMode: settings.dualDjMode,
+                            secondaryVoice: settings.secondaryDjVoice
                         }
                     }, (response) => {
                         if (chrome.runtime.lastError) {
