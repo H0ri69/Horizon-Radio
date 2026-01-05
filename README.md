@@ -1,20 +1,54 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Hori-s.FM AI DJ
 
-# Run and deploy your AI Studio app
+AI Radio Host extension for YouTube Music. This project uses React, Vite, and the Google Gemini API to provide an interactive DJ experience within the browser.
 
-This contains everything you need to run your app locally.
+## Prerequisites
 
-View your app in AI Studio: https://ai.studio/apps/drive/1p9CS5lCrvYL-w-nyVuPc7f-D0VPqVGhN
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- [pnpm](https://pnpm.io/) (v8 or higher)
 
-## Run Locally
+## Setup
 
-**Prerequisites:**  Node.js
+1.  **Clone the repository**:
+    ```bash
+    git clone <repository-url>
+    cd Hori-s.FM
+    ```
 
+2.  **Install dependencies**:
+    ```bash
+    pnpm install
+    ```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+3.  **Configure Environment Variables**:
+    Create a `.env` file in the root directory and add your Google Gemini API key:
+    ```env
+    GEMINI_API_KEY=your_api_key_here
+    ```
+
+## Running the Project
+
+1.  **Start the development server**:
+    ```bash
+    pnpm dev
+    ```
+    This will start the Vite development server. The project is configured to use `@crxjs/vite-plugin` for Chrome extension development.
+
+2.  **Load the extension in Chrome**:
+    - Open Chrome and navigate to `chrome://extensions/`.
+    - Enable **Developer mode** (toggle in the top right).
+    - Click **Load unpacked**.
+    - Select the `dist` folder generated in the project directory after running the dev server.
+
+3.  **Usage**:
+    - Navigate to [YouTube Music](https://music.youtube.com/).
+    - The extension will inject its components into the page.
+    - Interact with the AI DJ via the popup or content script interface.
+
+## Build
+
+To build the extension for production:
+```bash
+pnpm build
+```
+The production-ready files will be in the `dist` directory.
