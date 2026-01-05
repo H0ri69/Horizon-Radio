@@ -182,6 +182,56 @@ const getTimeOfDay = (): { context: string, greeting: string } => {
   return { context: "Late Night", greeting: "Hey night owls" };
 };
 
+const synthesizeDialogue = async (script: string, voiceA: DJVoice, voiceB: DJVoice): Promise<ArrayBuffer | null> => {
+  const lines = script.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const segments: { text: string; voice: DJVoice }[] = [];
+
+  // Parse script into segments
+  // Expected format: "[VoiceName]: Text"
+  lines.forEach(line => {
+    // Simple heuristic: check if line starts with VoiceName OR is just text (default to A)
+    // We try to detect the speaker based on the line prefix
+    const colonIndex = line.indexOf(':');
+    if (colonIndex !== -1) {
+      const speaker = line.substring(0, colonIndex).trim();
+      const text = line.substring(colonIndex + 1).trim();
+
+      // Map speaker name to Voice ID (case insensitive check)
+      const currentVoice = speaker.toLowerCase() === voiceB.toLowerCase() ? voiceB : voiceA;
+      segments.push({ text, voice: currentVoice });
+    } else {
+      // Fallback: if no speaker prefix, assume Voice A (Host) or continuation
+      segments.push({ text: line, voice: voiceA });
+    }
+  });
+
+  const audioBuffers: ArrayBuffer[] = [];
+
+  for (const segment of segments) {
+    console.log(`[Dual DJ] Synthesizing for ${segment.voice}: "${segment.text}"`);
+    const buffer = await speakText(segment.text, segment.voice);
+    if (buffer) {
+      // Strip 44-byte WAV header to get raw PCM
+      audioBuffers.push(buffer.slice(44));
+    }
+  }
+
+  if (audioBuffers.length === 0) return null;
+
+  // Concatenate all PCM buffers
+  const totalLength = audioBuffers.reduce((acc, b) => acc + b.byteLength, 0);
+  const combinedPCM = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const buf of audioBuffers) {
+    combinedPCM.set(new Uint8Array(buf), offset);
+    offset += buf.byteLength;
+  }
+
+  // Create new WAV header for the total length
+  const header = createWavHeader(totalLength);
+  return concatenateBuffers(header, combinedPCM.buffer);
+};
+
 export const generateDJIntro = async (
   currentSong: Song,
   nextSong: Song | null,
@@ -191,12 +241,15 @@ export const generateDJIntro = async (
   customPrompt?: string,
   upcomingSongTitles: string[] = [], // Kept for compat
   playlistContext: string[] = [], // NEW: Immediate surroundings
-  history: string[] = [] // NEW: Previous voiceovers
+  history: string[] = [], // NEW: Previous voiceovers
+  dualDjMode: boolean = false, // EXISTING ARGUMENT OR NEW? If I can't change signature easily, I might relying on customPrompt or overload. 
+  secondaryVoice: DJVoice = 'Puck'
 ): Promise<ArrayBuffer | null> => {
 
   let prompt = "";
   const langInstruction = getLanguageInstruction(language);
   const voiceInstruction = getVoiceDirection(voice);
+  const secondaryVoiceInstruction = getVoiceDirection(secondaryVoice);
 
   const timeString = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   const { context } = getTimeOfDay();
@@ -209,6 +262,51 @@ export const generateDJIntro = async (
   const playlistBlock = playlistContext.length > 0
     ? `PLAYLIST CONTEXT (Surrounding Tracks): \n${playlistContext.join('\n')}`
     : "No playlist context.";
+
+  if (dualDjMode) {
+    prompt = `
+       You are TWO Radio DJs covering a shift together on "Horis FM".
+       HOST 1 (Main): ${voice} (${getVoiceDirection(voice)})
+       HOST 2 (Co-Host): ${secondaryVoice} (${getVoiceDirection(secondaryVoice)})
+       
+       CURRENT SITUATION:
+       - Song Ending: "${currentSong.title}" by ${currentSong.artist}
+       - Song Starting: "${nextSong?.title}" by "${nextSong?.artist}"
+       - Time: ${context} (${timeString})
+       
+       ${historyBlock}
+       ${playlistBlock}
+
+       TASK:
+       Write a short, banter-filled dialogue script between the two DJs transitioning the songs.
+       FORMAT:
+       ${voice}: [Text]
+       ${secondaryVoice}: [Text]
+       
+       MAX LENGTH: 4 exchanges total. Keep it snappy and natural.
+       
+       CONSTRAINTS:
+       - Output ONLY the spoken words in the "Speaker: Text" format.
+       - No stage directions.
+       
+       Important: ${langInstruction}
+     `;
+
+    console.log(`[Gemini] Generating DUAL DJ Script: ${voice} & ${secondaryVoice}`);
+    const script = await generateScript(prompt);
+    if (!script) {
+      console.warn("[Gemini] Script generation failed.");
+      return null;
+    }
+
+    console.log("------------------------------------------------");
+    console.log(`[Gemini] 🤖 GENERATED DIALOGUE:\n"${script}"`);
+    console.log("------------------------------------------------");
+
+    return synthesizeDialogue(script, voice, secondaryVoice);
+  }
+
+  // --- STANDARD SINGLE DJ LOGIC ---
 
   // Determine Style Instruction based on Enum
   let styleInstruction = "";

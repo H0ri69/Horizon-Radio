@@ -55,6 +55,8 @@ export interface AppSettings {
   djStyle: DJStyle;
   customStylePrompt: string;
   djFrequency: number; // 0.0 to 1.0 (0 = Always Crossfade, 1 = Always DJ)
+  dualDjMode: boolean;
+  secondaryDjVoice: DJVoice;
   language: AppLanguage;
 }
 
