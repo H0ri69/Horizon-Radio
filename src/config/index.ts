@@ -13,7 +13,7 @@ export const GEMINI_CONFIG = {
 };
 
 export const EXTENSION_CONFIG = {
-  MAX_HISTORY: 5
+  MAX_HISTORY: 7
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
