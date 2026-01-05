@@ -22,7 +22,7 @@
                 "https://music.youtube.com/*"
             ],
             "js": [
-                "src/extension/content.ts"
+                "src/extension/content.tsx"
             ],
             "run_at": "document_idle"
         }

@@ -1,4 +1,8 @@
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { InjectedApp } from './components/InjectedApp';
 import { Song, DJStyle, DJVoice, AppLanguage } from '../../types';
+import '../index.css'; // Inject Tailwind Styles
 
 // Prevent running in iframes
 if (window !== window.top) {
@@ -54,12 +58,38 @@ const getSongInfo = () => {
     let currentIndex = -1;
     const playlistContext: string[] = [];
 
-    // Find current index
+    // --- ROBUST CURRENT INDEX DETECTION ---
+
+    // Attempt 1: Trust 'selected' attribute
     queueItems.forEach((item, index) => {
         if (item.hasAttribute('selected')) currentIndex = index;
     });
 
-    // Scrape surroundings (e.g. -5 to +5)
+    // Attempt 2: Validation - Does the 'selected' item actually match the current title?
+    let validationFailed = false;
+    if (currentIndex !== -1) {
+        const selectedTitle = queueItems[currentIndex].querySelector('.song-title')?.textContent;
+        if (selectedTitle && selectedTitle !== title) {
+            console.warn(`[Hori-s] Queue Mismatch: Selected "${selectedTitle}" vs Playing "${title}". Rescanning...`);
+            validationFailed = true;
+            currentIndex = -1; // Reset to force rescan
+        }
+    }
+
+    // Attempt 3: Scanner - Find item matching current title
+    if (currentIndex === -1) {
+        // We look for the first match. In a perfect world we'd use previous history to disambiguate duplicates,
+        // but for now, first match is safer than "no match".
+        for (let i = 0; i < queueItems.length; i++) {
+            const itemTitle = queueItems[i].querySelector('.song-title')?.textContent;
+            if (itemTitle === title) {
+                currentIndex = i;
+                break; // Take first match
+            }
+        }
+    }
+
+    // Capture context around the determined index
     if (currentIndex !== -1) {
         const start = Math.max(0, currentIndex - 5);
         const end = Math.min(queueItems.length, currentIndex + 5);
@@ -70,18 +100,37 @@ const getSongInfo = () => {
         }
     }
 
-    // Next Song (Immediate)
+    // 3. Next Song Logic
     let nextTitle = "";
     let nextArtist = "";
+
+    // Strategy A: Queue (Preferred)
     if (currentIndex !== -1 && currentIndex + 1 < queueItems.length) {
         nextTitle = queueItems[currentIndex + 1].querySelector('.song-title')?.textContent || "";
         nextArtist = queueItems[currentIndex + 1].querySelector('.byline')?.textContent || "";
     }
 
+    // Strategy B: "Next" Button Tooltip (Fallback)
+    // The next button often has a title like "Next: Song Name" or "Next song"
+    if (!nextTitle) {
+        const nextButton = document.querySelector('.next-button');
+        if (nextButton) {
+            const buttonTitle = nextButton.getAttribute('title');
+            if (buttonTitle && buttonTitle.startsWith("Next: ")) {
+                // "Next: Song Name" - sadly doesn't give artist, but better than nothing
+                nextTitle = buttonTitle.replace("Next: ", "");
+                nextArtist = "Unknown"; // We can't easily get artist from tooltip
+                console.log(`[Hori-s] Fallback: Used Next Button tooltip for "${nextTitle}"`);
+            }
+        }
+    }
+
+    // Strategy C: Automix/Radio Warning logic could go here if needed
+
     return {
         current: { title, artist, album },
         next: { title: nextTitle, artist: nextArtist },
-        playlistContext // New field
+        playlistContext
     };
 };
 
@@ -98,9 +147,10 @@ document.body.appendChild(audioEl);
 
 // --- WEB AUDIO DUCKING SYSTEM ---
 class WebAudioDucker {
-    private ctx: AudioContext | null = null;
-    private source: MediaElementAudioSourceNode | null = null;
-    private gainNode: GainNode | null = null;
+    public ctx: AudioContext | null = null; // Public for debugging/React access
+    public source: MediaElementAudioSourceNode | null = null;
+    public gainNode: GainNode | null = null;
+    public analyser: AnalyserNode | null = null; // VISUALIZER SUPPORT
     private initialized = false;
 
     constructor() {
@@ -120,28 +170,10 @@ class WebAudioDucker {
                 this.ctx.resume();
             }
 
-            // Create source only if not exists for this element
-            // Note: MediaElementSource can only be created once per element usually.
-            // In a content script, we must be careful. 
-            // However, since we are inside the page context via content script, we access the DOM element.
-            // If the extension interacts with the same element multiple times, we need to be careful.
-            // BUT: Content scripts live in an isolated world. They cannot access the page's AudioContext.
-            // They CAN create their own AudioContext and connect the element to it? 
-            // Actually, cross-origin issues might arise if we try to route the element's audio.
-            // UPDATE: Content scripts CANNOT access MediaElementAudioSourceNode for elements created by the page due to isolation/CORS often.
-            // Wait, for Extensions, we usually have permissions. But `captureVisibleTab` is for video.
-            // Let's try this: detailed research suggests MediaElementAudioSourceNode in content script works if CORS matches or if allow-origin.
-            // YTM serves some content with CORS. 
-            // IF THIS FAILS, we might need to inject a script into the page context (MAIN world).
-            // Let's assume for this task we try the standard approach, but if it fails we might need `chrome.scripting.executeScript` in MAIN world.
-
-            // Re-evaluating based on "volume spiking" issue: 
-            // The simple volume control was "spiking" because the site fought back.
-            // Let's try the Web Audio approach. If it fails due to CORS/Isolation, we will know quickly.
-
             this.source = this.ctx.createMediaElementSource(video);
             this.gainNode = this.ctx.createGain();
 
+            // CONNECT: Source -> Gain -> Destination
             this.source.connect(this.gainNode);
             this.gainNode.connect(this.ctx.destination);
 
@@ -179,10 +211,28 @@ class WebAudioDucker {
 
 const ducker = new WebAudioDucker();
 
-// Fallback logic in case WebAudio fails? 
-// For now, we trust the user wants to try this new approach.
+// --- MOUNT REACT APP ---
+// We create a hidden container for the React Root.
+// Portals will render the actual UI into the correct YTM elements.
+const mountReactApp = () => {
+    const rootId = 'horis-extension-root';
+    if (document.getElementById(rootId)) return;
 
+    const rootDiv = document.createElement('div');
+    rootDiv.id = rootId;
+    document.body.appendChild(rootDiv);
 
+    const root = createRoot(rootDiv);
+    root.render(<InjectedApp ducker={ducker} />);
+    console.log("[Hori-s] Injected React App Mounted");
+};
+
+// Initial mount attempt
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mountReactApp);
+} else {
+    mountReactApp();
+}
 
 const playBufferedAudio = async () => {
     if (!state.bufferedAudio) return;
@@ -236,6 +286,11 @@ const mainLoop = setInterval(() => {
         return;
     }
 
+    // Ensure APP is mounted
+    if (!document.getElementById('horis-extension-root')) {
+        mountReactApp();
+    }
+
     const video = getMoviePlayer();
     if (!video || video.paused || !video.duration) return;
 
@@ -271,7 +326,6 @@ const mainLoop = setInterval(() => {
     // --- STATE MACHINE ---
     if (state.status === 'IDLE' && timeLeft < 45 && timeLeft > 10) {
         // PREVENT PREMATURE GENERATION:
-        // If song changed < 3 seconds ago, and we are "at the end", it's likely a DOM/Video Desync (Old video still playing).
         if (Date.now() - state.lastSongChangeTs < 3000) {
             return;
         }
@@ -317,7 +371,6 @@ const mainLoop = setInterval(() => {
                         }
                     }, (response) => {
                         if (chrome.runtime.lastError) {
-                            // This often catches "Could not establish connection" if bg is dead
                             console.warn("[Generator] Communication error:", chrome.runtime.lastError);
                             return;
                         }
@@ -342,7 +395,6 @@ const mainLoop = setInterval(() => {
                 }
             });
         } catch (e) {
-            // This catches the immediate "context invalidated" if accessing chrome.storage throws
             console.log("[Hori-s.FM] Extension context invalidated during storage access. Stopping.");
             clearInterval(mainLoop);
         }
