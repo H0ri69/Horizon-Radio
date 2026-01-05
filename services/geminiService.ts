@@ -254,6 +254,15 @@ export const generateDJIntro = async (
   const timeString = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   const { context } = getTimeOfDay();
 
+  // Determine Style Instruction based on Enum (MOVED TO TOP)
+  let styleInstruction = "";
+  if (style === DJStyle.CUSTOM) {
+    const customFunc = DJ_STYLE_PROMPTS[DJStyle.CUSTOM] as (p: string) => string;
+    styleInstruction = customFunc(customPrompt || "");
+  } else {
+    styleInstruction = (DJ_STYLE_PROMPTS[style] as string) || "ROLE: Standard Radio DJ. Be professional and smooth.";
+  }
+
   // Construct Context Block
   const historyBlock = history.length > 0
     ? `PREVIOUS VOICEOVERS (For Context Only - Do not repeat): \n${history.join('\n')}`
@@ -273,6 +282,9 @@ export const generateDJIntro = async (
        - Song Ending: "${currentSong.title}" by ${currentSong.artist}
        - Song Starting: "${nextSong?.title}" by "${nextSong?.artist}"
        - Time: ${context} (${timeString})
+       
+       TONE/STYLE:
+       ${styleInstruction}
        
        ${historyBlock}
        ${playlistBlock}
@@ -307,15 +319,6 @@ export const generateDJIntro = async (
   }
 
   // --- STANDARD SINGLE DJ LOGIC ---
-
-  // Determine Style Instruction based on Enum
-  let styleInstruction = "";
-  if (style === DJStyle.CUSTOM) {
-     const customFunc = DJ_STYLE_PROMPTS[DJStyle.CUSTOM] as (p: string) => string;
-     styleInstruction = customFunc(customPrompt || "");
-  } else {
-     styleInstruction = (DJ_STYLE_PROMPTS[style] as string) || "ROLE: Standard Radio DJ. Be professional and smooth.";
-  }
 
   if (nextSong?.requestedBy) {
     prompt = `
