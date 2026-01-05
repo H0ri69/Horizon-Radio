@@ -131,7 +131,11 @@ const generateScript = async (prompt: string): Promise<string | null> => {
     const response: GenerateContentResponse = await callWithRetry(() => ai.models.generateContent({
       model: TEXT_MODEL,
       contents: [{ parts: [{ text: prompt }] }],
-      config: { tools: [{ googleSearch: {} }] }
+      config: {
+        thinkingConfig: {
+          thinkingBudget: 0 // Set to 0 to disable thinking
+        }, tools: [{ googleSearch: {} }]
+      }
     }));
 
     // Log grounding metadata if available (to verify search is working)
