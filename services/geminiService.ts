@@ -138,16 +138,41 @@ const getTTSInstruction = (voice: DJVoice): string => {
 const speakText = async (text: string, voice: DJVoice): Promise<ArrayBuffer | null> => {
   try {
     // CRITICAL: Clean text before sending to TTS model
-    const cleanedText = cleanTextForTTS(text);
-    if (!cleanedText) {
-      console.warn("TTS skipped: Empty text after cleaning");
-      return null;
-    }
-    console.log(`[Gemini] 🗣️ TTS Input: "${cleanedText}"`);
+    // Clean text - but KEEP "Speaker 1:" / "Speaker 2:" prefixes if present (for Dual DJ)
+    // The previous cleanTextForTTS might strip colon usage we actually want now.
+    // However, the previous regex was `.replace(/[:;]/g, ',')` which would break "Speaker 1:".
+    // We should enable a "dual mode" flag or just be smarter about cleaning.
+    
+    // For now, let's just use cleanTextForTTS but assuming it might need adjustment if it destroys the prefixes.
+    // Looking at line 98: .replace(/[:;]/g, ',') -> This WILL break "Speaker 1: Text". 
+    // We need to update cleanTextForTTS first. (Done below in a separate chunk or I will handle it here by NOT calling it blindly if it has speakers).
+    
+    let finalTextInput = text;
+    
+    // Check if this looks like a Dual Dictionary script
+    const isDualDj = text.includes("Speaker 1:") || text.includes("Speaker 2:");
 
-    // Prepend specific style instruction for the TTS model
-    const ttsInstruction = getTTSInstruction(voice);
-    const finalTextInput = ttsInstruction + cleanedText;
+    if (isDualDj) {
+        // partial cleaning for Dual DJ - keep headers
+        // We still want to remove *actions* etc.
+         finalTextInput = text
+            .replace(/\*.*?\*/g, '')
+            .replace(/\[.*?\]/g, '')
+            .replace(/\(.*?\)/g, '')
+            .trim();
+         // Do NOT add standard voice instruction for Dual DJ, the model should infer from "Speaker X" 
+         // or we can add a generic one if needed, but User requested "Speaker 1"/"Speaker 2" rule.
+    } else {
+         const cleanedText = cleanTextForTTS(text);
+          if (!cleanedText) {
+            console.warn("TTS skipped: Empty text after cleaning");
+            return null;
+          }
+          const ttsInstruction = getTTSInstruction(voice);
+          finalTextInput = ttsInstruction + cleanedText;
+    }
+
+    console.log(`[Gemini] 🗣️ TTS Input (Dual=${isDualDj}): "${finalTextInput.substring(0, 100)}..."`);
 
     const ai = getClient();
     const response = await callWithRetry(() => ai.models.generateContent({
@@ -182,54 +207,12 @@ const getTimeOfDay = (): { context: string, greeting: string } => {
   return { context: "Late Night", greeting: "Hey night owls" };
 };
 
+// Deprecated or simplified: In Single-Shot mode, we just pass the whole script to speakText.
 const synthesizeDialogue = async (script: string, voiceA: DJVoice, voiceB: DJVoice): Promise<ArrayBuffer | null> => {
-  const lines = script.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  const segments: { text: string; voice: DJVoice }[] = [];
-
-  // Parse script into segments
-  // Expected format: "[VoiceName]: Text"
-  lines.forEach(line => {
-    // Simple heuristic: check if line starts with VoiceName OR is just text (default to A)
-    // We try to detect the speaker based on the line prefix
-    const colonIndex = line.indexOf(':');
-    if (colonIndex !== -1) {
-      const speaker = line.substring(0, colonIndex).trim();
-      const text = line.substring(colonIndex + 1).trim();
-
-      // Map speaker name to Voice ID (case insensitive check)
-      const currentVoice = speaker.toLowerCase() === voiceB.toLowerCase() ? voiceB : voiceA;
-      segments.push({ text, voice: currentVoice });
-    } else {
-      // Fallback: if no speaker prefix, assume Voice A (Host) or continuation
-      segments.push({ text: line, voice: voiceA });
-    }
-  });
-
-  const audioBuffers: ArrayBuffer[] = [];
-
-  for (const segment of segments) {
-    console.log(`[Dual DJ] Synthesizing for ${segment.voice}: "${segment.text}"`);
-    const buffer = await speakText(segment.text, segment.voice);
-    if (buffer) {
-      // Strip 44-byte WAV header to get raw PCM
-      audioBuffers.push(buffer.slice(44));
-    }
-  }
-
-  if (audioBuffers.length === 0) return null;
-
-  // Concatenate all PCM buffers
-  const totalLength = audioBuffers.reduce((acc, b) => acc + b.byteLength, 0);
-  const combinedPCM = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const buf of audioBuffers) {
-    combinedPCM.set(new Uint8Array(buf), offset);
-    offset += buf.byteLength;
-  }
-
-  // Create new WAV header for the total length
-  const header = createWavHeader(totalLength);
-  return concatenateBuffers(header, combinedPCM.buffer);
+    // Just pass the full script with "Speaker 1:" / "Speaker 2:" directly to TTS.
+    // The model (gemini-2.5-flash-preview-tts) handles multi-speaker generation if formatted correctly.
+    console.log(`[Dual DJ] Synthesizing full conversation at once...`);
+    return speakText(script, voiceA); 
 };
 
 export const generateDJIntro = async (
@@ -292,13 +275,13 @@ export const generateDJIntro = async (
        TASK:
        Write a short, banter-filled dialogue script between the two DJs transitioning the songs.
        FORMAT:
-       ${voice}: [Text]
-       ${secondaryVoice}: [Text]
+       Speaker 1: [Text]
+       Speaker 2: [Text]
        
        ${LENGTH_CONSTRAINT}
        
        CONSTRAINTS:
-       - Output ONLY the spoken words in the "Speaker: Text" format.
+       - Output ONLY the spoken words in the "Speaker 1: Text" / "Speaker 2: Text" format.
        - No stage directions.
        
        Important: ${langInstruction}
