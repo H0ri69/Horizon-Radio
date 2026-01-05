@@ -1,5 +1,5 @@
 {
-  "name": "horis's-ai-radio",
+  "name": "horis-ai-radio",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@google/genai": "^1.34.0",
-    "music-metadata": "^11.10.4",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
   },

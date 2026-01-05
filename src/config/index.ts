@@ -2,15 +2,7 @@ import { AppSettings, DJStyle } from '../../types';
 export * from './constants';
 export * from './prompts';
 
-export const AUDIO_CONFIG = {
-  FADE_DURATION: 10000, // 10 seconds
-  DJ_DELAY: 5000,      // 5 seconds
-  LOOKAHEAD_DELAY: 100, // 0.1 seconds
-  FFT_SIZE: 2048,
-  SMOOTHING_CONSTANT: 0.85,
-  SAMPLE_RATE: 24000,
-  VISUALIZER_TRANSITION_DURATION: 1200, // 1.2s
-};
+
 
 export const GEMINI_CONFIG = {
   TEXT_MODEL: "gemini-2.5-flash",
@@ -34,7 +26,4 @@ export const DEFAULT_SETTINGS: AppSettings = {
   language: 'en'
 };
 
-export const LIVE_SESSION_CONFIG = {
-  SILENCE_TIMEOUT: 10000,
-  RMS_THRESHOLD: 0.02
-};
+

@@ -366,7 +366,7 @@ const mainLoop = setInterval(() => {
                             playlistContext: (current as any).playlistContext || [],
                             style: settings.style || 'STANDARD',
                             voice: settings.voice,
-                            language: 'en',
+                            language: settings.language || 'en',
                             customPrompt: settings.customPrompt
                         }
                     }, (response) => {

@@ -62,9 +62,6 @@ export const TTS_INSTRUCTIONS: Record<string, string> = {
   'Kore': "Speak in a clear, natural, balanced, and conversational tone, not overly hyped: ",
 };
 
-export const METADATA_IDENTIFICATION_PROMPT = (filename: string) => `Analyze this filename: "${filename}". Extract the Artist and Song Title. 
-    If the filename is generic (e.g. "track1.mp3"), try to guess if it's a famous song, otherwise use "Unknown Artist" and the filename as title.
-    Return ONLY a JSON object with keys "artist" and "title".`;
 
 export const getLanguageInstruction = (lang: AppLanguage) => 
   lang === 'cs' ? "Speak in Czech language." : 

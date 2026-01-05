@@ -1,6 +1,6 @@
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 import { Song, DJStyle, DJVoice, AppLanguage } from '../types';
-import { GEMINI_CONFIG, DJ_STYLE_PROMPTS, VOICE_DIRECTIONS, TTS_INSTRUCTIONS, METADATA_IDENTIFICATION_PROMPT, getLanguageInstruction } from '../src/config';
+import { GEMINI_CONFIG, DJ_STYLE_PROMPTS, VOICE_DIRECTIONS, TTS_INSTRUCTIONS, getLanguageInstruction } from '../src/config';
 
 const getClient = () => {
   const apiKey = process.env.API_KEY;
@@ -99,30 +99,9 @@ const cleanTextForTTS = (text: string): string => {
     .trim();
 };
 
-export const identifySongMetadata = async (filename: string): Promise<{ artist: string, title: string }> => {
-  try {
-    const ai = getClient();
-    const prompt = METADATA_IDENTIFICATION_PROMPT(filename);
 
-    const response: GenerateContentResponse = await callWithRetry(() => ai.models.generateContent({
-      model: TEXT_MODEL,
-      contents: [{ parts: [{ text: prompt }] }],
-      config: { responseMimeType: "application/json", tools: [{ googleSearch: {} }] }
-    }));
 
-    const text = response.text;
-    if (!text) return { artist: 'Unknown Artist', title: filename };
 
-    return JSON.parse(text);
-  } catch (e) {
-    console.error("Metadata identification failed", e);
-    return { artist: 'Unknown Artist', title: filename };
-  }
-};
-
-export const generateOpeningLine = async (voice: DJVoice): Promise<ArrayBuffer | null> => {
-  return null;
-};
 
 const generateScript = async (prompt: string): Promise<string | null> => {
   try {

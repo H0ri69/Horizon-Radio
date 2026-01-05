@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
-import { DJStyle, DJVoice } from '../../types';
+import { DJStyle, DJVoice, AppLanguage } from '../../types';
 import { VOICE_PROFILES, DEFAULT_SETTINGS } from '../config';
 import '../index.css';
 
@@ -9,6 +9,7 @@ interface Settings {
     voice: DJVoice;
     style: DJStyle;
     customPrompt?: string;
+    language: AppLanguage;
 }
 
 const Options = () => {
@@ -16,7 +17,8 @@ const Options = () => {
         enabled: true,
         voice: DEFAULT_SETTINGS.djVoice,
         style: DEFAULT_SETTINGS.djStyle,
-        customPrompt: DEFAULT_SETTINGS.customStylePrompt
+        customPrompt: DEFAULT_SETTINGS.customStylePrompt,
+        language: DEFAULT_SETTINGS.language
     });
     const [status, setStatus] = useState("Settings loaded");
 
@@ -58,6 +60,37 @@ const Options = () => {
                 </header>
 
                 <main className="space-y-12">
+
+
+                    {/* Language Selection */}
+                    <section>
+                        <h2 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+                            <span className="text-primary">00</span> Language
+                        </h2>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            {[
+                                { code: 'en', label: 'English 🇺🇸' },
+                                { code: 'cs', label: 'Czech 🇨🇿' },
+                                { code: 'ja', label: 'Japanese 🇯🇵' }
+                            ].map(lang => (
+                                <button
+                                    key={lang.code}
+                                    onClick={() => saveSettings({ ...settings, language: lang.code as any })}
+                                    className={`p-4 rounded-xl text-center border transition-all duration-200
+                                        ${(settings as any).language === lang.code
+                                            ? 'bg-surface border-primary ring-1 ring-primary/50 text-white'
+                                            : 'bg-surface/50 border-white/5 text-secondary hover:border-white/10 hover:bg-surface hover:text-white'
+                                        }`}
+                                >
+                                    <div className="font-medium text-lg">{lang.label}</div>
+                                </button>
+                            ))}
+                        </div>
+                    </section>
+                    
+                    {/* Divider */}
+                    <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
 
                     {/* Voice Selection */}
                     <section>

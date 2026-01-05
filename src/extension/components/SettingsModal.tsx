@@ -8,7 +8,9 @@ interface Settings {
     voice: string;
     style: any;
     customPrompt?: string;
-    visualizerEnabled?: boolean; // New setting
+    visualizerEnabled?: boolean;
+    language: string;
+    visualTheme?: string;
 }
 
 export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -17,13 +19,15 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         voice: 'Kore',
         style: DJStyle.STANDARD,
         customPrompt: '',
-        visualizerEnabled: true
+        visualizerEnabled: true,
+        language: 'en',
+        visualTheme: 'Standard'
     });
 
     useEffect(() => {
         chrome.storage.local.get(['horisFmSettings'], (result) => {
             if (result.horisFmSettings) {
-                setSettings(prev => ({ ...prev, ...result.horisFmSettings }));
+                setSettings(prev => ({ ...prev, ...(result.horisFmSettings as any) }));
             }
         });
     }, []);
@@ -32,6 +36,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         setSettings(newSettings);
         chrome.storage.local.set({ horisFmSettings: newSettings });
     };
+
 
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={onClose}>
@@ -47,6 +52,29 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 </button>
 
                 <h1 className="text-2xl font-bold text-white mb-6">Hori-s.FM Settings</h1>
+
+                {/* LANGUAGE SELECTION */}
+                <section className="mb-8">
+                    <h2 className="text-lg font-semibold text-white mb-4">Language</h2>
+                    <div className="grid grid-cols-3 gap-3">
+                        {[
+                            { code: 'en', label: 'English 🇺🇸' },
+                            { code: 'cs', label: 'Czech 🇨🇿' },
+                            { code: 'ja', label: 'Japanese 🇯🇵' }
+                        ].map(lang => (
+                            <button
+                                key={lang.code}
+                                onClick={() => saveSettings({ ...settings, language: lang.code as any })}
+                                className={`p-4 rounded-lg text-center border transition-all ${(settings as any).language === lang.code
+                                    ? 'bg-indigo-600/20 border-indigo-500 text-white'
+                                    : 'bg-white/5 border-white/5 text-white/70 hover:bg-white/10'
+                                    }`}
+                            >
+                                <div className="font-medium text-lg">{lang.label}</div>
+                            </button>
+                        ))}
+                    </div>
+                </section>
 
                 {/* THEME SELECTION */}
                 <section className="mb-8">
