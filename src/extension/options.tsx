@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
-import { DJStyle, DJVoice, VOICE_PROFILES } from '../../types';
+import { DJStyle, DJVoice } from '../../types';
+import { VOICE_PROFILES, DEFAULT_SETTINGS } from '../config';
 import '../index.css';
 
 interface Settings {
@@ -13,9 +14,9 @@ interface Settings {
 const Options = () => {
     const [settings, setSettings] = useState<Settings>({
         enabled: true,
-        voice: 'Kore',
-        style: DJStyle.STANDARD,
-        customPrompt: ''
+        voice: DEFAULT_SETTINGS.djVoice,
+        style: DEFAULT_SETTINGS.djStyle,
+        customPrompt: DEFAULT_SETTINGS.customStylePrompt
     });
     const [status, setStatus] = useState("Settings loaded");
 

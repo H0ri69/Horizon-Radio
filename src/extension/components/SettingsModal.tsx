@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { DJStyle, VOICE_PROFILES } from '../../../types';
+import { DJStyle } from '../../../types';
+import { VOICE_PROFILES } from '../../config';
 
 interface Settings {
     enabled: boolean;

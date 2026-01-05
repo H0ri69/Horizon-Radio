@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type } from "@google/genai";
 import { Song, DJStyle, DJVoice, VisualizerMode, AppSettings, LayoutProps, AppLanguage } from './types';
+import { AUDIO_CONFIG, DEFAULT_SETTINGS, LIVE_SESSION_CONFIG, GEMINI_CONFIG, THEME_PALETTES } from './src/config';
+import { VOICE_DIRECTIONS } from './src/config/prompts';
 import { analyzeTrack } from './services/audioUtils';
 import { generateDJIntro, generateCallBridging } from './services/geminiService';
 import { decodeAudio, decodeAudioData, createPcmBlob, downsampleTo16k } from './services/liveAudioUtils';
@@ -75,15 +77,7 @@ const ApiKeyBanner: React.FC = () => (
 const App: React.FC = () => {
   // --- APP NAVIGATION & SETTINGS ---
   const [currentScreen, setCurrentScreen] = useState<'START' | 'PLAYER' | 'SETTINGS'>('START');
-  const [settings, setSettings] = useState<AppSettings>({
-    theme: 'CYBER',
-    palette: 'NEON',
-    djVoice: 'Charon', // Default to the Deep/Pro male voice
-    djStyle: DJStyle.STANDARD,
-    customStylePrompt: '',
-    djFrequency: 0.8, // 80% chance of DJ
-    language: 'en'
-  });
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
 
   // --- AUDIO STATE ---
   const [library, setLibrary] = useState<Song[]>([]);
@@ -177,30 +171,30 @@ const App: React.FC = () => {
     const root = document.documentElement;
     switch (settings.palette) {
       case 'NEON':
-        root.style.setProperty('--accent-primary', '#ff2a6d');
-        root.style.setProperty('--accent-secondary', '#05d9e8');
-        root.style.setProperty('--accent-tertiary', '#00ff9f');
+        root.style.setProperty('--accent-primary', THEME_PALETTES.NEON.primary);
+        root.style.setProperty('--accent-secondary', THEME_PALETTES.NEON.secondary);
+        root.style.setProperty('--accent-tertiary', THEME_PALETTES.NEON.tertiary);
         break;
       case 'PASTEL':
-        root.style.setProperty('--accent-primary', '#ffb7b2');
-        root.style.setProperty('--accent-secondary', '#a2e1db');
-        root.style.setProperty('--accent-tertiary', '#e2f0cb');
+        root.style.setProperty('--accent-primary', THEME_PALETTES.PASTEL.primary);
+        root.style.setProperty('--accent-secondary', THEME_PALETTES.PASTEL.secondary);
+        root.style.setProperty('--accent-tertiary', THEME_PALETTES.PASTEL.tertiary);
         break;
       case 'MIDNIGHT':
-        root.style.setProperty('--accent-primary', '#7c4dff');
-        root.style.setProperty('--accent-secondary', '#448aff');
-        root.style.setProperty('--accent-tertiary', '#69f0ae');
+        root.style.setProperty('--accent-primary', THEME_PALETTES.MIDNIGHT.primary);
+        root.style.setProperty('--accent-secondary', THEME_PALETTES.MIDNIGHT.secondary);
+        root.style.setProperty('--accent-tertiary', THEME_PALETTES.MIDNIGHT.tertiary);
         break;
       case 'GOLD':
-        root.style.setProperty('--accent-primary', '#ffd700');
-        root.style.setProperty('--accent-secondary', '#c0c0c0');
-        root.style.setProperty('--accent-tertiary', '#ffffff');
+        root.style.setProperty('--accent-primary', THEME_PALETTES.GOLD.primary);
+        root.style.setProperty('--accent-secondary', THEME_PALETTES.GOLD.secondary);
+        root.style.setProperty('--accent-tertiary', THEME_PALETTES.GOLD.tertiary);
         break;
       default:
         // Fallback to NEON
-        root.style.setProperty('--accent-primary', '#ff2a6d');
-        root.style.setProperty('--accent-secondary', '#05d9e8');
-        root.style.setProperty('--accent-tertiary', '#00ff9f');
+        root.style.setProperty('--accent-primary', THEME_PALETTES.NEON.primary);
+        root.style.setProperty('--accent-secondary', THEME_PALETTES.NEON.secondary);
+        root.style.setProperty('--accent-tertiary', THEME_PALETTES.NEON.tertiary);
     }
   }, [settings.palette]);
 
@@ -212,8 +206,8 @@ const App: React.FC = () => {
       const Ctx = window.AudioContext || (window as any).webkitAudioContext;
       audioContextRef.current = new Ctx();
       analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 2048;
-      analyserRef.current.smoothingTimeConstant = 0.85;
+      analyserRef.current.fftSize = AUDIO_CONFIG.FFT_SIZE;
+      analyserRef.current.smoothingTimeConstant = AUDIO_CONFIG.SMOOTHING_CONSTANT;
 
       // Main Music Player
       if (!audioElementRef.current) {
@@ -356,7 +350,8 @@ const App: React.FC = () => {
   // VISUAL TRIGGER
   const triggerTransition = () => {
     setTransitionEffect(true);
-    setTimeout(() => setTransitionEffect(false), 1200);
+    setTransitionEffect(true);
+    setTimeout(() => setTransitionEffect(false), AUDIO_CONFIG.VISUALIZER_TRANSITION_DURATION);
   };
 
 
@@ -387,13 +382,13 @@ const App: React.FC = () => {
     transitionDecisionMadeRef.current = false;
 
     // Crossfade Volumes (10s)
-    fadeAudio(outgoing, volume, 0, 10000, () => {
+    fadeAudio(outgoing, volume, 0, AUDIO_CONFIG.FADE_DURATION, () => {
       outgoing.pause();
       outgoing.src = "";
       setIsCrossfading(false);
       setStatusText('PLAYING');
     });
-    fadeAudio(incoming, 0, volume, 10000);
+    fadeAudio(incoming, 0, volume, AUDIO_CONFIG.FADE_DURATION);
 
     setPlaylist(prev => prev.filter(s => s.id !== currentSong?.id));
   }, [currentSong, volume]);
@@ -411,7 +406,7 @@ const App: React.FC = () => {
 
     // 1. Fade OUT Current Song (10s fade)
     const outgoing = audioElementRef.current;
-    fadeAudio(outgoing, volume, 0, 10000);
+    fadeAudio(outgoing, volume, 0, AUDIO_CONFIG.FADE_DURATION);
 
     // 2. Play DJ Voice (Delayed by 5s)
     setTimeout(() => {
@@ -447,7 +442,7 @@ const App: React.FC = () => {
           outgoing.play().then(() => {
             setStatusText('TRACK STARTED');
             // Fade IN next song (10s)
-            fadeAudio(outgoing, 0, volume, 10000);
+            fadeAudio(outgoing, 0, volume, AUDIO_CONFIG.FADE_DURATION);
           });
 
           setPlaylist(prev => prev.filter(s => s.id !== currentSong?.id));
@@ -469,7 +464,7 @@ const App: React.FC = () => {
       };
 
       djPlayer.addEventListener('timeupdate', checkDjTime);
-    }, 5000); // 5-second delay to overlap with music fade
+    }, AUDIO_CONFIG.DJ_DELAY); // 5-second delay to overlap with music fade
 
   }, [currentSong, volume, djVolume]);
 
@@ -585,7 +580,7 @@ const App: React.FC = () => {
     };
 
     // REDUCED DELAY: Start generating almost immediately (100ms) instead of waiting 3s
-    const timer = setTimeout(generateLookAhead, 100);
+    const timer = setTimeout(generateLookAhead, AUDIO_CONFIG.LOOKAHEAD_DELAY);
     return () => clearTimeout(timer);
   }, [currentSong, playlist, djMode, settings, getNextSong, isRadioPending, nextTransitionMode]);
 
@@ -684,7 +679,7 @@ const App: React.FC = () => {
       liveSilenceIntervalRef.current = setInterval(() => {
         if (!liveSessionRef.current) return;
         const timeSinceLastAudio = Date.now() - lastUserAudioTime;
-        if (timeSinceLastAudio > 10000 && !silenceWarningSent) {
+        if (timeSinceLastAudio > LIVE_SESSION_CONFIG.SILENCE_TIMEOUT && !silenceWarningSent) {
           console.log("Silence detected. Nudging model.");
           silenceWarningSent = true;
           liveSessionRef.current.then((session: any) => {
@@ -706,7 +701,7 @@ const App: React.FC = () => {
         : settings.djVoice === 'Kore' ? "Speak naturally and clearly. Do not hype." : "";
 
       const config = {
-        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        model: GEMINI_CONFIG.LIVE_MODEL,
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: settings.djVoice } } },
@@ -744,7 +739,7 @@ const App: React.FC = () => {
                 sum += inputData[i] * inputData[i];
               }
               const rms = Math.sqrt(sum / inputData.length);
-              if (rms > 0.02) {
+              if (rms > LIVE_SESSION_CONFIG.RMS_THRESHOLD) {
                 lastUserAudioTime = Date.now();
                 silenceWarningSent = false;
               }
