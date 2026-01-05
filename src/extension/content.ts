@@ -1,6 +1,11 @@
 import { Song, DJStyle, DJVoice, AppLanguage } from '../../types';
 
-console.log("Hori-s.FM Content Script Loaded (Styles v2.4 - Smooth Fades)");
+// Prevent running in iframes
+if (window !== window.top) {
+    throw new Error("Hori-s.FM: Content script blocked in iframe.");
+}
+
+console.log("Hori-s.FM Content Script Loaded (Styles v2.5 - Single Instance)");
 
 // --- TYPES & STATE ---
 type DJState = 'IDLE' | 'GENERATING' | 'READY' | 'PLAYING' | 'COOLDOWN';
@@ -90,9 +95,11 @@ audioEl.id = 'horis-fm-dj-voice';
 document.body.appendChild(audioEl);
 
 // --- VOLUME CONTROL SYSTEM ---
-let duckingInterval: any = null;
+// --- VOLUME CONTROL SYSTEM ---
+let duckingListener: (() => void) | null = null;
+let duckingInterval: any = null; // Failsafe
 let fadeInterval: any = null;
-const FADE_DURATION = 3000; // Shared fade duration
+const FADE_DURATION = 3000;
 
 const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
 
@@ -105,14 +112,11 @@ const fadeVolume = (targetVol: number, duration: number = 800): Promise<void> =>
 
         const startVol = video.volume;
         const startTime = Date.now();
-
-        console.log(`[Audio] Fading volume: ${startVol.toFixed(2)} -> ${targetVol} (${duration}ms)`);
+        console.log(`[Audio] Fading volume: ${startVol.toFixed(2)} -> ${targetVol.toFixed(2)} (${duration}ms)`);
 
         fadeInterval = setInterval(() => {
             const elapsed = Date.now() - startTime;
             const progress = clamp(elapsed / duration, 0, 1);
-
-            // Linear interpolation
             const newVol = startVol + (targetVol - startVol) * progress;
 
             if (video) video.volume = clamp(newVol, 0, 1);
@@ -122,7 +126,7 @@ const fadeVolume = (targetVol: number, duration: number = 800): Promise<void> =>
                 fadeInterval = null;
                 resolve();
             }
-        }, 50); // 20fps updates is smooth enough for volume
+        }, 50);
     });
 };
 
@@ -131,26 +135,52 @@ const startActiveDucking = async (originalVolume: number) => {
     const targetVolume = originalVolume * 0.15;
     await fadeVolume(targetVolume, FADE_DURATION);
 
-    // 2. Enforce Low Volume (The Fix for Track Changes)
-    if (duckingInterval) clearInterval(duckingInterval);
+    // 2. Enforce Low Volume (react to volumechange events)
+    const video = getMoviePlayer();
+    if (!video) return;
 
     console.log(`[Audio] Engaging Volume Enforcer at ${targetVolume.toFixed(2)}`);
 
-    const enforce = () => {
-        const video = getMoviePlayer();
-        if (video) {
-            // Strict enforcement if it jumps up
-            if (video.volume > targetVolume + 0.05) {
-                // Snap back instantly if it drifted (e.g. track change reset)
-                video.volume = targetVolume;
-            }
+    // CLEANUP if exists
+    if (duckingListener) {
+        video.removeEventListener('volumechange', duckingListener);
+        duckingListener = null;
+    }
+    if (duckingInterval) clearInterval(duckingInterval);
+
+    // EVENT LISTENER (Primary, Instant)
+    duckingListener = () => {
+        if (!video) return;
+        // If volume drifts significantly from target, snap it back
+        // Allow small floating point variance (e.g. 0.0001)
+        if (Math.abs(video.volume - targetVolume) > 0.01) {
+            video.volume = targetVolume;
         }
     };
-    duckingInterval = setInterval(enforce, 200);
+    video.addEventListener('volumechange', duckingListener);
+
+    // INTERVAL (Failsafe for new video elements or removal of listeners)
+    duckingInterval = setInterval(() => {
+        const v = getMoviePlayer();
+        if (v && Math.abs(v.volume - targetVolume) > 0.01) {
+            v.volume = targetVolume;
+            // Re-attach listener if missing
+            if (duckingListener) {
+                v.removeEventListener('volumechange', duckingListener);
+                v.addEventListener('volumechange', duckingListener);
+            }
+        }
+    }, 1000); // Check every second just in case
 };
 
 const stopActiveDucking = async (restoreTo: number) => {
+    const video = getMoviePlayer();
+
     // 1. Stop Enforcing
+    if (video && duckingListener) {
+        video.removeEventListener('volumechange', duckingListener);
+        duckingListener = null;
+    }
     if (duckingInterval) {
         clearInterval(duckingInterval);
         duckingInterval = null;

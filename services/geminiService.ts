@@ -240,6 +240,61 @@ export const generateDJIntro = async (
     ? `PLAYLIST CONTEXT (Surrounding Tracks): \n${playlistContext.join('\n')}`
     : "No playlist context.";
 
+  // Determine Style Instruction based on Enum
+  let styleInstruction = "";
+  switch (style) {
+    case DJStyle.STANDARD:
+      styleInstruction = `
+        ROLE: Professional Commercial Radio DJ (Morning/Afternoon Drive).
+        TONE: High energy, fast-paced, slick, and confident.
+        CONTENT: 
+        - Briefly mention the time of day or vibe (e.g., "Cruising through your afternoon...", "Waking you up...").
+        - Mention the station name "Hori-s FM" naturally.
+        - Bridge the two songs using a common theme, contrast, or energy shift.
+        - SEARCH GOAL: Find one cool fact about the artist or song (Year, Genre, Hometown) and weave it in quickly.
+      `;
+      break;
+    case DJStyle.CHILL:
+      styleInstruction = `
+        ROLE: Late-night 'Quiet Storm' or Lo-Fi Radio Host.
+        TONE: Deep, soothing, slow, intimate, and relaxed. ASMR-adjacent.
+        CONTENT:
+        - Set a mood. Focus on feelings, atmosphere, and relaxation.
+        - Use words like "smooth", "vibes", "relax", "unwind".
+        - Minimal facts, more about the sonic experience.
+        - SEARCH GOAL: Check if the song has a specific mood or interesting production backstory.
+      `;
+      break;
+    case DJStyle.TECHNICAL:
+      styleInstruction = `
+        ROLE: Music Historian / Encyclopedia.
+        TONE: Geeky, enthusiastic, precise, and educational.
+        CONTENT:
+        - Focus PURELY on the metadata: Release year, Producer, Sample source, or Record Label.
+        - Less "personality", more "information".
+        - Treat the listener like a fellow audiophile.
+        - SEARCH GOAL: Find DEEP CUT trivia. Who produced it? What year? Who originally wrote it?
+      `;
+      break;
+    case DJStyle.MINIMAL:
+      styleInstruction = `
+        ROLE: Automated Voice / Minimal Announcer.
+        TONE: Neutral, robotic, efficient.
+        CONTENT:
+        - STRICT FORMAT: "That was [Artist] with [Title]. Up next is [Next Title] by [Next Artist]."
+        - Zero fluff. No station ID. No greeting.
+      `;
+      break;
+    case DJStyle.CUSTOM:
+      styleInstruction = `
+        ROLE: Custom User Persona.
+        INSTRUCTION: ${customPrompt ? customPrompt : "Be a standard DJ."}
+      `;
+      break;
+    default:
+      styleInstruction = "ROLE: Standard Radio DJ. Be professional and smooth.";
+  }
+
   if (nextSong?.requestedBy) {
     prompt = `
        You are a Radio DJ on "Horis FM". A listener named "${nextSong.requestedBy}" has requested the song "${nextSong.title}" by "${nextSong.artist}".
@@ -252,47 +307,34 @@ export const generateDJIntro = async (
        ${voiceInstruction}
        `;
   }
-  else if (style === DJStyle.CUSTOM && customPrompt) {
-    prompt = `
-        You are a Radio DJ transitioning from "${currentSong.title}" by ${currentSong.artist} to "${nextSong?.title || 'Unknown'}" by ${nextSong?.artist || 'Unknown'}.
-        
-        FOLLOW THESE CUSTOM INSTRUCTIONS STRICTLY:
-        ${customPrompt}
-        
-        Output ONLY the spoken text. No *asterisks* or (parentheses).
-        Important: ${langInstruction}
-        ${voiceInstruction}
-        `;
-  }
   else {
     prompt = `
       You are a specific persona: A Radio DJ on "Horis FM".
       
       CURRENT SITUATION:
       - Song Ending: "${currentSong.title}" by ${currentSong.artist}
-      - Song Starting: "${nextSong?.title}" by ${nextSong?.artist}
+      - Song Starting: "${nextSong?.title}" by "${nextSong?.artist}"
       - Time: ${context} (${timeString})
       
       ${historyBlock}
       ${playlistBlock}
 
       TASK:
-      Generate a short, engaging DJ transition between these two songs.
+      Generate a short, radio-realistic transition script.
+      MAX LENGTH: ${style === DJStyle.MINIMAL ? "15 words" : "45 words"}.
+      
+      STYLE PROTOCOL:
+      ${styleInstruction}
       
       TOOLS AVAILABLE:
-      - You have access to Google web Search tool.
-      - USE IT to find the **Genre**, **Year**, or **Interesting Trivia** about the songs/artists if you don't know them.
-      - Use this info to make the link relevant (e.g. "Keeping with the 80s vibes..." or "Switching from Jazz to Rock...").
-      
-      STYLE INSTRUCTIONS (${style}):
-      ${style === DJStyle.MINIMAL ? "Just say the song names." : "Be conversational, knowledgeable, and smooth."}
-      ${customPrompt ? `USER CUSTOM INSTRUCTION: ${customPrompt}` : ""}
+      - You have access to Google Search.
+      - USE IT to find fresh info if needed to make the link relevant.
+      - DO NOT just list facts. Weave them into the flow.
       
       CONSTRAINTS:
-      - Keep it under 40 words.
-      - Do NOT output stage directions.
-      - Do NOT output the search results directly, just weave the knowledge into the speech.
-      - Reference previous tracks or future tracks from the playlist context ONLY if relevant to the flow.
+      - Do NOT output stage directions (e.g. *scratches record*).
+      - Do NOT say "Here is the script" or "Transition:".
+      - Output ONLY the spoken words.
       
       Important: ${langInstruction}
       ${voiceInstruction}
