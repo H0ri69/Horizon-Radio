@@ -1,5 +1,6 @@
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 import { Song, DJStyle, DJVoice, AppLanguage } from '../types';
+import { GEMINI_CONFIG, DJ_STYLE_PROMPTS, VOICE_DIRECTIONS, TTS_INSTRUCTIONS, METADATA_IDENTIFICATION_PROMPT, getLanguageInstruction } from '../src/config';
 
 const getClient = () => {
   const apiKey = process.env.API_KEY;
@@ -9,8 +10,8 @@ const getClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-const TEXT_MODEL = "gemini-2.5-flash";
-const TTS_MODEL = "gemini-2.5-flash-preview-tts";
+const TEXT_MODEL = GEMINI_CONFIG.TEXT_MODEL;
+const TTS_MODEL = GEMINI_CONFIG.TTS_MODEL;
 
 const createWavHeader = (dataLength: number, sampleRate: number = 24000) => {
   const numChannels = 1;
@@ -67,7 +68,7 @@ const processAudioResponse = (response: any): ArrayBuffer | null => {
 };
 
 // Robust Retry Logic for API Calls
-async function callWithRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
+async function callWithRetry<T>(fn: () => Promise<T>, retries = GEMINI_CONFIG.RETRY_COUNT, delay = GEMINI_CONFIG.RETRY_DELAY): Promise<T> {
   try {
     return await fn();
   } catch (e: any) {
@@ -101,9 +102,7 @@ const cleanTextForTTS = (text: string): string => {
 export const identifySongMetadata = async (filename: string): Promise<{ artist: string, title: string }> => {
   try {
     const ai = getClient();
-    const prompt = `Analyze this filename: "${filename}". Extract the Artist and Song Title. 
-    If the filename is generic (e.g. "track1.mp3"), try to guess if it's a famous song, otherwise use "Unknown Artist" and the filename as title.
-    Return ONLY a JSON object with keys "artist" and "title".`;
+    const prompt = METADATA_IDENTIFICATION_PROMPT(filename);
 
     const response: GenerateContentResponse = await callWithRetry(() => ai.models.generateContent({
       model: TEXT_MODEL,
@@ -154,13 +153,7 @@ const generateScript = async (prompt: string): Promise<string | null> => {
 };
 
 const getTTSInstruction = (voice: DJVoice): string => {
-  if (voice === 'Charon') {
-    return "Speak with a deep, resonant, confidential, and professional tone, like a late-night podcast host: ";
-  }
-  if (voice === 'Kore') {
-    return "Speak in a clear, natural, balanced, and conversational tone, not overly hyped: ";
-  }
-  return "";
+  return TTS_INSTRUCTIONS[voice] || "";
 };
 
 const speakText = async (text: string, voice: DJVoice): Promise<ArrayBuffer | null> => {
@@ -199,13 +192,7 @@ const speakText = async (text: string, voice: DJVoice): Promise<ArrayBuffer | nu
 
 // Helper to provide specific acting directions based on the requested voice
 const getVoiceDirection = (voice: DJVoice): string => {
-  if (voice === 'Charon') {
-    return "Acting Direction: You are a late-night podcast host. Write with a deep, confidential, and professional persona. Use calm, steady, and authoritative phrasing. Do not rush. Use ellipses for pauses.";
-  }
-  if (voice === 'Kore') {
-    return "Acting Direction: You are a friendly, natural speaker. Write with a balanced, conversational tone. Avoid 'hype' words or exclamation marks. Keep it grounded and normal, like talking to a friend.";
-  }
-  return "";
+  return VOICE_DIRECTIONS[voice] || "";
 };
 
 const getTimeOfDay = (): { context: string, greeting: string } => {
@@ -229,7 +216,7 @@ export const generateDJIntro = async (
 ): Promise<ArrayBuffer | null> => {
 
   let prompt = "";
-  const langInstruction = language === 'cs' ? "Speak in Czech language." : language === 'ja' ? "Speak in Japanese language." : "Speak in English.";
+  const langInstruction = getLanguageInstruction(language);
   const voiceInstruction = getVoiceDirection(voice);
 
   const timeString = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -246,70 +233,11 @@ export const generateDJIntro = async (
 
   // Determine Style Instruction based on Enum
   let styleInstruction = "";
-  switch (style) {
-    case DJStyle.STANDARD:
-      styleInstruction = `
-        ROLE: Professional Commercial Radio DJ (Morning/Afternoon Drive).
-        TONE: High energy, fast-paced, slick, and confident.
-        CONTENT: 
-        - Briefly mention the time of day or vibe (e.g., "Cruising through your afternoon...", "Waking you up...").
-        - Mention the station name "Hori-s FM" naturally.
-        - Bridge the two songs using a common theme, contrast, or energy shift.
-        - SEARCH GOAL: Find one cool fact about the artist or song (Year, Genre, Hometown) and weave it in quickly.
-      `;
-      break;
-    case DJStyle.CHILL:
-      styleInstruction = `
-        ROLE: Late-night 'Quiet Storm' or Lo-Fi Radio Host.
-        TONE: Deep, soothing, slow, intimate, and relaxed. ASMR-adjacent.
-        CONTENT:
-        - Set a mood. Focus on feelings, atmosphere, and relaxation.
-        - Use words like "smooth", "vibes", "relax", "unwind".
-        - Minimal facts, more about the sonic experience.
-        - SEARCH GOAL: Check if the song has a specific mood or interesting production backstory.
-      `;
-      break;
-    case DJStyle.TECHNICAL:
-      styleInstruction = `
-        ROLE: Music Historian / Encyclopedia.
-        TONE: Geeky, enthusiastic, precise, and educational.
-        CONTENT:
-        - Focus PURELY on the metadata: Release year, Producer, Sample source, or Record Label.
-        - Less "personality", more "information".
-        - Treat the listener like a fellow audiophile.
-        - SEARCH GOAL: Find DEEP CUT trivia. Who produced it? What year? Who originally wrote it?
-      `;
-      break;
-    case DJStyle.MINIMAL:
-      styleInstruction = `
-        ROLE: Automated Voice / Minimal Announcer.
-        TONE: Neutral, robotic, efficient.
-        CONTENT:
-        - STRICT FORMAT: "That was [Artist] with [Title]. Up next is [Next Title] by [Next Artist]."
-        - Zero fluff. No station ID. No greeting.
-      `;
-      break;
-    case DJStyle.CUSTOM:
-      styleInstruction = `
-        ROLE: Custom User Persona.
-        INSTRUCTION: ${customPrompt ? customPrompt : "Be a standard DJ."}
-      `;
-      break;
-    case DJStyle.DRUNK:
-      styleInstruction = `
-        ROLE: A visibly drunk woman walking home from a pub late at night.
-        TONE: Slurred, confused, overly emotional, rambling, and forgetting things.
-        CONTENT:
-        - You are walking home alone, listening to music on your headphones.
-        - You are tipsy/drunk. You start sentences and forget where they were going.
-        - You get distracted by things (streetlights, cats, cold wind, your shoes hurting).
-        - "Talk bullshit" - ramble about life, exes, or how much you love this song (even if you forget the name).
-        - Struggle to pronounce the artist name or song title correctly.
-        - INTERRUPT YOURSELF.
-      `;
-      break;
-    default:
-      styleInstruction = "ROLE: Standard Radio DJ. Be professional and smooth.";
+  if (style === DJStyle.CUSTOM) {
+     const customFunc = DJ_STYLE_PROMPTS[DJStyle.CUSTOM] as (p: string) => string;
+     styleInstruction = customFunc(customPrompt || "");
+  } else {
+     styleInstruction = (DJ_STYLE_PROMPTS[style] as string) || "ROLE: Standard Radio DJ. Be professional and smooth.";
   }
 
   if (nextSong?.requestedBy) {
@@ -380,7 +308,7 @@ export const generateCallBridging = async (
   language: AppLanguage
 ): Promise<{ intro: ArrayBuffer | null, outro: ArrayBuffer | null }> => {
 
-  const langInstruction = language === 'cs' ? "Speak in Czech language." : language === 'ja' ? "Speak in Japanese language." : "Speak in English.";
+  const langInstruction = getLanguageInstruction(language);
   const voiceInstruction = getVoiceDirection(voice);
 
   const introPrompt = `

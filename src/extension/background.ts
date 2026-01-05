@@ -1,5 +1,6 @@
 import { generateDJIntro } from '../../services/geminiService';
 import { Song, DJStyle, DJVoice } from '../../types';
+import { EXTENSION_CONFIG } from '../config';
 
 // Helper to convert ArrayBuffer to Base64
 function arrayBufferToBase64(buffer: ArrayBuffer) {
@@ -12,7 +13,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer) {
     return btoa(binary);
 }
 
-const MAX_HISTORY = 5;
+const MAX_HISTORY = EXTENSION_CONFIG.MAX_HISTORY;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'GENERATE_INTRO') {

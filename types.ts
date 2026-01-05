@@ -19,13 +19,7 @@ export interface VoiceProfile {
   emotion: string;
 }
 
-export const VOICE_PROFILES: VoiceProfile[] = [
-  { id: 'Charon', name: 'Charon', gender: 'Male', tone: 'Deep/Pro', emotion: 'Confidential' },
-  { id: 'Kore', name: 'Kore', gender: 'Female', tone: 'Natural', emotion: 'Balanced' },
-  { id: 'Puck', name: 'Puck', gender: 'Male', tone: 'Playful', emotion: 'Mischievous' },
-  { id: 'Fenrir', name: 'Fenrir', gender: 'Male', tone: 'Intense', emotion: 'Aggressive' },
-  { id: 'Zephyr', name: 'Zephyr', gender: 'Female', tone: 'Gentle', emotion: 'Breezy' },
-];
+
 
 export type DJVoice = string; // Using string to allow flexibility, but typically matches VoiceProfile.id
 
@@ -52,65 +46,7 @@ export type AppTheme = 'CYBER' | 'ANIME' | 'RETRO';
 export type ColorPalette = 'NEON' | 'PASTEL' | 'MIDNIGHT' | 'GOLD';
 export type AppLanguage = 'en' | 'cs' | 'ja';
 
-export const TEXT_LABELS = {
-  en: {
-    listen: 'LISTEN',
-    resume: 'RESUME SESSION',
-    settings: 'SETTINGS',
-    language: 'LANGUAGE: ENGLISH',
-    menu: 'MENU',
-    call: 'CALL',
-    req: 'REQ',
-    live: 'LIVE BROADCAST',
-    onAir: 'ON AIR',
-    dialing: 'DIALING...',
-    callIn: 'CALL IN',
-    requestSong: 'REQUEST SONG',
-    end: 'END',
-    nextOp: 'NEXT_OP',
-    voice: 'VOICE_OVER',
-    autoMix: 'AUTO_MIX',
-    sysStatus: 'SYS.STATUS'
-  },
-  cs: {
-    listen: 'POSLOUCHAT',
-    resume: 'OBNOVIT RELACI',
-    settings: 'NASTAVENÍ',
-    language: 'JAZYK: ČEŠTINA',
-    menu: 'MENU',
-    call: 'VOLAT',
-    req: 'ŽÁDOST',
-    live: 'ŽIVÉ VYSÍLÁNÍ',
-    onAir: 'NA PŘÍJMU',
-    dialing: 'VYTÁČÍM...',
-    callIn: 'ZAVOLAT',
-    requestSong: 'PŘIDAT',
-    end: 'KONEC',
-    nextOp: 'DALŠÍ_AKCE',
-    voice: 'HLAS_DJ',
-    autoMix: 'AUTO_MIX',
-    sysStatus: 'SYS.STAV'
-  },
-  ja: {
-    listen: 'スタート',
-    resume: 'セッション再開',
-    settings: '設定',
-    language: '言語: 日本語',
-    menu: 'メニュー',
-    call: '通話',
-    req: 'リクエスト',
-    live: 'ライブ放送',
-    onAir: '放送中',
-    dialing: '発信中...',
-    callIn: '電話する',
-    requestSong: '選曲',
-    end: '終了',
-    nextOp: '次の操作',
-    voice: 'DJ音声',
-    autoMix: '自動ミックス',
-    sysStatus: 'システム'
-  }
-};
+
 
 export interface AppSettings {
   theme: AppTheme;
