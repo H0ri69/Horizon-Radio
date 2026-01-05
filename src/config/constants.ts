@@ -8,6 +8,36 @@ export const VOICE_PROFILES: VoiceProfile[] = [
   { id: 'Zephyr', name: 'Zephyr', gender: 'Female', tone: 'Gentle', emotion: 'Breezy' },
 ];
 
+// DJ Persona Names (for dialogue references in multi-DJ mode)
+// Maps voice ID to persona name per language
+export const DJ_PERSONA_NAMES: Record<DJVoice, Record<AppLanguage, string>> = {
+  'Charon': {
+    'en': 'Dave',
+    'cs': 'David',
+    'ja': 'ミハエル'
+  },
+  'Kore': {
+    'en': 'Nataly',
+    'cs': 'Natálie',
+    'ja': 'さら'
+  },
+  'Puck': {
+    'en': 'Alex',
+    'cs': 'Aleš',
+    'ja': 'アレックス'
+  },
+  'Fenrir': {
+    'en': 'Jacob',
+    'cs': 'Kuba',
+    'ja': 'ビクター'
+  },
+  'Zephyr': {
+    'en': 'Laura',
+    'cs': 'Laura',
+    'ja': 'ゾーイ'
+  }
+};
+
 export const THEME_PALETTES = {
   NEON: {
     primary: '#ff2a6d',

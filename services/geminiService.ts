@@ -1,6 +1,6 @@
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 import { Song, DJStyle, DJVoice, AppLanguage } from '../types';
-import { GEMINI_CONFIG, DJ_STYLE_PROMPTS, VOICE_DIRECTIONS, TTS_INSTRUCTIONS, getLanguageInstruction, LENGTH_CONSTRAINT } from '../src/config';
+import { GEMINI_CONFIG, DJ_STYLE_PROMPTS, VOICE_DIRECTIONS, TTS_INSTRUCTIONS, getLanguageInstruction, LENGTH_CONSTRAINT, DJ_PERSONA_NAMES } from '../src/config';
 
 const getClient = () => {
   const apiKey = process.env.API_KEY;
@@ -135,34 +135,29 @@ const getTTSInstruction = (voice: DJVoice): string => {
   return TTS_INSTRUCTIONS[voice] || "";
 };
 
-const speakText = async (text: string, voice: DJVoice, secondaryVoice?: DJVoice): Promise<ArrayBuffer | null> => {
+const speakText = async (
+  text: string, 
+  voice: DJVoice, 
+  secondaryVoice?: DJVoice,
+  personaNameA?: string,
+  personaNameB?: string
+): Promise<ArrayBuffer | null> => {
   try {
-    // CRITICAL: Clean text before sending to TTS model
-    // Clean text - but KEEP "Speaker 1:" / "Speaker 2:" prefixes if present (for Dual DJ)
-    // The previous cleanTextForTTS might strip colon usage we actually want now.
-    // However, the previous regex was `.replace(/[:;]/g, ',')` which would break "Speaker 1:".
-    // We should enable a "dual mode" flag or just be smarter about cleaning.
-    
-    // For now, let's just use cleanTextForTTS but assuming it might need adjustment if it destroys the prefixes.
-    // Looking at line 98: .replace(/[:;]/g, ',') -> This WILL break "Speaker 1: Text". 
-    // We need to update cleanTextForTTS first. (Done below in a separate chunk or I will handle it here by NOT calling it blindly if it has speakers).
-    
     let finalTextInput = text;
     
-    // Check if this looks like a Dual Dictionary script
-    const isDualDj = text.includes("Speaker 1:") || text.includes("Speaker 2:");
+    // Check if this looks like a Dual DJ script (has persona names with colons)
+    // We detect dual mode by checking if personaNameA/B are provided
+    const isDualDj = !!secondaryVoice && !!personaNameA && !!personaNameB;
 
     if (isDualDj) {
-        // partial cleaning for Dual DJ - keep headers
-        // We still want to remove *actions* etc.
-         const cleanedScript = text
+        // Partial cleaning for Dual DJ - keep speaker prefixes (persona names)
+        const cleanedScript = text
             .replace(/\*.*?\*/g, '')
             .replace(/\[.*?\]/g, '')
             .replace(/\(.*?\)/g, '')
             .trim();
          
          // CRITICAL: Prepend direction instruction for multi-speaker TTS
-         // Format: "Read aloud in [tone]\nSpeaker 1: ...\nSpeaker 2: ..."
          const direction = "Read aloud in a natural, conversational radio DJ tone";
          finalTextInput = `${direction}\n${cleanedScript}`;
     } else {
@@ -180,18 +175,18 @@ const speakText = async (text: string, voice: DJVoice, secondaryVoice?: DJVoice)
     const ai = getClient();
     
     // Build speech config based on single vs dual DJ mode
-    const speechConfig: any = isDualDj && secondaryVoice ? {
-      // Multi-speaker configuration
+    const speechConfig: any = isDualDj && secondaryVoice && personaNameA && personaNameB ? {
+      // Multi-speaker configuration using actual persona names
       multiSpeakerVoiceConfig: {
         speakerVoiceConfigs: [
           {
-            speaker: "Speaker 1",
+            speaker: personaNameA, // Use actual name like "Mike" instead of "Speaker 1"
             voiceConfig: {
               prebuiltVoiceConfig: { voiceName: voice },
             },
           },
           {
-            speaker: "Speaker 2",
+            speaker: personaNameB, // Use actual name like "Sarah" instead of "Speaker 2"
             voiceConfig: {
               prebuiltVoiceConfig: { voiceName: secondaryVoice },
             },
@@ -234,11 +229,17 @@ const getTimeOfDay = (): { context: string, greeting: string } => {
 };
 
 // Deprecated or simplified: In Single-Shot mode, we just pass the whole script to speakText.
-const synthesizeDialogue = async (script: string, voiceA: DJVoice, voiceB: DJVoice): Promise<ArrayBuffer | null> => {
-    // Just pass the full script with "Speaker 1:" / "Speaker 2:" directly to TTS.
+const synthesizeDialogue = async (
+  script: string, 
+  voiceA: DJVoice, 
+  voiceB: DJVoice,
+  personaNameA: string,
+  personaNameB: string
+): Promise<ArrayBuffer | null> => {
+    // Just pass the full script with persona names (e.g., "Mike:", "Sarah:") directly to TTS.
     // The model (gemini-2.5-flash-preview-tts) handles multi-speaker generation if formatted correctly.
     console.log(`[Dual DJ] Synthesizing full conversation at once...`);
-    return speakText(script, voiceA, voiceB); // Pass both voices
+    return speakText(script, voiceA, voiceB, personaNameA, personaNameB); // Pass both voices and names
 };
 
 export const generateDJIntro = async (
@@ -282,10 +283,14 @@ export const generateDJIntro = async (
     : "No playlist context.";
 
   if (dualDjMode) {
+    // Get persona names for the selected voices in the current language
+    const host1Name = DJ_PERSONA_NAMES[voice]?.[language] || 'DJ 1';
+    const host2Name = DJ_PERSONA_NAMES[secondaryVoice]?.[language] || 'DJ 2';
+    
     prompt = `
        You are TWO Radio DJs covering a shift together on "Horis FM".
-       HOST 1 (Main): ${voice} (${getVoiceDirection(voice)})
-       HOST 2 (Co-Host): ${secondaryVoice} (${getVoiceDirection(secondaryVoice)})
+       HOST 1 (Main): Named "${host1Name}", voice is ${voice} (${getVoiceDirection(voice)})
+       HOST 2 (Co-Host): Named "${host2Name}", voice is ${secondaryVoice} (${getVoiceDirection(secondaryVoice)})
        
        CURRENT SITUATION:
        - Song Ending: "${currentSong.title}" by ${currentSong.artist}
@@ -299,22 +304,22 @@ export const generateDJIntro = async (
        ${playlistBlock}
 
        TASK:
-       Write a short, banter-filled dialogue script between the two DJs transitioning the songs.
+       Write a short, banter-filled dialogue script between ${host1Name} and ${host2Name} transitioning the songs.
        
        OUTPUT FORMAT (STRICT):
-       Every single line MUST start with either "Speaker 1: " or "Speaker 2: " followed by their dialogue.
+       Every single line MUST start with either "${host1Name}: " or "${host2Name}: " followed by their dialogue.
        Example:
-       Speaker 1: That was incredible!
-       Speaker 2: Absolutely loved it! Now here's something special...
-       Speaker 1: You're going to love this next track.
+       ${host1Name}: That was incredible!
+       ${host2Name}: Absolutely loved it! Now here's something special...
+       ${host1Name}: You're going to love this next track.
        
        ${LENGTH_CONSTRAINT}
        
        CRITICAL CONSTRAINTS:
-       - DO NOT include ANY text that is not prefixed with "Speaker 1: " or "Speaker 2: "
+       - DO NOT include ANY text that is not prefixed with "${host1Name}: " or "${host2Name}: "
        - DO NOT add stage directions, descriptions, or narration
        - DO NOT add introductory text like "Here's the script:" or concluding text
-       - Every line MUST have the speaker prefix
+       - Every line MUST have the speaker prefix (either ${host1Name} or ${host2Name})
        - Output ONLY the dialogue lines in the exact format shown above
        
        Important: ${langInstruction}
@@ -331,7 +336,7 @@ export const generateDJIntro = async (
     console.log(`[Gemini] 🤖 GENERATED DIALOGUE:\n"${script}"`);
     console.log("------------------------------------------------");
 
-    return synthesizeDialogue(script, voice, secondaryVoice);
+    return synthesizeDialogue(script, voice, secondaryVoice, host1Name, host2Name);
   }
 
   // --- STANDARD SINGLE DJ LOGIC ---
