@@ -34,7 +34,26 @@ let state: State = {
 };
 
 // --- DOM UTILS ---
-const getMoviePlayer = () => document.querySelector("video");
+// --- DOM UTILS ---
+const getMoviePlayer = () => {
+  const videos = Array.from(document.querySelectorAll("video"));
+  if (videos.length === 0) return null;
+
+  // If only one, return it
+  if (videos.length === 1) return videos[0];
+
+  // If multiple, try to find the "active" one
+  // Criteria 1: It is playing (!paused)
+  const playing = videos.filter(v => !v.paused);
+  if (playing.length === 1) return playing[0]; // Exactly one playing
+  if (playing.length > 1) return playing[0]; // Ambiguous, take first playing?
+
+  // Criteria 2: It has a source and duration
+  const valid = videos.filter(v => v.src && v.duration > 0);
+  if (valid.length > 0) return valid[valid.length - 1]; // Often the *last* inserted video is the new one in SPAs?
+
+  return videos[0];
+};
 
 const getSongInfo = () => {
   // 1. Current Song Parsers - SCOPED TO PLAYER BAR
@@ -145,6 +164,41 @@ function itemIndexToLabel(index: number, current: number): string {
   if (index > current) return `[UP NEXT +${index - current}]`;
   return `[PREVIOUS -${current - index}]`;
 }
+
+// --- TIME SCRAPING UTILS ---
+const getScrapedTime = (): { currentTime: number; duration: number } | null => {
+  const progressBar = document.querySelector("#progress-bar");
+
+  if (progressBar) {
+    // Primary method: ARIA values on the slider
+    const now = parseInt(progressBar.getAttribute("aria-valuenow") || "0", 10);
+    const max = parseInt(progressBar.getAttribute("aria-valuemax") || "0", 10);
+
+    // YTM uses seconds for these attributes
+    if (!isNaN(now) && !isNaN(max) && max > 0) {
+      return { currentTime: now, duration: max };
+    }
+  }
+
+  // Fallback: Time Text (e.g., "1:11 / 3:11")
+  const timeInfo = document.querySelector(".time-info");
+  if (timeInfo && timeInfo.textContent) {
+    const parts = timeInfo.textContent.split("/").map(s => s.trim());
+    if (parts.length === 2) {
+      const parseTime = (str: string) => {
+        const [m, s] = str.split(":").map(Number);
+        return (m * 60) + s;
+      };
+      const now = parseTime(parts[0]);
+      const max = parseTime(parts[1]);
+      if (!isNaN(now) && !isNaN(max) && max > 0) {
+        return { currentTime: now, duration: max };
+      }
+    }
+  }
+
+  return null;
+};
 
 // --- AUDIO SYSTEM ---
 const audioEl = document.createElement("audio");
@@ -300,21 +354,25 @@ const mainLoop = setInterval(() => {
     mountReactApp();
   }
 
+  // --- TIME SOURCE ---
+  // We use the UI scraping as the source of truth
+  const timeData = getScrapedTime();
+  if (!timeData) return; // Wait for UI to be ready
+  const { currentTime, duration } = timeData;
+
   const video = getMoviePlayer();
-  if (!video || !video.duration) return;
+  // We still need video for paused state, but NOT for time
+  const isPaused = video ? video.paused : false;
 
   // Heartbeat logging (every 10 seconds while playing)
-  const isPaused = video.paused;
-  if (!isPaused && Math.floor(video.currentTime) % 10 === 0) {
-    console.log(`[Hori-s:Heartbeat] Status: ${state.status}, Time: ${Math.round(video.currentTime)}s / ${Math.round(video.duration)}s, Sig: ${state.currentSongSig}`);
+  if (!isPaused && Math.floor(currentTime) % 10 === 0) {
+    console.log(`[Hori-s:Heartbeat] Status: ${state.status}, Time: ${Math.round(currentTime)}s / ${Math.round(duration)}s, Sig: ${state.currentSongSig}`);
   }
 
   if (isPaused) return;
 
   const { current, next } = getSongInfo(); // We get playlist context here too
   const sig = `${current.title}|${current.artist}`;
-  const currentTime = video.currentTime;
-  const duration = video.duration;
   const timeLeft = duration - currentTime;
 
   // --- RESET LOGIC ---
@@ -350,10 +408,10 @@ const mainLoop = setInterval(() => {
   if (state.status === "IDLE" && !alreadyGenerated) {
     // Detailed Evaluation Logging (Throttle to avoid spam)
     if (Math.floor(currentTime) % 2 === 0) {
-       // Only log if we are getting close or if it's suspicious
-       if (currentTime < 10 || (currentTime > duration * 0.4 && currentTime < duration * 0.6)) {
-         console.debug(`[Generator:Eval] ${current.title}: Time=${Math.round(currentTime)}s, Dur=${Math.round(duration)}s, PastHalf=${isPastHalfway}, EnoughTime=${hasEnoughTime}`);
-       }
+      // Only log if we are getting close or if it's suspicious
+      if (currentTime < 10 || (currentTime > duration * 0.4 && currentTime < duration * 0.6)) {
+        console.debug(`[Generator:Eval] ${current.title}: Time=${Math.round(currentTime)}s, Dur=${Math.round(duration)}s, PastHalf=${isPastHalfway}, EnoughTime=${hasEnoughTime}`);
+      }
     }
 
     if (isPastHalfway && hasEnoughTime) {
@@ -460,7 +518,12 @@ const mainLoop = setInterval(() => {
 
   // --- PLAYBACK TRIGGER ---
   // Play when song is ending (e.g. last 12 seconds)
-  if (state.status === "READY" && timeLeft < 12 && timeLeft > 1) {
-    playBufferedAudio();
+  // Re-check time here because async operations might have passed
+  const freshTime = getScrapedTime();
+  if (state.status === "READY" && freshTime) {
+    const freshLeft = freshTime.duration - freshTime.currentTime;
+    if (freshLeft < 12 && freshLeft > 1) {
+      playBufferedAudio();
+    }
   }
 }, 1000);
