@@ -44,10 +44,20 @@ interface SpeechConfig {
   };
 }
 
-const getClient = () => {
-  const apiKey = process.env.API_KEY;
+const getClient = async () => {
+  const apiKey = await new Promise<string>((resolve) => {
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(["horisFmSettings"], (result) => {
+        const settings = result.horisFmSettings as { apiKey?: string } | undefined;
+        resolve(settings?.apiKey || process.env.API_KEY || "");
+      });
+    } else {
+      resolve(process.env.API_KEY || "");
+    }
+  });
+
   if (!apiKey || apiKey === "your_api_key_here") {
-    throw new Error("Invalid API Key. Please update .env");
+    throw new Error("Invalid API Key. Please configure it in the Hori-s.FM extension settings.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -139,8 +149,7 @@ async function callWithRetry<T>(
 
     if (retries > 0 && isRetryable) {
       console.warn(
-        `Gemini API Error (${
-          error.status || error.code || "Unknown"
+        `Gemini API Error (${error.status || error.code || "Unknown"
         }). Retrying in ${delay}ms... (${retries} attempts left)`
       );
       await new Promise((resolve) => setTimeout(resolve, delay));
@@ -170,7 +179,7 @@ const cleanTextForTTS = (text: string, partialClean: boolean = false): string =>
 
 const generateScript = async (prompt: string): Promise<string | null> => {
   try {
-    const ai = getClient();
+    const ai = await getClient();
     const response: GenerateContentResponse = await callWithRetry(() =>
       ai.models.generateContent({
         model: TEXT_MODEL,
@@ -232,36 +241,36 @@ const speakText = async (
       `[Gemini] 🗣️ TTS Input (Dual=${isDualDj}): "${finalTextInput.substring(0, 100)}..."`
     );
 
-    const ai = getClient();
+    const ai = await getClient();
 
     // Build speech config based on single vs dual DJ mode
     const speechConfig: SpeechConfig =
       isDualDj && secondaryVoice && personaNameA && personaNameB
         ? {
-            // Multi-speaker configuration using actual persona names
-            multiSpeakerVoiceConfig: {
-              speakerVoiceConfigs: [
-                {
-                  speaker: personaNameA, // Use actual name like "Mike" instead of "Speaker 1"
-                  voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: voice },
-                  },
+          // Multi-speaker configuration using actual persona names
+          multiSpeakerVoiceConfig: {
+            speakerVoiceConfigs: [
+              {
+                speaker: personaNameA, // Use actual name like "Mike" instead of "Speaker 1"
+                voiceConfig: {
+                  prebuiltVoiceConfig: { voiceName: voice },
                 },
-                {
-                  speaker: personaNameB, // Use actual name like "Sarah" instead of "Speaker 2"
-                  voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: secondaryVoice },
-                  },
+              },
+              {
+                speaker: personaNameB, // Use actual name like "Sarah" instead of "Speaker 2"
+                voiceConfig: {
+                  prebuiltVoiceConfig: { voiceName: secondaryVoice },
                 },
-              ],
-            },
-          }
+              },
+            ],
+          },
+        }
         : {
-            // Single speaker configuration
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: voice },
-            },
-          };
+          // Single speaker configuration
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: voice },
+          },
+        };
 
     const response = await callWithRetry(
       () =>
@@ -468,9 +477,8 @@ export const generateCallBridging = async (
 
   const outroPrompt = `
     You are a radio DJ. You just finished talking to a listener named "${callerName}".
-    Now you need to introduce the next song: "${nextSong?.title || "Unknown"}" by "${
-    nextSong?.artist || "Unknown"
-  }".
+    Now you need to introduce the next song: "${nextSong?.title || "Unknown"}" by "${nextSong?.artist || "Unknown"
+    }".
     
     Write a short outro thanking the caller and introducing the track.
     Example: "Thanks for calling in, [Name]. Here's [Song] by [Artist]."
