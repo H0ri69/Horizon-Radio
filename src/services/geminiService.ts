@@ -1,6 +1,15 @@
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
-import { Song, DJVoice, AppLanguage } from '../types';
-import { GEMINI_CONFIG, DJ_STYLE_PROMPTS, getLanguageInstruction, LENGTH_CONSTRAINT, DJ_PERSONA_NAMES, TTS_DUAL_DJ_DIRECTION, DEFAULT_DJ_STYLE, DJStyle } from '../config';
+import { Song, DJVoice, AppLanguage } from "../types";
+import {
+  GEMINI_CONFIG,
+  DJ_STYLE_PROMPTS,
+  getLanguageInstruction,
+  LENGTH_CONSTRAINT,
+  DJ_PERSONA_NAMES,
+  TTS_DUAL_DJ_DIRECTION,
+  DEFAULT_DJ_STYLE,
+  DJStyle,
+} from "../config";
 
 // Type definitions for better type safety
 interface GeminiErrorResponse {
@@ -37,7 +46,7 @@ interface SpeechConfig {
 
 const getClient = () => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey || apiKey === 'your_api_key_here') {
+  if (!apiKey || apiKey === "your_api_key_here") {
     throw new Error("Invalid API Key. Please update .env");
   }
   return new GoogleGenAI({ apiKey });
@@ -55,10 +64,10 @@ const createWavHeader = (dataLength: number, sampleRate: number = 24000) => {
   const buffer = new ArrayBuffer(44);
   const view = new DataView(buffer);
 
-  writeString(view, 0, 'RIFF');
+  writeString(view, 0, "RIFF");
   view.setUint32(4, 36 + dataLength, true);
-  writeString(view, 8, 'WAVE');
-  writeString(view, 12, 'fmt ');
+  writeString(view, 8, "WAVE");
+  writeString(view, 12, "fmt ");
   view.setUint32(16, 16, true);
   view.setUint16(20, 1, true);
   view.setUint16(22, numChannels, true);
@@ -66,7 +75,7 @@ const createWavHeader = (dataLength: number, sampleRate: number = 24000) => {
   view.setUint32(28, byteRate, true);
   view.setUint16(32, blockAlign, true);
   view.setUint16(34, bitsPerSample, true);
-  writeString(view, 36, 'data');
+  writeString(view, 36, "data");
   view.setUint32(40, dataLength, true);
 
   return buffer;
@@ -104,20 +113,37 @@ const processAudioResponse = (response: AudioResponseData): ArrayBuffer | null =
 };
 
 // Robust Retry Logic for API Calls
-async function callWithRetry<T>(fn: () => Promise<T>, retries = GEMINI_CONFIG.RETRY_COUNT, delay = GEMINI_CONFIG.RETRY_DELAY): Promise<T> {
+async function callWithRetry<T>(
+  fn: () => Promise<T>,
+  retries = GEMINI_CONFIG.RETRY_COUNT,
+  delay = GEMINI_CONFIG.RETRY_DELAY
+): Promise<T> {
   try {
     return await fn();
   } catch (e) {
     const error = e as GeminiErrorResponse;
     // Retry on Rate Limits (429) AND Internal Server Errors (500, 503)
-    const isRetryable = error.status === 429 || error.code === 429 ||
-      error.status === 500 || error.code === 500 ||
-      error.status === 503 || error.code === 503 ||
-      (error.message && (error.message.includes('429') || error.message.includes('quota') || error.message.includes('500') || error.message.includes('503') || error.message.includes('INTERNAL')));
+    const isRetryable =
+      error.status === 429 ||
+      error.code === 429 ||
+      error.status === 500 ||
+      error.code === 500 ||
+      error.status === 503 ||
+      error.code === 503 ||
+      (error.message &&
+        (error.message.includes("429") ||
+          error.message.includes("quota") ||
+          error.message.includes("500") ||
+          error.message.includes("503") ||
+          error.message.includes("INTERNAL")));
 
     if (retries > 0 && isRetryable) {
-      console.warn(`Gemini API Error (${error.status || error.code || 'Unknown'}). Retrying in ${delay}ms... (${retries} attempts left)`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      console.warn(
+        `Gemini API Error (${
+          error.status || error.code || "Unknown"
+        }). Retrying in ${delay}ms... (${retries} attempts left)`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
       return callWithRetry(fn, retries - 1, delay * 2);
     }
     throw error;
@@ -128,36 +154,35 @@ async function callWithRetry<T>(fn: () => Promise<T>, retries = GEMINI_CONFIG.RE
 const cleanTextForTTS = (text: string, partialClean: boolean = false): string => {
   if (!text) return "";
   let cleaned = text
-    .replace(/\*.*?\*/g, '')      // Remove *actions*
-    .replace(/\[.*?\]/g, '')      // Remove [instructions]
-    .replace(/\(.*?\)/g, '');     // Remove (notes)
+    .replace(/\*.*?\*/g, "") // Remove *actions*
+    .replace(/\[.*?\]/g, "") // Remove [instructions]
+    .replace(/\(.*?\)/g, ""); // Remove (notes)
 
   // Full clean: also remove quotes and replace punctuation
   if (!partialClean) {
     cleaned = cleaned
-      .replace(/["]+/g, '')       // Remove quotes
-      .replace(/[:;]/g, ',');     // Replace colons/semicolons with commas for flow
+      .replace(/["]+/g, "") // Remove quotes
+      .replace(/[:;]/g, ","); // Replace colons/semicolons with commas for flow
   }
 
   return cleaned.trim();
 };
 
-
-
-
-
 const generateScript = async (prompt: string): Promise<string | null> => {
   try {
     const ai = getClient();
-    const response: GenerateContentResponse = await callWithRetry(() => ai.models.generateContent({
-      model: TEXT_MODEL,
-      contents: [{ parts: [{ text: prompt }] }],
-      config: {
-        thinkingConfig: {
-          thinkingBudget: 0 // Set to 0 to disable thinking
-        }, tools: [{ googleSearch: {} }]
-      }
-    }));
+    const response: GenerateContentResponse = await callWithRetry(() =>
+      ai.models.generateContent({
+        model: TEXT_MODEL,
+        contents: [{ parts: [{ text: prompt }] }],
+        config: {
+          thinkingConfig: {
+            thinkingBudget: 0, // Set to 0 to disable thinking
+          },
+          tools: [{ googleSearch: {} }],
+        },
+      })
+    );
 
     // Log grounding metadata if available (to verify search is working)
     const grounding = response.candidates?.[0]?.groundingMetadata;
@@ -175,72 +200,82 @@ const generateScript = async (prompt: string): Promise<string | null> => {
 };
 
 const speakText = async (
-  text: string, 
-  voice: DJVoice, 
+  text: string,
+  voice: DJVoice,
   secondaryVoice?: DJVoice,
   personaNameA?: string,
   personaNameB?: string
 ): Promise<ArrayBuffer | null> => {
   try {
     let finalTextInput = text;
-    
+
     // Check if this looks like a Dual DJ script (has persona names with colons)
     // We detect dual mode by checking if personaNameA/B are provided
     const isDualDj = !!secondaryVoice && !!personaNameA && !!personaNameB;
 
     if (isDualDj) {
-        // Partial cleaning for Dual DJ - keep speaker prefixes (persona names with colons)
-        const cleanedScript = cleanTextForTTS(text, true);
+      // Partial cleaning for Dual DJ - keep speaker prefixes (persona names with colons)
+      const cleanedScript = cleanTextForTTS(text, true);
 
-         // CRITICAL: Prepend direction instruction for multi-speaker TTS
-         finalTextInput = `${TTS_DUAL_DJ_DIRECTION}\n${cleanedScript}`;
+      // CRITICAL: Prepend direction instruction for multi-speaker TTS
+      finalTextInput = `${TTS_DUAL_DJ_DIRECTION}\n${cleanedScript}`;
     } else {
-         const cleanedText = cleanTextForTTS(text);
-          if (!cleanedText) {
-            console.warn("TTS skipped: Empty text after cleaning");
-            return null;
-          }
-          finalTextInput = cleanedText;
+      const cleanedText = cleanTextForTTS(text);
+      if (!cleanedText) {
+        console.warn("TTS skipped: Empty text after cleaning");
+        return null;
+      }
+      finalTextInput = cleanedText;
     }
 
-    console.log(`[Gemini] 🗣️ TTS Input (Dual=${isDualDj}): "${finalTextInput.substring(0, 100)}..."`);
+    console.log(
+      `[Gemini] 🗣️ TTS Input (Dual=${isDualDj}): "${finalTextInput.substring(0, 100)}..."`
+    );
 
     const ai = getClient();
-    
+
     // Build speech config based on single vs dual DJ mode
-    const speechConfig: SpeechConfig = isDualDj && secondaryVoice && personaNameA && personaNameB ? {
-      // Multi-speaker configuration using actual persona names
-      multiSpeakerVoiceConfig: {
-        speakerVoiceConfigs: [
-          {
-            speaker: personaNameA, // Use actual name like "Mike" instead of "Speaker 1"
+    const speechConfig: SpeechConfig =
+      isDualDj && secondaryVoice && personaNameA && personaNameB
+        ? {
+            // Multi-speaker configuration using actual persona names
+            multiSpeakerVoiceConfig: {
+              speakerVoiceConfigs: [
+                {
+                  speaker: personaNameA, // Use actual name like "Mike" instead of "Speaker 1"
+                  voiceConfig: {
+                    prebuiltVoiceConfig: { voiceName: voice },
+                  },
+                },
+                {
+                  speaker: personaNameB, // Use actual name like "Sarah" instead of "Speaker 2"
+                  voiceConfig: {
+                    prebuiltVoiceConfig: { voiceName: secondaryVoice },
+                  },
+                },
+              ],
+            },
+          }
+        : {
+            // Single speaker configuration
             voiceConfig: {
               prebuiltVoiceConfig: { voiceName: voice },
             },
-          },
-          {
-            speaker: personaNameB, // Use actual name like "Sarah" instead of "Speaker 2"
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: secondaryVoice },
-            },
-          },
-        ],
-      },
-    } : {
-      // Single speaker configuration
-      voiceConfig: {
-        prebuiltVoiceConfig: { voiceName: voice },
-      },
-    };
+          };
 
-    const response = await callWithRetry(() => ai.models.generateContent({
-      model: TTS_MODEL,
-      contents: [{ parts: [{ text: finalTextInput }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig,
-      },
-    }), 2, 2000); // Specific retry strategy for TTS
+    const response = await callWithRetry(
+      () =>
+        ai.models.generateContent({
+          model: TTS_MODEL,
+          contents: [{ parts: [{ text: finalTextInput }] }],
+          config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig,
+          },
+        }),
+      2,
+      2000
+    ); // Specific retry strategy for TTS
     return processAudioResponse(response);
   } catch (e) {
     console.error("TTS generation failed", e);
@@ -248,7 +283,7 @@ const speakText = async (
   }
 };
 
-const getTimeOfDay = (): { context: string, greeting: string } => {
+const getTimeOfDay = (): { context: string; greeting: string } => {
   const hour = new Date().getHours();
   if (hour >= 5 && hour < 12) return { context: "Morning", greeting: "Good morning" };
   if (hour >= 12 && hour < 17) return { context: "Afternoon", greeting: "Good afternoon" };
@@ -266,14 +301,13 @@ export const generateDJIntro = async (
   upcomingSongTitles: string[] = [], // Kept for compat
   playlistContext: string[] = [], // NEW: Immediate surroundings
   history: string[] = [], // NEW: Previous voiceovers
-  dualDjMode: boolean = false, // EXISTING ARGUMENT OR NEW? If I can't change signature easily, I might relying on customPrompt or overload. 
-  secondaryVoice: DJVoice = 'Puck'
+  dualDjMode: boolean = false, // EXISTING ARGUMENT OR NEW? If I can't change signature easily, I might relying on customPrompt or overload.
+  secondaryVoice: DJVoice = "Puck"
 ): Promise<ArrayBuffer | null> => {
-
   let prompt = "";
   const langInstruction = getLanguageInstruction(language);
 
-  const timeString = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const timeString = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   const { context } = getTimeOfDay();
 
   // Determine Style Instruction based on Enum (MOVED TO TOP)
@@ -286,19 +320,21 @@ export const generateDJIntro = async (
   }
 
   // Construct Context Block
-  const historyBlock = history.length > 0
-    ? `PREVIOUS VOICEOVERS (For Context Only - Do not repeat): \n${history.join('\n')}`
-    : "No previous history.";
+  const historyBlock =
+    history.length > 0
+      ? `PREVIOUS VOICEOVERS (For Context Only - Do not repeat): \n${history.join("\n")}`
+      : "No previous history.";
 
-  const playlistBlock = playlistContext.length > 0
-    ? `PLAYLIST CONTEXT (Surrounding Tracks): \n${playlistContext.join('\n')}`
-    : "No playlist context.";
+  const playlistBlock =
+    playlistContext.length > 0
+      ? `PLAYLIST CONTEXT (Surrounding Tracks): \n${playlistContext.join("\n")}`
+      : "No playlist context.";
 
   if (dualDjMode) {
     // Get persona names for the selected voices in the current language
-    const host1Name = DJ_PERSONA_NAMES[voice]?.[language] || 'DJ 1';
-    const host2Name = DJ_PERSONA_NAMES[secondaryVoice]?.[language] || 'DJ 2';
-    
+    const host1Name = DJ_PERSONA_NAMES[voice]?.[language] || "DJ 1";
+    const host2Name = DJ_PERSONA_NAMES[secondaryVoice]?.[language] || "DJ 2";
+
     prompt = `
        You are TWO Radio DJs covering a shift together on "Horis FM".
        HOST 1 (Main): Named "${host1Name}"
@@ -364,8 +400,7 @@ export const generateDJIntro = async (
 
        Important: ${langInstruction}
        `;
-  }
-  else {
+  } else {
     prompt = `
       You are a specific persona: A Radio DJ on "Horis FM".
       
@@ -418,13 +453,12 @@ export const generateCallBridging = async (
   nextSong: Song | null,
   voice: DJVoice,
   language: AppLanguage
-): Promise<{ intro: ArrayBuffer | null, outro: ArrayBuffer | null }> => {
-
+): Promise<{ intro: ArrayBuffer | null; outro: ArrayBuffer | null }> => {
   const langInstruction = getLanguageInstruction(language);
 
   const introPrompt = `
     You are a radio DJ on Horis FM. You are about to take a live call from a listener named "${callerName}".
-    ${reason ? `They want to talk about: "${reason}".` : ''}
+    ${reason ? `They want to talk about: "${reason}".` : ""}
     
     Write a short, engaging introduction line to bring them on air.
     Example: "We've got [Name] on the line! How's it going?"
@@ -434,7 +468,9 @@ export const generateCallBridging = async (
 
   const outroPrompt = `
     You are a radio DJ. You just finished talking to a listener named "${callerName}".
-    Now you need to introduce the next song: "${nextSong?.title || 'Unknown'}" by "${nextSong?.artist || 'Unknown'}".
+    Now you need to introduce the next song: "${nextSong?.title || "Unknown"}" by "${
+    nextSong?.artist || "Unknown"
+  }".
     
     Write a short outro thanking the caller and introducing the track.
     Example: "Thanks for calling in, [Name]. Here's [Song] by [Artist]."
@@ -444,12 +480,12 @@ export const generateCallBridging = async (
 
   const [introText, outroText] = await Promise.all([
     generateScript(introPrompt),
-    generateScript(outroPrompt)
+    generateScript(outroPrompt),
   ]);
 
   const [introBuffer, outroBuffer] = await Promise.all([
     introText ? speakText(introText, voice) : null,
-    outroText ? speakText(outroText, voice) : null
+    outroText ? speakText(outroText, voice) : null,
   ]);
 
   return { intro: introBuffer, outro: outroBuffer };
