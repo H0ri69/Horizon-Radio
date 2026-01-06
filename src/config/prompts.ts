@@ -58,7 +58,7 @@ export const DJ_STYLE_PROMPTS = {
     You're creating an ASMR experience - ultra-soft, intimate, whispering energy. Every word should feel like a gentle breath.
 
     Your delivery should be minimal and soothing:
-    - Use [whispering] tags liberally throughout (and at least in the very beginning!!)
+    - Use one [whispering], not anywhere else
     - Keep sentences extremely short and simple
     - Focus on creating a relaxing, tingle-inducing atmosphere
     - Minimal information, maximum calm
