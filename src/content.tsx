@@ -284,6 +284,7 @@ const playBufferedAudio = async () => {
 };
 
 // --- MAIN LOOP ---
+// --- MAIN LOOP ---
 const mainLoop = setInterval(() => {
   // Safety Check: Extension Reloaded?
   if (!chrome.runtime?.id) {
@@ -302,75 +303,89 @@ const mainLoop = setInterval(() => {
   const video = getMoviePlayer();
   if (!video || video.paused || !video.duration) return;
 
-  const { current, next } = getSongInfo();
+  const { current, next } = getSongInfo(); // We get playlist context here too
   const sig = `${current.title}|${current.artist}`;
   const currentTime = video.currentTime;
-  const timeLeft = video.duration - currentTime;
+  const duration = video.duration;
+  const timeLeft = duration - currentTime;
 
   // --- RESET LOGIC ---
   if (sig !== state.currentSongSig) {
     console.log(`[State] New Song detected: "${current.title}"`);
+    console.log(`[State] Clearing previous generation state.`);
     state.currentSongSig = sig;
     state.status = "IDLE";
     state.bufferedAudio = null;
     state.generatedForSig = null;
     state.lastSongChangeTs = Date.now();
 
-    // CRITICAL: If audio is still playing (transitioning), ensure new song is DUCKED.
+    // CRITICAL: If audio is still playing (transitioning), ensure new song is DUCKED (or maybe silence it? for now just duck)
     if (!audioEl.paused) {
-      console.log("[Audio] Transition active during song change. Re-applying ducking.");
-      ducker.duck(50); // Fast re-duck
+      console.log("[Audio] Transition active during song change. Keeping ducking active.");
+      ducker.duck(50);
     }
   }
 
-  if (state.lastTime > currentTime + 5) {
-    console.log(`[State] Seek detected. Resetting.`);
-    state.status = "IDLE";
-    state.bufferedAudio = null;
-    state.generatedForSig = null;
+  // Detect seek
+  if (Math.abs(currentTime - state.lastTime) > 5) { // Use Abs to detect rewinds too
+    if (state.lastTime !== 0) { // Ignore initial load jump
+      console.log(`[State] Seek detected (Jumped ${Math.round(currentTime - state.lastTime)}s).`);
+    }
   }
   state.lastTime = currentTime;
 
-  // --- STATE MACHINE ---
-  if (state.status === "IDLE" && timeLeft < 45 && timeLeft > 10) {
-    // PREVENT PREMATURE GENERATION:
-    // 1. Guard against start of song (if song is shorter than 60s, we might need adjustments, but >20s played is safe rule)
-    if (currentTime < 20) {
-      return;
-    }
+  // --- GENERATION TRIGGER ---
+  const alreadyGenerated = state.generatedForSig === sig;
+  const isPastHalfway = currentTime > (duration / 2);
+  const hasEnoughTime = timeLeft > 20; // Need at least 20s to generate and prep
 
-    // 2. Guard against recent song changes
-    if (Date.now() - state.lastSongChangeTs < 5000) {
-      // Increased to 5s
-      return;
-    }
+  if (state.status === "IDLE" && !alreadyGenerated) {
+    if (isPastHalfway && hasEnoughTime) {
+      // EXTRA SAFETY: 
+      // Guard against start of song quirks (rare if halfway)
+      // Guard against recent song changes (5s buffer)
+      if (Date.now() - state.lastSongChangeTs < 5000) {
+        return;
+      }
 
-    if (!current.title || !current.artist) return;
+      if (!current.title || !current.artist) {
+        console.warn("[Generator] Missing track info, skipping trigger.");
+        return;
+      }
 
-    state.status = "GENERATING";
-    state.generatedForSig = sig;
-    console.log("[Generator] Starting pre-generation...");
-    console.log(`[Generator] Context: "${current.title}" -> "${next.title}"`);
-    console.log(`[Generator] Sending request to Background...`);
+      // >>> TRIGGER GENERATION <<<
+      state.status = "GENERATING";
+      state.generatedForSig = sig; // Mark as started for this song
 
-    if (typeof chrome === "undefined" || !chrome.storage || !chrome.storage.local) {
-      console.error("[Generator] Extension API not available.");
-      return;
-    }
+      console.log("------------------------------------------------");
+      console.log(`[Generator] 🟢 TRIGGERING GENERATION`);
+      console.log(`[Generator] Trigger Reason: Middle of song reached (>50%).`);
+      console.log(`[Generator] Song: ${current.title}`);
+      console.log(`[Generator] Next: ${next.title}`);
+      console.log("------------------------------------------------");
 
-    try {
+      if (typeof chrome === "undefined" || !chrome.storage || !chrome.storage.local) {
+        console.error("[Generator] Extension API broken.");
+        return;
+      }
+
       chrome.storage.local.get(["horisFmSettings"], (result) => {
+        // ... existing message sending logic ...
         if (chrome.runtime.lastError) {
           console.error("[Generator] Storage access failed:", chrome.runtime.lastError);
+          state.status = "IDLE"; // Revert status so we can retry? Or maybe COOLDOWN?
+          state.generatedForSig = null; // Unmark
           return;
         }
-        const settings = (result as any).horisFmSettings || { enabled: true, voice: "Kore" };
+        const settings = (result as any).horisFmSettings || { enabled: true, voice: "kore" };
 
         if (!settings.enabled) {
-          console.log("[Generator] Aborting: System Disabled");
+          console.log("[Generator] System Disabled. Cancelling.");
           state.status = "COOLDOWN";
           return;
         }
+
+        console.log(`[Generator] Sending request... (Voice: ${settings.voice}, Style: ${settings.style})`);
 
         try {
           chrome.runtime.sendMessage(
@@ -394,37 +409,42 @@ const mainLoop = setInterval(() => {
             },
             (response) => {
               if (chrome.runtime.lastError) {
-                console.warn("[Generator] Communication error:", chrome.runtime.lastError);
+                console.warn("[Generator] Runtime message error:", chrome.runtime.lastError);
+                state.status = "IDLE"; // Retry allowed
+                state.generatedForSig = null;
                 return;
               }
 
-              console.log("[Generator] Background Response Received.");
-
               if (state.currentSongSig !== sig) {
-                console.warn("[Generator] Discarding response: Song changed during generation.");
+                console.warn("[Generator] Discarding response: Song changed while generating.");
                 return;
               }
 
               if (response && response.audio) {
-                console.log("[Generator] Audio received & Buffered.");
+                console.log("[Generator] ✅ Audio received & Buffered. Waiting for outro...");
                 state.bufferedAudio = response.audio;
                 state.status = "READY";
               } else {
+                console.warn("[Generator] ❌ No audio returned.");
                 state.status = "COOLDOWN";
               }
             }
           );
         } catch (e) {
-          console.error("[Generator] Failed to send message:", e);
+          console.error("[Generator] Send failed:", e);
+          state.status = "IDLE";
+          state.generatedForSig = null;
         }
       });
-    } catch (e) {
-      console.log("[Hori-s.FM] Extension context invalidated during storage access. Stopping.");
-      clearInterval(mainLoop);
     }
   }
 
-  if (state.status === "READY" && timeLeft < 12) {
+  // Debug logging for development (throttle this?)
+  // if (Math.floor(currentTime) % 10 === 0) console.log(`[Status] ${state.status} | TimeLeft: ${Math.round(timeLeft)}s`);
+
+  // --- PLAYBACK TRIGGER ---
+  // Play when song is ending (e.g. last 12 seconds)
+  if (state.status === "READY" && timeLeft < 12 && timeLeft > 1) {
     playBufferedAudio();
   }
 }, 1000);
