@@ -35,49 +35,61 @@ export const DEFAULT_SETTINGS: AppSettings = {
   language: "en",
 };
 
+// Voice profiles with persona names - single source of truth
 export const VOICE_PROFILES: VoiceProfile[] = [
-  { id: "sadachbia", name: "Sadachiba", gender: "Male", tone: "Calm", emotion: "Composed" },
-  { id: "sulafat", name: "Sulafat", gender: "Female", tone: "Soft", emotion: "Warm" },
-  { id: "algenib", name: "Alegenib", gender: "Male", tone: "Energetic", emotion: "Bright" },
-  { id: "zephyr", name: "Zephyr", gender: "Female", tone: "Gentle", emotion: "Breezy" },
-  { id: "kore", name: "Kore", gender: "Female", tone: "Natural", emotion: "Balanced" },
-  { id: "algieba", name: "Algeiba", gender: "Male", tone: "Deep", emotion: "Serious" },
+  {
+    id: "sadachbia",
+    personaNames: { en: "Sam", cs: "Samuel", ja: "サム" },
+    gender: "Male",
+    tone: "Calm",
+    emotion: "Composed",
+  },
+  {
+    id: "sulafat",
+    personaNames: { en: "Sophie", cs: "Sofie", ja: "ソフィ" },
+    gender: "Female",
+    tone: "Soft",
+    emotion: "Warm",
+  },
+  {
+    id: "algenib",
+    personaNames: { en: "Alex", cs: "Aleš", ja: "アレックス" },
+    gender: "Male",
+    tone: "Energetic",
+    emotion: "Bright",
+  },
+  {
+    id: "zephyr",
+    personaNames: { en: "Laura", cs: "Laura", ja: "ゾーイ" },
+    gender: "Female",
+    tone: "Gentle",
+    emotion: "Breezy",
+  },
+  {
+    id: "kore",
+    personaNames: { en: "Nataly", cs: "Natálie", ja: "さら" },
+    gender: "Female",
+    tone: "Natural",
+    emotion: "Balanced",
+  },
+  {
+    id: "algieba",
+    personaNames: { en: "Arthur", cs: "Artur", ja: "アーサー" },
+    gender: "Male",
+    tone: "Deep",
+    emotion: "Serious",
+  },
 ];
 
-// DJ Persona Names (for dialogue references in multi-DJ mode)
-// Maps voice ID to persona name per language
-export const DJ_PERSONA_NAMES: Record<DJVoice, Record<AppLanguage, string>> = {
-  sadachbia: {
-    en: "Sam",
-    cs: "Samuel",
-    ja: "サム",
+// DJ Persona Names - generated from VOICE_PROFILES
+// Maps voice ID to persona name per language (for dialogue references in multi-DJ mode)
+export const DJ_PERSONA_NAMES: Record<DJVoice, Record<AppLanguage, string>> = VOICE_PROFILES.reduce(
+  (acc, profile) => {
+    acc[profile.id] = profile.personaNames;
+    return acc;
   },
-  sulafat: {
-    en: "Sophie",
-    cs: "Sofie",
-    ja: "ソフィ",
-  },
-  algenib: {
-    en: "Alex",
-    cs: "Aleš",
-    ja: "アレックス",
-  },
-  zephyr: {
-    en: "Laura",
-    cs: "Laura",
-    ja: "ゾーイ",
-  },
-  kore: {
-    en: "Nataly",
-    cs: "Natálie",
-    ja: "さら",
-  },
-  algieba: {
-    en: "Arthur",
-    cs: "Artur",
-    ja: "アーサー",
-  },
-};
+  {} as Record<DJVoice, Record<AppLanguage, string>>
+);
 
 export const THEME_PALETTES = {
   NEON: {

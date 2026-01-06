@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { DJStyle } from "../config";
 import { VOICE_PROFILES } from "../config";
+import type { AppLanguage } from "../types";
 
 interface Settings {
   enabled: boolean;
@@ -160,7 +161,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                           : "text-white/70 group-hover:text-white"
                           }`}
                       >
-                        {profile.name}
+                        {profile.personaNames[settings.language as AppLanguage]}
                       </span>
                       {settings.voice === profile.id && (
                         <div className="w-3 h-3 rounded-full bg-indigo-400 shadow-[0_0_12px_rgba(129,140,248,0.8)]"></div>
@@ -272,7 +273,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                               : "bg-black/20 border-white/5 text-white/50 hover:bg-white/5 hover:text-white"
                             }`}
                         >
-                          <span className="font-medium text-base">{profile.name}</span>
+                          <span className="font-medium text-base">{profile.personaNames[settings.language as AppLanguage]}</span>
                           {settings.secondaryDjVoice === profile.id && (
                             <div className="w-2 h-2 rounded-full bg-teal-400"></div>
                           )}
