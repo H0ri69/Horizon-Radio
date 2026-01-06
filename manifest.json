@@ -1,11 +1,15 @@
 {
     "manifest_version": 3,
-    "name": "Hori FM - AI DJ",
+    "name": "AI Radio for Youtube Music",
     "version": "1.0.0",
-    "description": "AI Radio Host for YouTube Music",
+    "description": "AI generated Host and DJ voice-overs for YouTube Music",
+    "icons": {
+        "16": "icon.png",
+        "32": "icon.png",
+        "48": "icon.png",
+        "128": "icon.png"
+    },
     "permissions": [
-        "scripting",
-        "activeTab",
         "storage"
     ],
     "host_permissions": [
