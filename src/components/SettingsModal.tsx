@@ -13,6 +13,7 @@ interface Settings {
   dualDjMode?: boolean;
   secondaryDjVoice?: string;
   visualTheme?: string;
+  apiKey?: string;
 }
 
 export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -26,6 +27,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     visualTheme: "Standard",
     dualDjMode: false,
     secondaryDjVoice: "Puck",
+    apiKey: "",
   });
   const [status, setStatus] = useState("");
 
@@ -88,18 +90,16 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
             <button
               onClick={() => saveSettings({ ...settings, enabled: !settings.enabled })}
-              className={`flex items-center gap-4 px-8 py-4 mr-20 rounded-full border transition-all duration-300 ${
-                settings.enabled
-                  ? "bg-green-500/10 border-green-500/50 text-green-400 hover:bg-green-500/20"
-                  : "bg-red-500/10 border-red-500/50 text-red-400 hover:bg-red-500/20"
-              }`}
+              className={`flex items-center gap-4 px-8 py-4 mr-20 rounded-full border transition-all duration-300 ${settings.enabled
+                ? "bg-green-500/10 border-green-500/50 text-green-400 hover:bg-green-500/20"
+                : "bg-red-500/10 border-red-500/50 text-red-400 hover:bg-red-500/20"
+                }`}
             >
               <div
-                className={`w-3 h-3 rounded-full ${
-                  settings.enabled
-                    ? "bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.6)]"
-                    : "bg-red-500"
-                }`}
+                className={`w-3 h-3 rounded-full ${settings.enabled
+                  ? "bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.6)]"
+                  : "bg-red-500"
+                  }`}
               ></div>
               <span className="text-base font-bold tracking-wide">
                 {settings.enabled ? "SYSTEM ACTIVE" : "SYSTEM DISABLED"}
@@ -123,11 +123,10 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     key={lang.code}
                     onClick={() => saveSettings({ ...settings, language: lang.code as any })}
                     className={`p-6 rounded-2xl text-center border transition-all duration-200 group
-                                            ${
-                                              (settings as any).language === lang.code
-                                                ? "bg-white/10 border-indigo-500/50 text-white ring-1 ring-indigo-500/50"
-                                                : "bg-white/5 border-white/5 text-white/60 hover:border-white/10 hover:bg-white/10 hover:text-white"
-                                            }`}
+                                            ${(settings as any).language === lang.code
+                        ? "bg-white/10 border-indigo-500/50 text-white ring-1 ring-indigo-500/50"
+                        : "bg-white/5 border-white/5 text-white/60 hover:border-white/10 hover:bg-white/10 hover:text-white"
+                      }`}
                   >
                     <div className="font-medium text-xl group-active:scale-95 transition-transform">
                       {lang.label}
@@ -149,19 +148,17 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     key={profile.id}
                     onClick={() => saveSettings({ ...settings, voice: profile.id })}
                     className={`relative p-6 rounded-2xl text-left transition-all duration-200 border group
-                                            ${
-                                              settings.voice === profile.id
-                                                ? "bg-white/10 border-indigo-500/50 ring-1 ring-indigo-500/50"
-                                                : "bg-white/5 border-white/5 hover:border-white/10 hover:bg-white/10"
-                                            }`}
+                                            ${settings.voice === profile.id
+                        ? "bg-white/10 border-indigo-500/50 ring-1 ring-indigo-500/50"
+                        : "bg-white/5 border-white/5 hover:border-white/10 hover:bg-white/10"
+                      }`}
                   >
                     <div className="flex justify-between items-start mb-4">
                       <span
-                        className={`text-xl font-medium ${
-                          settings.voice === profile.id
-                            ? "text-white"
-                            : "text-white/70 group-hover:text-white"
-                        }`}
+                        className={`text-xl font-medium ${settings.voice === profile.id
+                          ? "text-white"
+                          : "text-white/70 group-hover:text-white"
+                          }`}
                       >
                         {profile.name}
                       </span>
@@ -194,11 +191,10 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     key={styleLabel}
                     onClick={() => saveSettings({ ...settings, style: styleLabel })}
                     className={`py-4 px-6 rounded-2xl text-base font-medium transition-all text-center border
-                                            ${
-                                              settings.style === styleLabel
-                                                ? "bg-white text-black border-white shadow-lg shadow-white/10"
-                                                : "bg-white/5 border-white/5 text-white/60 hover:text-white hover:border-white/10 hover:bg-white/10"
-                                            }
+                                            ${settings.style === styleLabel
+                        ? "bg-white text-black border-white shadow-lg shadow-white/10"
+                        : "bg-white/5 border-white/5 text-white/60 hover:text-white hover:border-white/10 hover:bg-white/10"
+                      }
                                         `}
                   >
                     {styleLabel}
@@ -208,9 +204,8 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
               {/* Custom Prompt Input */}
               <div
-                className={`transition-all duration-500 ease-in-out overflow-hidden ${
-                  settings.style === DJStyle.CUSTOM ? "max-h-64 opacity-100" : "max-h-0 opacity-0"
-                }`}
+                className={`transition-all duration-500 ease-in-out overflow-hidden ${settings.style === DJStyle.CUSTOM ? "max-h-64 opacity-100" : "max-h-0 opacity-0"
+                  }`}
               >
                 <div className="bg-white/5 rounded-3xl p-6 border border-white/5 mt-2">
                   <textarea
@@ -233,11 +228,10 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
               </h2>
 
               <div
-                className={`rounded-3xl border transition-all duration-200 overflow-hidden ${
-                  settings.dualDjMode
-                    ? "bg-white/10 border-teal-500/30 ring-1 ring-teal-500/20"
-                    : "bg-white/5 border-white/5"
-                }`}
+                className={`rounded-3xl border transition-all duration-200 overflow-hidden ${settings.dualDjMode
+                  ? "bg-white/10 border-teal-500/30 ring-1 ring-teal-500/20"
+                  : "bg-white/5 border-white/5"
+                  }`}
               >
                 <div
                   className="p-6 flex items-center justify-between cursor-pointer"
@@ -250,14 +244,12 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     </div>
                   </div>
                   <div
-                    className={`w-16 h-8 rounded-full p-1 transition-colors ${
-                      settings.dualDjMode ? "bg-teal-500" : "bg-white/10"
-                    }`}
+                    className={`w-16 h-8 rounded-full p-1 transition-colors ${settings.dualDjMode ? "bg-teal-500" : "bg-white/10"
+                      }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${
-                        settings.dualDjMode ? "translate-x-8" : "translate-x-0"
-                      }`}
+                      className={`w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${settings.dualDjMode ? "translate-x-8" : "translate-x-0"
+                        }`}
                     />
                   </div>
                 </div>
@@ -275,11 +267,10 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                             saveSettings({ ...settings, secondaryDjVoice: profile.id })
                           }
                           className={`p-4 rounded-xl text-left border transition-all flex items-center justify-between group
-                                                        ${
-                                                          settings.secondaryDjVoice === profile.id
-                                                            ? "bg-teal-500/20 border-teal-500/50 text-white"
-                                                            : "bg-black/20 border-white/5 text-white/50 hover:bg-white/5 hover:text-white"
-                                                        }`}
+                                                        ${settings.secondaryDjVoice === profile.id
+                              ? "bg-teal-500/20 border-teal-500/50 text-white"
+                              : "bg-black/20 border-white/5 text-white/50 hover:bg-white/5 hover:text-white"
+                            }`}
                         >
                           <span className="font-medium text-base">{profile.name}</span>
                           {settings.secondaryDjVoice === profile.id && (
@@ -303,11 +294,10 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                   <button
                     key={theme}
                     onClick={() => saveSettings({ ...settings, visualTheme: theme })}
-                    className={`p-6 rounded-2xl text-left border transition-all ${
-                      (settings as any).visualTheme === theme
-                        ? "bg-gradient-to-br from-pink-500/20 to-purple-500/20 border-pink-500/30 text-white shadow-inner"
-                        : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:text-white"
-                    }`}
+                    className={`p-6 rounded-2xl text-left border transition-all ${(settings as any).visualTheme === theme
+                      ? "bg-gradient-to-br from-pink-500/20 to-purple-500/20 border-pink-500/30 text-white shadow-inner"
+                      : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                      }`}
                   >
                     <div className="font-medium text-lg">{theme}</div>
                     <div className="text-sm text-white/30 mt-1">Theme Variant</div>
@@ -315,21 +305,47 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 ))}
               </div>
             </section>
+
+            {/* 05 API CONFIGURATION */}
+            <section>
+              <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
+                <span className="text-amber-400 font-mono text-base opacity-80">05</span> API Configuration
+              </h2>
+              <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-white/70 mb-2">
+                    Google Gemini API Key
+                  </label>
+                  <input
+                    type="password"
+                    value={settings.apiKey || ""}
+                    onChange={(e) => saveSettings({ ...settings, apiKey: e.target.value })}
+                    placeholder="Enter your API Key..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-base focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all placeholder-white/20"
+                  />
+                  <p className="text-xs text-white/30 mt-3">
+                    Your API key is stored locally in your browser and used only to communicate with the AI service.
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-amber-400 hover:underline ml-1">
+                      Get an API Key here
+                    </a>.
+                  </p>
+                </div>
+              </div>
+            </section>
           </main>
 
           <footer className="pt-8 border-t border-white/5 flex justify-between items-center text-sm text-white/30">
             <div className="font-mono">HORI-S.FM SYSTEM v1.0</div>
             <div
-              className={`transition-all duration-300 font-medium ${
-                status ? "opacity-100 text-green-400" : "opacity-0"
-              }`}
+              className={`transition-all duration-300 font-medium ${status ? "opacity-100 text-green-400" : "opacity-0"
+                }`}
             >
               SETTINGS SAVED
             </div>
           </footer>
-        </div>
-      </div>
-    </div>,
+        </div >
+      </div >
+    </div >,
     document.body
   );
 };
