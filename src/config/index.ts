@@ -1,3 +1,4 @@
+import { HarmBlockThreshold, HarmCategory, SafetySetting } from "@google/genai";
 import { AppSettings } from "../types";
 export * from "./prompts";
 import { AppLanguage, DJVoice, VoiceProfile } from "../types";
@@ -99,3 +100,11 @@ export const THEME_PALETTES = {
     tertiary: "#ffffff",
   },
 } as const;
+
+export const lowestSafetySettings: SafetySetting[] = [
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.OFF },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.OFF },
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.OFF },
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.OFF },
+  { category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold: HarmBlockThreshold.OFF },
+];
