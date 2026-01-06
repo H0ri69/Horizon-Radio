@@ -1,6 +1,6 @@
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
-import { Song, DJVoice, AppLanguage } from '../src/types';
-import { GEMINI_CONFIG, DJ_STYLE_PROMPTS, getLanguageInstruction, LENGTH_CONSTRAINT, DJ_PERSONA_NAMES, TTS_DUAL_DJ_DIRECTION, DEFAULT_DJ_STYLE, DJStyle } from '../src/config';
+import { Song, DJVoice, AppLanguage } from '../types';
+import { GEMINI_CONFIG, DJ_STYLE_PROMPTS, getLanguageInstruction, LENGTH_CONSTRAINT, DJ_PERSONA_NAMES, TTS_DUAL_DJ_DIRECTION, DEFAULT_DJ_STYLE, DJStyle } from '../config';
 
 // Type definitions for better type safety
 interface GeminiErrorResponse {

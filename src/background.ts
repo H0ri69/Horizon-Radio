@@ -1,4 +1,4 @@
-import { generateDJIntro } from '../services/geminiService';
+import { generateDJIntro } from './services/geminiService';
 import { Song, DJVoice } from './types';
 import { DJStyle } from './config';
 import { EXTENSION_CONFIG } from './config';
