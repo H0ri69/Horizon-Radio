@@ -26,7 +26,11 @@ export interface Song {
 // Voice Configuration with Metadata for UI
 export interface VoiceProfile {
   id: string;
-  name: string; // The API value
+  personaNames: {
+    en: string;
+    cs: string;
+    ja: string;
+  };
   gender: "Male" | "Female" | "Robot";
   tone: string;
   emotion: string;
