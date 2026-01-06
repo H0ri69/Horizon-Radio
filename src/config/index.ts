@@ -1,6 +1,18 @@
-import { AppSettings, DJStyle } from "../../types";
+import { AppSettings } from "../types";
 export * from "./prompts";
-import { AppLanguage, DJVoice, VoiceProfile } from "../../types";
+import { AppLanguage, DJVoice, VoiceProfile } from "../types";
+
+// DJ Style Configuration
+export const DJStyle = {
+  STANDARD: "Standard (Radio Host)",
+  CHILL: "Late Night Radio (Chill)",
+  TECHNICAL: "Music Nerd (Facts & Stats)",
+  MINIMAL: "Minimal (Just Song Names)",
+  CUSTOM: "Custom (User Defined)",
+  DRUNK: "Drunk (Chaotic)",
+} as const;
+
+export type DJStyle = (typeof DJStyle)[keyof typeof DJStyle];
 
 export const GEMINI_CONFIG = {
   TEXT_MODEL: "gemini-2.5-flash",

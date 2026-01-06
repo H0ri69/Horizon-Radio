@@ -1,4 +1,5 @@
-import { DJStyle, AppLanguage } from "../../types";
+import { DJStyle } from "./index";
+import { AppLanguage } from "../types";
 
 export const DJ_STYLE_PROMPTS = {
   [DJStyle.STANDARD]: `
