@@ -171,7 +171,6 @@ const cleanTextForTTS = (text: string, partialClean: boolean = false): string =>
   if (!text) return "";
   let cleaned = text
     .replace(/\*.*?\*/g, "") // Remove *actions*
-    .replace(/\[.*?\]/g, "") // Remove [instructions]
     .replace(/\(.*?\)/g, ""); // Remove (notes)
 
   // Full clean: also remove quotes and replace punctuation
