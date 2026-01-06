@@ -63,7 +63,7 @@ export const DJ_STYLE_PROMPTS = {
     - Focus on creating a relaxing, tingle-inducing atmosphere
     - Minimal information, maximum calm
 
-    Example: "[whispering] That was so peaceful. Now [short pause] something equally gentle"
+    Example: "[whispering] That was so peaceful. Now something equally gentle"
   `,
   [DJStyle.CUSTOM]: (customPrompt: string) => `
     INSTRUCTION: ${customPrompt ? customPrompt : "Be a standard DJ."}
