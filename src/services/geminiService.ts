@@ -3,6 +3,7 @@ import { Song, DJVoice, AppLanguage } from "../types";
 import {
   GEMINI_CONFIG,
   DJ_STYLE_PROMPTS,
+  DJ_STYLE_TTS_SYSTEM_PROMPTS,
   getLanguageInstruction,
   LENGTH_CONSTRAINT,
   DJ_PERSONA_NAMES,
@@ -229,7 +230,8 @@ const speakText = async (
   voice: DJVoice,
   secondaryVoice?: DJVoice,
   personaNameA?: string,
-  personaNameB?: string
+  personaNameB?: string,
+  style?: DJStyle
 ): Promise<ArrayBuffer | null> => {
   const label = `[Gemini:Timing] TTS Generation (Dual=${!!secondaryVoice})`;
   console.time(label);
@@ -290,6 +292,13 @@ const speakText = async (
             },
           };
 
+    // Get TTS system prompt based on DJ style (if provided)
+    const systemInstruction = style ? DJ_STYLE_TTS_SYSTEM_PROMPTS[style] || "" : "";
+
+    if (systemInstruction) {
+      console.log(`[Gemini] 📋 Using TTS System Instruction for style: ${style}`);
+    }
+
     const response = await callWithRetry(
       () =>
         ai.models.generateContent({
@@ -297,8 +306,8 @@ const speakText = async (
           contents: [{ parts: [ { text: finalTextInput }] }],
           config: {
             responseModalities: [Modality.AUDIO],
-            // TODO: The prompt for the behavior of the TTS should come here
-            systemInstruction: "",
+            // KEEP COMMENTED OUT FOR NOW, AS THE OFFICIAL GEMINI API CRASHES WITH THIS
+            // systemInstruction,
             speechConfig,
           },
         }),
@@ -439,7 +448,7 @@ export const generateDJIntro = async (
       console.log("------------------------------------------------");
 
       console.log(`[Gemini] 🎙️ Synthesizing full conversation at once...`);
-      return speakText(script, voice, secondaryVoice, host1Name, host2Name);
+      return speakText(script, voice, secondaryVoice, host1Name, host2Name, style);
     }
 
     // --- STANDARD SINGLE DJ LOGIC ---
@@ -502,7 +511,7 @@ export const generateDJIntro = async (
     console.log(`[Gemini] 🤖 GENERATED SCRIPT:\n"${script}"`);
     console.log("------------------------------------------------");
 
-    return speakText(script, voice);
+    return speakText(script, voice, undefined, undefined, undefined, style);
   } finally {
     console.timeEnd(label);
   }

@@ -9,6 +9,7 @@ export const DJStyle = {
   CHILL: "Late Night Radio (Chill)",
   TECHNICAL: "Music Nerd (Facts & Stats)",
   MINIMAL: "Minimal (Just Song Names)",
+  ASMR: "ASMR (Whispering)",
   CUSTOM: "Custom (User Defined)",
   DRUNK: "Drunk (Chaotic)",
 } as const;

@@ -54,6 +54,17 @@ export const DJ_STYLE_PROMPTS = {
 
     Zero fluff. No station ID. No greeting. Just the facts.
   `,
+  [DJStyle.ASMR]: `
+    You're creating an ASMR experience - ultra-soft, intimate, whispering energy. Every word should feel like a gentle breath.
+
+    Your delivery should be minimal and soothing:
+    - Use [whispering] tags liberally throughout (and at least in the very beginning!!)
+    - Keep sentences extremely short and simple
+    - Focus on creating a relaxing, tingle-inducing atmosphere
+    - Minimal information, maximum calm
+
+    Example: "[whispering] That was so peaceful. Now [short pause] something equally gentle"
+  `,
   [DJStyle.CUSTOM]: (customPrompt: string) => `
     INSTRUCTION: ${customPrompt ? customPrompt : "Be a standard DJ."}
   `,
@@ -94,6 +105,19 @@ Use these naturally, not in every sentence. Real humans don't telegraph every em
 `;
 
 export const DEFAULT_DJ_STYLE = "ROLE: Standard Radio DJ. Be professional and smooth.";
+
+// Optional TTS System Prompts for each DJ style
+// These control HOW the text is spoken (performance, delivery, pacing)
+// If undefined, no system instruction is sent to TTS
+export const DJ_STYLE_TTS_SYSTEM_PROMPTS: Record<DJStyle, string | undefined> = {
+  [DJStyle.STANDARD]: "", // "You are a high-energy commercial radio DJ voiceover.",
+  [DJStyle.CHILL]: "", // "You are a late-night radio host with a deep, soothing, intimate presence.",
+  [DJStyle.TECHNICAL]: "", // "You are an enthusiastic music historian and audio nerd.",
+  [DJStyle.MINIMAL]: "", // "You are an automated station voice - neutral, robotic, efficient.",
+  [DJStyle.ASMR]: "Read the following strictly in a whispering, ASMR-like voice:",
+  [DJStyle.DRUNK]: "", // "You are tipsy (3-4 drinks in) but still functional.",
+  [DJStyle.CUSTOM]: "", // Custom style doesn't have a default TTS system prompt
+};
 
 export const getLanguageInstruction = (lang: AppLanguage) =>
   lang === "cs"
