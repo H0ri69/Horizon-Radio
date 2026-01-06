@@ -295,9 +295,11 @@ const speakText = async (
       () =>
         ai.models.generateContent({
           model: TTS_MODEL,
-          contents: [{ parts: [{ text: finalTextInput }] }],
+          contents: [{ parts: [ { text: finalTextInput }] }],
           config: {
             responseModalities: [Modality.AUDIO],
+            // TODO: The prompt for the behavior of the TTS should come here
+            systemInstruction: "",
             speechConfig,
           },
         }),
@@ -343,6 +345,14 @@ export const generateDJIntro = async (
 ): Promise<ArrayBuffer | null> => {
   const label = `[Gemini:Timing] Total DJ Intro Process`;
   console.time(label);
+  console.log(`[Gemini] 🎉 Incoming DJ Intro Request:`, {
+    song: currentSong.title,
+    artist: currentSong.artist,
+    next: nextSong?.title,
+    style,
+    voice,
+    dual: dualDjMode
+  });
   try {
     let prompt = "";
     const langInstruction = getLanguageInstruction(language);
