@@ -13,7 +13,7 @@
         "https://generativelanguage.googleapis.com/*"
     ],
     "background": {
-        "service_worker": "src/extension/background.ts",
+        "service_worker": "src/background.ts",
         "type": "module"
     },
     "content_scripts": [
@@ -22,7 +22,7 @@
                 "https://music.youtube.com/*"
             ],
             "js": [
-                "src/extension/content.tsx"
+                "src/content.tsx"
             ],
             "run_at": "document_idle"
         }

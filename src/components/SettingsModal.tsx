@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { DJStyle } from '../../../types';
-import { VOICE_PROFILES } from '../../config';
+import { DJStyle } from '../../types';
+import { VOICE_PROFILES } from '../config';
 
 interface Settings {
     enabled: boolean;
@@ -48,7 +48,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-6 font-sans" onClick={onClose}>
             <div
-                className="bg-background w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 shadow-2xl relative flex flex-col"
+                className="bg-background w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 shadow-2xl relative flex flex-col"
                 onClick={e => e.stopPropagation()}
                 style={{ backgroundColor: '#09090b', color: '#FAFAFA' }} // Fallback/Force dark theme
             >

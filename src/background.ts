@@ -1,6 +1,6 @@
-import { generateDJIntro } from '../../services/geminiService';
-import { Song, DJStyle, DJVoice } from '../../types';
-import { EXTENSION_CONFIG } from '../config';
+import { generateDJIntro } from '../services/geminiService';
+import { Song, DJStyle, DJVoice } from '../types';
+import { EXTENSION_CONFIG } from './config';
 
 // Helper to convert ArrayBuffer to Base64
 function arrayBufferToBase64(buffer: ArrayBuffer) {
