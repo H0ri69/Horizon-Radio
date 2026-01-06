@@ -88,7 +88,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
             <button
               onClick={() => saveSettings({ ...settings, enabled: !settings.enabled })}
-              className={`flex items-center gap-4 px-8 py-4 rounded-full border transition-all duration-300 ${
+              className={`flex items-center gap-4 px-8 py-4 mr-20 rounded-full border transition-all duration-300 ${
                 settings.enabled
                   ? "bg-green-500/10 border-green-500/50 text-green-400 hover:bg-green-500/20"
                   : "bg-red-500/10 border-red-500/50 text-red-400 hover:bg-red-500/20"
