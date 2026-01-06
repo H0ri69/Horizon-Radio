@@ -168,12 +168,11 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                       )}
                     </div>
                     <div className="flex items-center gap-3 text-sm text-white/40">
-                      <span className="bg-white/5 px-3 py-1 rounded-md border border-white/5">
-                        {profile.tone}
-                      </span>
-                      <span className="bg-white/5 px-3 py-1 rounded-md border border-white/5">
-                        {profile.emotion}
-                      </span>
+                      {profile.tags.map((tag) => (
+                        <span key={tag} className="bg-white/5 px-3 py-1 rounded-md border border-white/5">
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   </button>
                 ))}

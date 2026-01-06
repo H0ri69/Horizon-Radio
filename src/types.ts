@@ -32,8 +32,7 @@ export interface VoiceProfile {
     ja: string;
   };
   gender: "Male" | "Female" | "Robot";
-  tone: string;
-  emotion: string;
+  tags: string[];
 }
 
 // App Settings Types
