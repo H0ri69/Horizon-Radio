@@ -10,6 +10,7 @@ import {
   DEFAULT_DJ_STYLE,
   DJStyle,
   MARKUP_TAG_GUIDANCE,
+  lowestSafetySettings,
 } from "../config";
 
 // Type definitions for better type safety
@@ -151,8 +152,11 @@ async function callWithRetry<T>(
 
     if (retries > 0 && isRetryable) {
       console.warn(
-        `[Gemini] API Error (${error.status || error.code || "Unknown"
-        }). Retrying in ${delay}ms... (Attempt ${attempt}, ${retries} retries left). Error: ${error.message || "No message"}`
+        `[Gemini] API Error (${
+          error.status || error.code || "Unknown"
+        }). Retrying in ${delay}ms... (Attempt ${attempt}, ${retries} retries left). Error: ${
+          error.message || "No message"
+        }`
       );
       await new Promise((resolve) => setTimeout(resolve, delay));
       return callWithRetry(fn, retries - 1, delay * 2, attempt + 1);
@@ -191,9 +195,8 @@ const generateScript = async (prompt: string): Promise<string | null> => {
         model: TEXT_MODEL,
         contents: [{ parts: [{ text: prompt }] }],
         config: {
-          thinkingConfig: {
-            thinkingBudget: 0, // Set to 0 to disable thinking
-          },
+          thinkingConfig: { thinkingBudget: 0 },
+          safetySettings: lowestSafetySettings,
           tools: [{ googleSearch: {} }],
         },
       })
@@ -263,30 +266,30 @@ const speakText = async (
     const speechConfig: SpeechConfig =
       isDualDj && secondaryVoice && personaNameA && personaNameB
         ? {
-          // Multi-speaker configuration using actual persona names
-          multiSpeakerVoiceConfig: {
-            speakerVoiceConfigs: [
-              {
-                speaker: personaNameA, // Use actual name like "Mike" instead of "Speaker 1"
-                voiceConfig: {
-                  prebuiltVoiceConfig: { voiceName: voice },
+            // Multi-speaker configuration using actual persona names
+            multiSpeakerVoiceConfig: {
+              speakerVoiceConfigs: [
+                {
+                  speaker: personaNameA, // Use actual name like "Mike" instead of "Speaker 1"
+                  voiceConfig: {
+                    prebuiltVoiceConfig: { voiceName: voice },
+                  },
                 },
-              },
-              {
-                speaker: personaNameB, // Use actual name like "Sarah" instead of "Speaker 2"
-                voiceConfig: {
-                  prebuiltVoiceConfig: { voiceName: secondaryVoice },
+                {
+                  speaker: personaNameB, // Use actual name like "Sarah" instead of "Speaker 2"
+                  voiceConfig: {
+                    prebuiltVoiceConfig: { voiceName: secondaryVoice },
+                  },
                 },
-              },
-            ],
-          },
-        }
+              ],
+            },
+          }
         : {
-          // Single speaker configuration
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: voice },
-          },
-        };
+            // Single speaker configuration
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: voice },
+            },
+          };
 
     const response = await callWithRetry(
       () =>
@@ -301,7 +304,7 @@ const speakText = async (
       2,
       2000
     ); // Specific retry strategy for TTS
-    
+
     const audioContent = processAudioResponse(response);
     if (audioContent) {
       console.log(`[Gemini] ✅ TTS generated (${audioContent.byteLength} bytes).`);
@@ -344,7 +347,10 @@ export const generateDJIntro = async (
     let prompt = "";
     const langInstruction = getLanguageInstruction(language);
 
-    const timeString = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    const timeString = new Date().toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
     const { context } = getTimeOfDay();
 
     // Determine Style Instruction based on Enum (MOVED TO TOP)
@@ -518,7 +524,8 @@ export const generateCallBridging = async (
 
     const outroPrompt = `
     You are a radio DJ. You just finished talking to a listener named "${callerName}".
-    Now you need to introduce the next song: "${nextSong?.title || "Unknown"}" by "${nextSong?.artist || "Unknown"
+    Now you need to introduce the next song: "${nextSong?.title || "Unknown"}" by "${
+      nextSong?.artist || "Unknown"
     }".
     
     Write a short outro thanking the caller and introducing the track.
