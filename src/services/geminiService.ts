@@ -65,7 +65,13 @@ const getClient = async () => {
 const TEXT_MODEL = GEMINI_CONFIG.TEXT_MODEL;
 const TTS_MODEL = GEMINI_CONFIG.TTS_MODEL;
 
-const createWavHeader = (dataLength: number, sampleRate: number = 24000) => {
+const writeString = (view: DataView, offset: number, str: string): void => {
+  for (let i = 0; i < str.length; i++) {
+    view.setUint8(offset + i, str.charCodeAt(i));
+  }
+};
+
+const createWavHeader = (dataLength: number, sampleRate: number = 24000): ArrayBuffer => {
   const numChannels = 1;
   const bitsPerSample = 16;
   const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
@@ -91,13 +97,7 @@ const createWavHeader = (dataLength: number, sampleRate: number = 24000) => {
   return buffer;
 };
 
-const writeString = (view: DataView, offset: number, str: string) => {
-  for (let i = 0; i < str.length; i++) {
-    view.setUint8(offset + i, str.charCodeAt(i));
-  }
-};
-
-const concatenateBuffers = (buffer1: ArrayBuffer, buffer2: ArrayBuffer) => {
+const concatenateBuffers = (buffer1: ArrayBuffer, buffer2: ArrayBuffer): ArrayBuffer => {
   const tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
   tmp.set(new Uint8Array(buffer1), 0);
   tmp.set(new Uint8Array(buffer2), buffer1.byteLength);
