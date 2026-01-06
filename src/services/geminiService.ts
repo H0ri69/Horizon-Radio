@@ -9,6 +9,7 @@ import {
   TTS_DUAL_DJ_DIRECTION,
   DEFAULT_DJ_STYLE,
   DJStyle,
+  MARKUP_TAG_GUIDANCE,
 } from "../config";
 
 // Type definitions for better type safety
@@ -356,9 +357,11 @@ export const generateDJIntro = async (
        
        TONE/STYLE:
        ${styleInstruction}
-       
+
        ${historyBlock}
        ${playlistBlock}
+
+       ${MARKUP_TAG_GUIDANCE}
 
        TASK:
        Write a short, banter-filled dialogue script between ${host1Name} and ${host2Name} transitioning the songs.
@@ -403,9 +406,11 @@ export const generateDJIntro = async (
     prompt = `
        You are a Radio DJ on "Horis FM". A listener named "${nextSong.requestedBy}" has requested the song "${nextSong.title}" by "${nextSong.artist}".
        They sent this message: "${nextSong.requestMessage}".
-       
+
        Transition from "${currentSong.title}", shout out the listener, react to their message, and intro the new track.
        ${LENGTH_CONSTRAINT} Do not use stage directions like *laughs*.
+
+       ${MARKUP_TAG_GUIDANCE}
 
        Important: ${langInstruction}
        `;
@@ -427,7 +432,9 @@ export const generateDJIntro = async (
       
       STYLE PROTOCOL:
       ${styleInstruction}
-      
+
+      ${MARKUP_TAG_GUIDANCE}
+
       TOOLS AVAILABLE:
       - You have access to Google Search.
       - USE IT to find fresh info if needed to make the link relevant.

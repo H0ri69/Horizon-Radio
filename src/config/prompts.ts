@@ -52,7 +52,6 @@ export const DJ_STYLE_PROMPTS = {
     Zero fluff. No station ID. No greeting. Just the facts.
   `,
   [DJStyle.CUSTOM]: (customPrompt: string) => `
-    ROLE: Custom User Persona.
     INSTRUCTION: ${customPrompt ? customPrompt : "Be a standard DJ."}
   `,
   [DJStyle.DRUNK]: `
@@ -74,7 +73,8 @@ export const DJ_STYLE_PROMPTS = {
 export const LENGTH_CONSTRAINT =
   "Keep it brief - real DJs know when to talk and when to let the music breathe. Aim for 2-4 sentences most of the time. Dual DJ conversations should be punchy and quick-paced.";
 
-export const TTS_DUAL_DJ_DIRECTION = "Read this as a natural, spontaneous conversation between two radio DJs. Use natural pacing with brief pauses between speakers. Keep energy high and avoid robotic delivery.";
+export const TTS_DUAL_DJ_DIRECTION =
+  "Read this as a natural, spontaneous conversation between two radio DJs. Use natural pacing with brief pauses between speakers. Keep energy high and avoid robotic delivery.";
 
 export const MARKUP_TAG_GUIDANCE = `
 AVAILABLE VOICE CONTROLS (use sparingly for natural effect):
@@ -84,6 +84,8 @@ AVAILABLE VOICE CONTROLS (use sparingly for natural effect):
 - [laughing] - genuine laugh
 - [whispering] - quiet delivery
 - [extremely fast] - speed up (great for disclaimers/asides)
+
+IMPORTANT: Only use VOCALIZATION tags (sounds you can hear). NEVER use visual cues like [smile], [wink], [nod], [shrug], etc. - these cannot be vocalized and will cause issues.
 
 Use these naturally, not in every sentence. Real humans don't telegraph every emotion.
 `;
