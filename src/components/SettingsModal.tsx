@@ -19,14 +19,14 @@ interface Settings {
 export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [settings, setSettings] = useState<Settings>({
     enabled: true,
-    voice: "Kore",
+    voice: "kore",
     style: DJStyle.STANDARD,
     customPrompt: "",
     visualizerEnabled: true,
     language: "en",
     visualTheme: "Standard",
     dualDjMode: false,
-    secondaryDjVoice: "Puck",
+    secondaryDjVoice: "sulafat",
     apiKey: "",
   });
   const [status, setStatus] = useState("");

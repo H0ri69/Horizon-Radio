@@ -27,47 +27,53 @@ export const EXTENSION_CONFIG = {
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  djVoice: "Charon",
+  djVoice: "sadachbia",
   djStyle: DJStyle.STANDARD,
   customStylePrompt: "",
   language: "en",
 };
 
 export const VOICE_PROFILES: VoiceProfile[] = [
-  { id: "Charon", name: "Charon", gender: "Male", tone: "Deep/Pro", emotion: "Confidential" },
-  { id: "Kore", name: "Kore", gender: "Female", tone: "Natural", emotion: "Balanced" },
-  { id: "Puck", name: "Puck", gender: "Male", tone: "Playful", emotion: "Mischievous" },
-  { id: "Fenrir", name: "Fenrir", gender: "Male", tone: "Intense", emotion: "Aggressive" },
-  { id: "Zephyr", name: "Zephyr", gender: "Female", tone: "Gentle", emotion: "Breezy" },
+  { id: "sadachbia", name: "Sadachiba", gender: "Male", tone: "Calm", emotion: "Composed" },
+  { id: "sulafat", name: "Sulafat", gender: "Female", tone: "Soft", emotion: "Warm" },
+  { id: "algenib", name: "Alegenib", gender: "Male", tone: "Energetic", emotion: "Bright" },
+  { id: "zephyr", name: "Zephyr", gender: "Female", tone: "Gentle", emotion: "Breezy" },
+  { id: "kore", name: "Kore", gender: "Female", tone: "Natural", emotion: "Balanced" },
+  { id: "algieba", name: "Algeiba", gender: "Male", tone: "Deep", emotion: "Serious" },
 ];
 
 // DJ Persona Names (for dialogue references in multi-DJ mode)
 // Maps voice ID to persona name per language
 export const DJ_PERSONA_NAMES: Record<DJVoice, Record<AppLanguage, string>> = {
-  Charon: {
-    en: "Dave",
-    cs: "David",
-    ja: "ミハエル",
+  sadachbia: {
+    en: "Sam",
+    cs: "Samuel",
+    ja: "サム",
   },
-  Kore: {
-    en: "Nataly",
-    cs: "Natálie",
-    ja: "さら",
+  sulafat: {
+    en: "Sophie",
+    cs: "Sofie",
+    ja: "ソフィ",
   },
-  Puck: {
+  algenib: {
     en: "Alex",
     cs: "Aleš",
     ja: "アレックス",
   },
-  Fenrir: {
-    en: "Jacob",
-    cs: "Kuba",
-    ja: "ビクター",
-  },
-  Zephyr: {
+  zephyr: {
     en: "Laura",
     cs: "Laura",
     ja: "ゾーイ",
+  },
+  kore: {
+    en: "Nataly",
+    cs: "Natálie",
+    ja: "さら",
+  },
+  algieba: {
+    en: "Arthur",
+    cs: "Artur",
+    ja: "アーサー",
   },
 };
 
