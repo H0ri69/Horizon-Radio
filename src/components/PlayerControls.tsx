@@ -7,6 +7,28 @@ interface PlayerControlsProps {
 
 export const PlayerControls: React.FC<PlayerControlsProps> = ({ onOpenSettings }) => {
   const [container, setContainer] = useState<HTMLElement | null>(null);
+  const [hasApiKey, setHasApiKey] = useState(true);
+
+  useEffect(() => {
+    // Check initial settings
+    chrome.storage.local.get(["horisFmSettings"], (result) => {
+      const settings = result.horisFmSettings as { apiKey?: string } | undefined;
+      if (settings?.apiKey) {
+        setHasApiKey(true);
+      } else {
+        setHasApiKey(false);
+      }
+    });
+
+    // Listen for changes
+    const listener = (changes: any) => {
+      if (changes.horisFmSettings && changes.horisFmSettings.newValue) {
+        setHasApiKey(!!changes.horisFmSettings.newValue.apiKey);
+      }
+    };
+    chrome.storage.onChanged.addListener(listener);
+    return () => chrome.storage.onChanged.removeListener(listener);
+  }, []);
 
   useEffect(() => {
     // Find the injection point
@@ -46,7 +68,7 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ onOpenSettings }
         onOpenSettings();
       }}
       className="style-scope yt-icon-button"
-      title="Hori-s.FM Settings"
+      title={hasApiKey ? "Hori-s.FM Settings" : "Hori-s.FM (Setup Required)"}
       style={{
         background: "transparent",
         border: "none",
@@ -59,6 +81,7 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ onOpenSettings }
         opacity: 0.9,
         transition: "opacity 0.2s",
         marginLeft: "8px",
+        position: "relative", // Added for positioning the red dot
       }}
       onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
       onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.9")}
@@ -68,6 +91,23 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ onOpenSettings }
         <path d="M10 20H6V4h4v16zm6-16h-4v16h4V4z" />
         <path d="M18 8h2v8h-2zM4 8H2v8h2z" opacity=".5" />
       </svg>
+
+      {/* Warning Dot */}
+      {!hasApiKey && (
+        <div
+          style={{
+            position: "absolute",
+            top: "6px",
+            right: "6px",
+            width: "8px",
+            height: "8px",
+            backgroundColor: "#ef4444",
+            borderRadius: "50%",
+            boxShadow: "0 0 4px rgba(239, 68, 68, 0.6)",
+            zIndex: 10
+          }}
+        />
+      )}
     </button>,
     container
   );
