@@ -127,7 +127,8 @@ const processAudioResponse = (response: AudioResponseData): ArrayBuffer | null =
 async function callWithRetry<T>(
   fn: () => Promise<T>,
   retries = GEMINI_CONFIG.RETRY_COUNT,
-  delay = GEMINI_CONFIG.RETRY_DELAY
+  delay = GEMINI_CONFIG.RETRY_DELAY,
+  attempt = 1
 ): Promise<T> {
   try {
     return await fn();
@@ -150,12 +151,13 @@ async function callWithRetry<T>(
 
     if (retries > 0 && isRetryable) {
       console.warn(
-        `Gemini API Error (${error.status || error.code || "Unknown"
-        }). Retrying in ${delay}ms... (${retries} attempts left)`
+        `[Gemini] API Error (${error.status || error.code || "Unknown"
+        }). Retrying in ${delay}ms... (Attempt ${attempt}, ${retries} retries left). Error: ${error.message || "No message"}`
       );
       await new Promise((resolve) => setTimeout(resolve, delay));
-      return callWithRetry(fn, retries - 1, delay * 2);
+      return callWithRetry(fn, retries - 1, delay * 2, attempt + 1);
     }
+    console.error(`[Gemini] API Call failed after ${attempt} attempts.`, error);
     throw error;
   }
 }
@@ -179,7 +181,10 @@ const cleanTextForTTS = (text: string, partialClean: boolean = false): string =>
 };
 
 const generateScript = async (prompt: string): Promise<string | null> => {
+  const label = `[Gemini:Timing] Script Generation`;
+  console.time(label);
   try {
+    console.log(`[Gemini] 📝 Generating script...`);
     const ai = await getClient();
     const response: GenerateContentResponse = await callWithRetry(() =>
       ai.models.generateContent({
@@ -199,13 +204,21 @@ const generateScript = async (prompt: string): Promise<string | null> => {
     if (grounding?.searchEntryPoint) {
       console.log("[Gemini] 🔎 Search Performed. Grounding Metadata found.");
     } else {
-      console.log("[Gemini] 🔎 Search Performed. Grounding Metadata NOT found.");
+      console.log("[Gemini] 🔎 No Grounding Metadata found (Search may not have been triggered).");
     }
 
-    return response.text || null;
+    const script = response.text || null;
+    if (script) {
+      console.log(`[Gemini] ✅ Script generated (${script.length} chars).`);
+    } else {
+      console.warn(`[Gemini] ⚠️ Script generation returned empty.`);
+    }
+    return script;
   } catch (e) {
-    console.error("Script generation failed", e);
+    console.error("[Gemini] ❌ Script generation failed", e);
     return null;
+  } finally {
+    console.timeEnd(label);
   }
 };
 
@@ -216,6 +229,8 @@ const speakText = async (
   personaNameA?: string,
   personaNameB?: string
 ): Promise<ArrayBuffer | null> => {
+  const label = `[Gemini:Timing] TTS Generation (Dual=${!!secondaryVoice})`;
+  console.time(label);
   try {
     let finalTextInput = text;
 
@@ -232,7 +247,7 @@ const speakText = async (
     } else {
       const cleanedText = cleanTextForTTS(text);
       if (!cleanedText) {
-        console.warn("TTS skipped: Empty text after cleaning");
+        console.warn("[Gemini] 🗣️ TTS skipped: Empty text after cleaning");
         return null;
       }
       finalTextInput = cleanedText;
@@ -286,10 +301,19 @@ const speakText = async (
       2,
       2000
     ); // Specific retry strategy for TTS
-    return processAudioResponse(response);
+    
+    const audioContent = processAudioResponse(response);
+    if (audioContent) {
+      console.log(`[Gemini] ✅ TTS generated (${audioContent.byteLength} bytes).`);
+    } else {
+      console.warn(`[Gemini] ⚠️ TTS returned no audio data.`);
+    }
+    return audioContent;
   } catch (e) {
-    console.error("TTS generation failed", e);
+    console.error("[Gemini] ❌ TTS generation failed", e);
     return null;
+  } finally {
+    console.timeEnd(label);
   }
 };
 
@@ -314,153 +338,159 @@ export const generateDJIntro = async (
   dualDjMode: boolean = false, // EXISTING ARGUMENT OR NEW? If I can't change signature easily, I might relying on customPrompt or overload.
   secondaryVoice: DJVoice = "Puck"
 ): Promise<ArrayBuffer | null> => {
-  let prompt = "";
-  const langInstruction = getLanguageInstruction(language);
+  const label = `[Gemini:Timing] Total DJ Intro Process`;
+  console.time(label);
+  try {
+    let prompt = "";
+    const langInstruction = getLanguageInstruction(language);
 
-  const timeString = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  const { context } = getTimeOfDay();
+    const timeString = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    const { context } = getTimeOfDay();
 
-  // Determine Style Instruction based on Enum (MOVED TO TOP)
-  let styleInstruction = "";
-  if (style === DJStyle.CUSTOM) {
-    const customFunc = DJ_STYLE_PROMPTS[DJStyle.CUSTOM] as (p: string) => string;
-    styleInstruction = customFunc(customPrompt || "");
-  } else {
-    styleInstruction = (DJ_STYLE_PROMPTS[style] as string) || DEFAULT_DJ_STYLE;
-  }
+    // Determine Style Instruction based on Enum (MOVED TO TOP)
+    let styleInstruction = "";
+    if (style === DJStyle.CUSTOM) {
+      const customFunc = DJ_STYLE_PROMPTS[DJStyle.CUSTOM] as (p: string) => string;
+      styleInstruction = customFunc(customPrompt || "");
+    } else {
+      styleInstruction = (DJ_STYLE_PROMPTS[style] as string) || DEFAULT_DJ_STYLE;
+    }
 
-  // Construct Context Block
-  const historyBlock =
-    history.length > 0
-      ? `PREVIOUS VOICEOVERS (For Context Only - Do not repeat): \n${history.join("\n")}`
-      : "No previous history.";
+    // Construct Context Block
+    const historyBlock =
+      history.length > 0
+        ? `PREVIOUS VOICEOVERS (For Context Only - Do not repeat): \n${history.join("\n")}`
+        : "No previous history.";
 
-  const playlistBlock =
-    playlistContext.length > 0
-      ? `PLAYLIST CONTEXT (Surrounding Tracks): \n${playlistContext.join("\n")}`
-      : "No playlist context.";
+    const playlistBlock =
+      playlistContext.length > 0
+        ? `PLAYLIST CONTEXT (Surrounding Tracks): \n${playlistContext.join("\n")}`
+        : "No playlist context.";
 
-  if (dualDjMode) {
-    // Get persona names for the selected voices in the current language
-    const host1Name = DJ_PERSONA_NAMES[voice]?.[language] || "DJ 1";
-    const host2Name = DJ_PERSONA_NAMES[secondaryVoice]?.[language] || "DJ 2";
+    if (dualDjMode) {
+      // Get persona names for the selected voices in the current language
+      const host1Name = DJ_PERSONA_NAMES[voice]?.[language] || "DJ 1";
+      const host2Name = DJ_PERSONA_NAMES[secondaryVoice]?.[language] || "DJ 2";
 
-    prompt = `
-       You are TWO Radio DJs covering a shift together on "Horis FM".
-       HOST 1 (Main): Named "${host1Name}"
-       HOST 2 (Co-Host): Named "${host2Name}"
+      prompt = `
+         You are TWO Radio DJs covering a shift together on "Horis FM".
+         HOST 1 (Main): Named "${host1Name}"
+         HOST 2 (Co-Host): Named "${host2Name}"
+  
+         CURRENT SITUATION:
+         - Song Ending: "${currentSong.title}" by ${currentSong.artist}
+         - Song Starting: "${nextSong?.title}" by "${nextSong?.artist}"
+         - Time: ${context} (${timeString})
+         
+         TONE/STYLE:
+         ${styleInstruction}
+  
+         ${historyBlock}
+         ${playlistBlock}
+  
+         ${MARKUP_TAG_GUIDANCE}
+  
+         TASK:
+         Write a short, banter-filled dialogue script between ${host1Name} and ${host2Name} transitioning the songs.
+         
+         OUTPUT FORMAT (STRICT):
+         Every single line MUST start with either "${host1Name}: " or "${host2Name}: " followed by their dialogue.
+         Example:
+         ${host1Name}: That was incredible!
+         ${host2Name}: Absolutely loved it! Now here's something special...
+         ${host1Name}: You're going to love this next track.
+         
+         ${LENGTH_CONSTRAINT}
+         
+         CRITICAL CONSTRAINTS:
+         - DO NOT include ANY text that is not prefixed with "${host1Name}: " or "${host2Name}: "
+         - DO NOT add stage directions, descriptions, or narration
+         - DO NOT add introductory text like "Here's the script:" or concluding text
+         - Every line MUST have the speaker prefix (either ${host1Name} or ${host2Name})
+         - Output ONLY the dialogue lines in the exact format shown above
+         
+         Important: ${langInstruction}
+       `;
 
-       CURRENT SITUATION:
-       - Song Ending: "${currentSong.title}" by ${currentSong.artist}
-       - Song Starting: "${nextSong?.title}" by "${nextSong?.artist}"
-       - Time: ${context} (${timeString})
-       
-       TONE/STYLE:
-       ${styleInstruction}
+      console.log(`[Gemini] 🎙️ Generating DUAL DJ Intro: ${voice} & ${secondaryVoice}`);
+      const script = await generateScript(prompt);
+      if (!script) {
+        console.warn("[Gemini] ⚠️ Dual DJ script generation failed.");
+        return null;
+      }
 
-       ${historyBlock}
-       ${playlistBlock}
+      console.log("------------------------------------------------");
+      console.log(`[Gemini] 🤖 GENERATED DIALOGUE:\n"${script}"`);
+      console.log("------------------------------------------------");
 
-       ${MARKUP_TAG_GUIDANCE}
+      console.log(`[Gemini] 🎙️ Synthesizing full conversation at once...`);
+      return speakText(script, voice, secondaryVoice, host1Name, host2Name);
+    }
 
-       TASK:
-       Write a short, banter-filled dialogue script between ${host1Name} and ${host2Name} transitioning the songs.
-       
-       OUTPUT FORMAT (STRICT):
-       Every single line MUST start with either "${host1Name}: " or "${host2Name}: " followed by their dialogue.
-       Example:
-       ${host1Name}: That was incredible!
-       ${host2Name}: Absolutely loved it! Now here's something special...
-       ${host1Name}: You're going to love this next track.
-       
-       ${LENGTH_CONSTRAINT}
-       
-       CRITICAL CONSTRAINTS:
-       - DO NOT include ANY text that is not prefixed with "${host1Name}: " or "${host2Name}: "
-       - DO NOT add stage directions, descriptions, or narration
-       - DO NOT add introductory text like "Here's the script:" or concluding text
-       - Every line MUST have the speaker prefix (either ${host1Name} or ${host2Name})
-       - Output ONLY the dialogue lines in the exact format shown above
-       
-       Important: ${langInstruction}
-     `;
+    // --- STANDARD SINGLE DJ LOGIC ---
 
-    console.log(`[Gemini] Generating DUAL DJ Script: ${voice} & ${secondaryVoice}`);
+    if (nextSong?.requestedBy) {
+      prompt = `
+         You are a Radio DJ on "Horis FM". A listener named "${nextSong.requestedBy}" has requested the song "${nextSong.title}" by "${nextSong.artist}".
+         They sent this message: "${nextSong.requestMessage}".
+  
+         Transition from "${currentSong.title}", shout out the listener, react to their message, and intro the new track.
+         ${LENGTH_CONSTRAINT} Do not use stage directions like *laughs*.
+  
+         ${MARKUP_TAG_GUIDANCE}
+  
+         Important: ${langInstruction}
+         `;
+    } else {
+      prompt = `
+        You are a specific persona: A Radio DJ on "Horis FM".
+        
+        CURRENT SITUATION:
+        - Song Ending: "${currentSong.title}" by ${currentSong.artist}
+        - Song Starting: "${nextSong?.title}" by "${nextSong?.artist}"
+        - Time: ${context} (${timeString})
+        
+        ${historyBlock}
+        ${playlistBlock}
+  
+        TASK:
+        Generate a short, radio-realistic transition script.
+        ${LENGTH_CONSTRAINT}
+        
+        STYLE PROTOCOL:
+        ${styleInstruction}
+  
+        ${MARKUP_TAG_GUIDANCE}
+  
+        TOOLS AVAILABLE:
+        - You have access to Google Search.
+        - USE IT to find fresh info if needed to make the link relevant.
+        - DO NOT just list facts. Weave them into the flow.
+        
+        CONSTRAINTS:
+        - Do NOT output stage directions (e.g. *scratches record*).
+        - Do NOT say "Here is the script" or "Transition:".
+        - Output ONLY the spoken words.
+  
+        Important: ${langInstruction}
+        `;
+    }
+
+    console.log(`[Gemini] 🎙️ Generating Intro for: Voice=${voice}, Style=${style}`);
     const script = await generateScript(prompt);
     if (!script) {
-      console.warn("[Gemini] Script generation failed.");
+      console.warn("[Gemini] ⚠️ Standard script generation failed (empty response).");
       return null;
     }
 
     console.log("------------------------------------------------");
-    console.log(`[Gemini] 🤖 GENERATED DIALOGUE:\n"${script}"`);
+    console.log(`[Gemini] 🤖 GENERATED SCRIPT:\n"${script}"`);
     console.log("------------------------------------------------");
 
-    console.log(`[Dual DJ] Synthesizing full conversation at once...`);
-    return speakText(script, voice, secondaryVoice, host1Name, host2Name);
+    return speakText(script, voice);
+  } finally {
+    console.timeEnd(label);
   }
-
-  // --- STANDARD SINGLE DJ LOGIC ---
-
-  if (nextSong?.requestedBy) {
-    prompt = `
-       You are a Radio DJ on "Horis FM". A listener named "${nextSong.requestedBy}" has requested the song "${nextSong.title}" by "${nextSong.artist}".
-       They sent this message: "${nextSong.requestMessage}".
-
-       Transition from "${currentSong.title}", shout out the listener, react to their message, and intro the new track.
-       ${LENGTH_CONSTRAINT} Do not use stage directions like *laughs*.
-
-       ${MARKUP_TAG_GUIDANCE}
-
-       Important: ${langInstruction}
-       `;
-  } else {
-    prompt = `
-      You are a specific persona: A Radio DJ on "Horis FM".
-      
-      CURRENT SITUATION:
-      - Song Ending: "${currentSong.title}" by ${currentSong.artist}
-      - Song Starting: "${nextSong?.title}" by "${nextSong?.artist}"
-      - Time: ${context} (${timeString})
-      
-      ${historyBlock}
-      ${playlistBlock}
-
-      TASK:
-      Generate a short, radio-realistic transition script.
-      ${LENGTH_CONSTRAINT}
-      
-      STYLE PROTOCOL:
-      ${styleInstruction}
-
-      ${MARKUP_TAG_GUIDANCE}
-
-      TOOLS AVAILABLE:
-      - You have access to Google Search.
-      - USE IT to find fresh info if needed to make the link relevant.
-      - DO NOT just list facts. Weave them into the flow.
-      
-      CONSTRAINTS:
-      - Do NOT output stage directions (e.g. *scratches record*).
-      - Do NOT say "Here is the script" or "Transition:".
-      - Output ONLY the spoken words.
-
-      Important: ${langInstruction}
-      `;
-  }
-
-  console.log(`[Gemini] Generating for: Voice=${voice}, Style=${style}`);
-  const script = await generateScript(prompt);
-  if (!script) {
-    console.warn("[Gemini] Script generation failed (empty response).");
-    return null;
-  }
-
-  console.log("------------------------------------------------");
-  console.log(`[Gemini] 🤖 GENERATED SCRIPT:\n"${script}"`);
-  console.log("------------------------------------------------");
-
-  return speakText(script, voice);
 };
 
 export const generateCallBridging = async (
@@ -470,9 +500,13 @@ export const generateCallBridging = async (
   voice: DJVoice,
   language: AppLanguage
 ): Promise<{ intro: ArrayBuffer | null; outro: ArrayBuffer | null }> => {
-  const langInstruction = getLanguageInstruction(language);
+  const label = `[Gemini:Timing] Total Call Bridging Process`;
+  console.time(label);
+  try {
+    console.log(`[Gemini] 📞 Generating call bridging for ${callerName}...`);
+    const langInstruction = getLanguageInstruction(language);
 
-  const introPrompt = `
+    const introPrompt = `
     You are a radio DJ on Horis FM. You are about to take a live call from a listener named "${callerName}".
     ${reason ? `They want to talk about: "${reason}".` : ""}
     
@@ -482,7 +516,7 @@ export const generateCallBridging = async (
     Important: ${langInstruction}
   `;
 
-  const outroPrompt = `
+    const outroPrompt = `
     You are a radio DJ. You just finished talking to a listener named "${callerName}".
     Now you need to introduce the next song: "${nextSong?.title || "Unknown"}" by "${nextSong?.artist || "Unknown"
     }".
@@ -493,15 +527,18 @@ export const generateCallBridging = async (
     Important: ${langInstruction}
   `;
 
-  const [introText, outroText] = await Promise.all([
-    generateScript(introPrompt),
-    generateScript(outroPrompt),
-  ]);
+    const [introText, outroText] = await Promise.all([
+      generateScript(introPrompt),
+      generateScript(outroPrompt),
+    ]);
 
-  const [introBuffer, outroBuffer] = await Promise.all([
-    introText ? speakText(introText, voice) : null,
-    outroText ? speakText(outroText, voice) : null,
-  ]);
+    const [introBuffer, outroBuffer] = await Promise.all([
+      introText ? speakText(introText, voice) : null,
+      outroText ? speakText(outroText, voice) : null,
+    ]);
 
-  return { intro: introBuffer, outro: outroBuffer };
+    return { intro: introBuffer, outro: outroBuffer };
+  } finally {
+    console.timeEnd(label);
+  }
 };
