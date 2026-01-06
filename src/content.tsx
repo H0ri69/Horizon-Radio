@@ -301,7 +301,15 @@ const mainLoop = setInterval(() => {
   }
 
   const video = getMoviePlayer();
-  if (!video || video.paused || !video.duration) return;
+  if (!video || !video.duration) return;
+
+  // Heartbeat logging (every 10 seconds while playing)
+  const isPaused = video.paused;
+  if (!isPaused && Math.floor(video.currentTime) % 10 === 0) {
+    console.log(`[Hori-s:Heartbeat] Status: ${state.status}, Time: ${Math.round(video.currentTime)}s / ${Math.round(video.duration)}s, Sig: ${state.currentSongSig}`);
+  }
+
+  if (isPaused) return;
 
   const { current, next } = getSongInfo(); // We get playlist context here too
   const sig = `${current.title}|${current.artist}`;
@@ -340,6 +348,14 @@ const mainLoop = setInterval(() => {
   const hasEnoughTime = timeLeft > 20; // Need at least 20s to generate and prep
 
   if (state.status === "IDLE" && !alreadyGenerated) {
+    // Detailed Evaluation Logging (Throttle to avoid spam)
+    if (Math.floor(currentTime) % 2 === 0) {
+       // Only log if we are getting close or if it's suspicious
+       if (currentTime < 10 || (currentTime > duration * 0.4 && currentTime < duration * 0.6)) {
+         console.debug(`[Generator:Eval] ${current.title}: Time=${Math.round(currentTime)}s, Dur=${Math.round(duration)}s, PastHalf=${isPastHalfway}, EnoughTime=${hasEnoughTime}`);
+       }
+    }
+
     if (isPastHalfway && hasEnoughTime) {
       // EXTRA SAFETY: 
       // Guard against start of song quirks (rare if halfway)
