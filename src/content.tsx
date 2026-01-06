@@ -1,7 +1,8 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { InjectedApp } from "./components/InjectedApp";
-import { Song, DJStyle, DJVoice, AppLanguage } from "../types";
+import { Song, DJVoice, AppLanguage } from "./types";
+import { DJStyle } from "./config";
 import "./index.css"; // Inject Tailwind Styles
 
 // Prevent running in iframes
