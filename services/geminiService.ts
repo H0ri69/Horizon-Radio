@@ -1,6 +1,39 @@
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 import { Song, DJStyle, DJVoice, AppLanguage } from '../types';
-import { GEMINI_CONFIG, DJ_STYLE_PROMPTS, getLanguageInstruction, LENGTH_CONSTRAINT, DJ_PERSONA_NAMES } from '../src/config';
+import { GEMINI_CONFIG, DJ_STYLE_PROMPTS, getLanguageInstruction, LENGTH_CONSTRAINT, DJ_PERSONA_NAMES, TTS_DUAL_DJ_DIRECTION, DEFAULT_DJ_STYLE } from '../src/config';
+
+// Type definitions for better type safety
+interface GeminiErrorResponse {
+  status?: number;
+  code?: number;
+  message?: string;
+}
+
+interface AudioResponseData {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        inlineData?: {
+          data?: string;
+        };
+      }>;
+    };
+  }>;
+}
+
+interface SpeechConfig {
+  multiSpeakerVoiceConfig?: {
+    speakerVoiceConfigs: Array<{
+      speaker: string;
+      voiceConfig: {
+        prebuiltVoiceConfig: { voiceName: string };
+      };
+    }>;
+  };
+  voiceConfig?: {
+    prebuiltVoiceConfig: { voiceName: string };
+  };
+}
 
 const getClient = () => {
   const apiKey = process.env.API_KEY;
@@ -52,9 +85,12 @@ const concatenateBuffers = (buffer1: ArrayBuffer, buffer2: ArrayBuffer) => {
   return tmp.buffer;
 };
 
-const processAudioResponse = (response: any): ArrayBuffer | null => {
+const processAudioResponse = (response: AudioResponseData): ArrayBuffer | null => {
   const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-  if (!base64Audio) return null;
+  if (!base64Audio) {
+    console.warn("[Gemini] Warning: No base64 audio data found in response");
+    return null;
+  }
 
   const binaryString = atob(base64Audio);
   const len = binaryString.length;
@@ -71,32 +107,39 @@ const processAudioResponse = (response: any): ArrayBuffer | null => {
 async function callWithRetry<T>(fn: () => Promise<T>, retries = GEMINI_CONFIG.RETRY_COUNT, delay = GEMINI_CONFIG.RETRY_DELAY): Promise<T> {
   try {
     return await fn();
-  } catch (e: any) {
+  } catch (e) {
+    const error = e as GeminiErrorResponse;
     // Retry on Rate Limits (429) AND Internal Server Errors (500, 503)
-    const isRetryable = e.status === 429 || e.code === 429 ||
-      e.status === 500 || e.code === 500 ||
-      e.status === 503 || e.code === 503 ||
-      (e.message && (e.message.includes('429') || e.message.includes('quota') || e.message.includes('500') || e.message.includes('503') || e.message.includes('INTERNAL')));
+    const isRetryable = error.status === 429 || error.code === 429 ||
+      error.status === 500 || error.code === 500 ||
+      error.status === 503 || error.code === 503 ||
+      (error.message && (error.message.includes('429') || error.message.includes('quota') || error.message.includes('500') || error.message.includes('503') || error.message.includes('INTERNAL')));
 
     if (retries > 0 && isRetryable) {
-      console.warn(`Gemini API Error (${e.status || e.code || 'Unknown'}). Retrying in ${delay}ms... (${retries} attempts left)`);
+      console.warn(`Gemini API Error (${error.status || error.code || 'Unknown'}). Retrying in ${delay}ms... (${retries} attempts left)`);
       await new Promise(resolve => setTimeout(resolve, delay));
       return callWithRetry(fn, retries - 1, delay * 2);
     }
-    throw e;
+    throw error;
   }
 }
 
 // Clean text to prevent TTS errors (remove stage directions, emojis, etc)
-const cleanTextForTTS = (text: string): string => {
+const cleanTextForTTS = (text: string, partialClean: boolean = false): string => {
   if (!text) return "";
-  return text
+  let cleaned = text
     .replace(/\*.*?\*/g, '')      // Remove *actions*
     .replace(/\[.*?\]/g, '')      // Remove [instructions]
-    .replace(/\(.*?\)/g, '')      // Remove (notes)
-    .replace(/["]+/g, '')         // Remove quotes
-    .replace(/[:;]/g, ',')        // Replace colons/semicolons with commas for flow
-    .trim();
+    .replace(/\(.*?\)/g, '');     // Remove (notes)
+
+  // Full clean: also remove quotes and replace punctuation
+  if (!partialClean) {
+    cleaned = cleaned
+      .replace(/["]+/g, '')       // Remove quotes
+      .replace(/[:;]/g, ',');     // Replace colons/semicolons with commas for flow
+  }
+
+  return cleaned.trim();
 };
 
 
@@ -146,16 +189,11 @@ const speakText = async (
     const isDualDj = !!secondaryVoice && !!personaNameA && !!personaNameB;
 
     if (isDualDj) {
-        // Partial cleaning for Dual DJ - keep speaker prefixes (persona names)
-        const cleanedScript = text
-            .replace(/\*.*?\*/g, '')
-            .replace(/\[.*?\]/g, '')
-            .replace(/\(.*?\)/g, '')
-            .trim();
-         
+        // Partial cleaning for Dual DJ - keep speaker prefixes (persona names with colons)
+        const cleanedScript = cleanTextForTTS(text, true);
+
          // CRITICAL: Prepend direction instruction for multi-speaker TTS
-         const direction = "Read aloud in a natural, conversational radio DJ tone";
-         finalTextInput = `${direction}\n${cleanedScript}`;
+         finalTextInput = `${TTS_DUAL_DJ_DIRECTION}\n${cleanedScript}`;
     } else {
          const cleanedText = cleanTextForTTS(text);
           if (!cleanedText) {
@@ -170,7 +208,7 @@ const speakText = async (
     const ai = getClient();
     
     // Build speech config based on single vs dual DJ mode
-    const speechConfig: any = isDualDj && secondaryVoice && personaNameA && personaNameB ? {
+    const speechConfig: SpeechConfig = isDualDj && secondaryVoice && personaNameA && personaNameB ? {
       // Multi-speaker configuration using actual persona names
       multiSpeakerVoiceConfig: {
         speakerVoiceConfigs: [
@@ -218,20 +256,6 @@ const getTimeOfDay = (): { context: string, greeting: string } => {
   return { context: "Late Night", greeting: "Hey night owls" };
 };
 
-// Deprecated or simplified: In Single-Shot mode, we just pass the whole script to speakText.
-const synthesizeDialogue = async (
-  script: string, 
-  voiceA: DJVoice, 
-  voiceB: DJVoice,
-  personaNameA: string,
-  personaNameB: string
-): Promise<ArrayBuffer | null> => {
-    // Just pass the full script with persona names (e.g., "Mike:", "Sarah:") directly to TTS.
-    // The model (gemini-2.5-flash-preview-tts) handles multi-speaker generation if formatted correctly.
-    console.log(`[Dual DJ] Synthesizing full conversation at once...`);
-    return speakText(script, voiceA, voiceB, personaNameA, personaNameB); // Pass both voices and names
-};
-
 export const generateDJIntro = async (
   currentSong: Song,
   nextSong: Song | null,
@@ -258,7 +282,7 @@ export const generateDJIntro = async (
     const customFunc = DJ_STYLE_PROMPTS[DJStyle.CUSTOM] as (p: string) => string;
     styleInstruction = customFunc(customPrompt || "");
   } else {
-    styleInstruction = (DJ_STYLE_PROMPTS[style] as string) || "ROLE: Standard Radio DJ. Be professional and smooth.";
+    styleInstruction = (DJ_STYLE_PROMPTS[style] as string) || DEFAULT_DJ_STYLE;
   }
 
   // Construct Context Block
@@ -324,7 +348,8 @@ export const generateDJIntro = async (
     console.log(`[Gemini] 🤖 GENERATED DIALOGUE:\n"${script}"`);
     console.log("------------------------------------------------");
 
-    return synthesizeDialogue(script, voice, secondaryVoice, host1Name, host2Name);
+    console.log(`[Dual DJ] Synthesizing full conversation at once...`);
+    return speakText(script, voice, secondaryVoice, host1Name, host2Name);
   }
 
   // --- STANDARD SINGLE DJ LOGIC ---

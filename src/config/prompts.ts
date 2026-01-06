@@ -54,6 +54,10 @@ export const DJ_STYLE_PROMPTS = {
 
 export const LENGTH_CONSTRAINT = "Limit your total output to 3 - 7 sentences, depending on whether you decide to make a shorter or a longer voiceover. If using multiple speakers, make it short.";
 
+export const TTS_DUAL_DJ_DIRECTION = "Read aloud in a natural, conversational radio DJ tone";
+
+export const DEFAULT_DJ_STYLE = "ROLE: Standard Radio DJ. Be professional and smooth.";
+
 export const getLanguageInstruction = (lang: AppLanguage) => 
   lang === 'cs' ? "Speak in Czech language!!" : 
   lang === 'ja' ? "Speak in Japanese language!!" : 
