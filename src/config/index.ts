@@ -33,6 +33,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   djStyle: DJStyle.STANDARD,
   customStylePrompt: "",
   language: "en",
+  longMessageProbability: 0.5,
 };
 
 // Voice profiles with persona names - single source of truth

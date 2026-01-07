@@ -20,6 +20,7 @@ interface State {
   currentSongSig: string; // ID to track if song changed
   bufferedAudio: string | null; // Base64 audio
   generatedForSig: string | null; // CONTEXT VALIDATION
+  bufferedAudioType: "SHORT" | "LONG"; // New State
   lastTime: number;
   lastSongChangeTs: number;
 }
@@ -29,6 +30,7 @@ let state: State = {
   currentSongSig: "",
   bufferedAudio: null,
   generatedForSig: null,
+  bufferedAudioType: "SHORT",
   lastTime: 0,
   lastSongChangeTs: 0,
 };
@@ -356,15 +358,72 @@ const playBufferedAudio = async () => {
     return;
   }
 
-  console.log("[Audio] Playing buffered DJ intro...");
+  console.log(`[Audio] Playing buffered DJ intro (${state.bufferedAudioType})...`);
   state.status = "PLAYING";
 
   const url = `data:audio/wav;base64,${state.bufferedAudio}`;
   audioEl.src = url;
   audioEl.volume = 1.0;
 
-  // DUCK YTM
-  ducker.duck(2000);
+  // Load metadata to get duration calculation for LONG mode
+  await new Promise((resolve) => {
+    audioEl.onloadedmetadata = resolve;
+  });
+
+  const djDuration = audioEl.duration; // seconds
+
+  if (state.bufferedAudioType === "LONG") {
+    // LONG MODE: 
+    // 1. Duck Music (Start fade out)
+    ducker.duck(2000);
+
+    // 2. Calculate dynamic pause delay to keep music playing until 1s before end
+    // Use getScrapedTime() to get FRESH duration/currentTime as we might be slightly off from state
+    const freshTime = getScrapedTime();
+    let musicPauseDelay = 2000; // Fallback (2s)
+
+    if (freshTime) {
+      const remaining = freshTime.duration - freshTime.currentTime;
+      // We want to pause when remaining is ~2s. 
+      // So delay = (remaining - 2) * 1000
+      // Clamp to at least 0.
+      musicPauseDelay = Math.max(0, (remaining - 2) * 1000);
+      console.log(`[Audio] Long Message: Calculated music pause delay: ${musicPauseDelay}ms (Time remaining: ${remaining}s)`);
+    } else {
+      console.warn("[Audio] Could not scrape time for dynamic pause. using fallback.");
+    }
+
+    // 3. Schedule the PAUSE
+    setTimeout(() => {
+      if (state.status === "PLAYING") {
+        const video = getMoviePlayer();
+        if (video) {
+          console.log("[Audio] Long Message: Pausing music (2s before end)...");
+          video.pause();
+        }
+      }
+    }, musicPauseDelay);
+
+    // Calculate when to resume (5s before DJ ends)
+    const resumeDelay = Math.max(0, (djDuration - 5) * 1000);
+
+    // 3. Schedule Resume
+    setTimeout(() => {
+      if (state.status === "PLAYING") {
+        console.log("[Audio] Long Message: Resuming music near end...");
+        const video = getMoviePlayer();
+        if (video) {
+          video.play();
+          // We don't unduck yet, playBufferedAudio's onended will handle the full unduck
+          // But we might want to ensure it's still quiet? 
+          // Yes, the gain node should still be low from the initial duck.
+        }
+      }
+    }, resumeDelay);
+  } else {
+    // SHORT MODE: Standard Ducking
+    ducker.duck(2000);
+  }
 
   try {
     await audioEl.play();
@@ -372,6 +431,8 @@ const playBufferedAudio = async () => {
     console.error("[Audio] Playback failed:", e);
     ducker.unduck(1000);
     state.status = "IDLE";
+    const video = getMoviePlayer();
+    if (video && state.bufferedAudioType === "LONG") video.play(); // Safety resume
   }
 
   audioEl.onended = () => {
@@ -509,6 +570,11 @@ const mainLoop = setInterval(() => {
           return;
         }
 
+        // Determine Message Type
+        const prob = settings.longMessageProbability ?? 0.5;
+        const isLong = Math.random() < prob;
+        console.log(`[Generator] Type Decision: ${isLong ? "LONG" : "SHORT"} (Prob: ${prob})`);
+
         console.log(`[Generator] Sending request... (Voice: ${settings.voice}, Style: ${settings.style})`);
 
         try {
@@ -529,6 +595,7 @@ const mainLoop = setInterval(() => {
                 customPrompt: settings.customPrompt,
                 dualDjMode: settings.dualDjMode,
                 secondaryVoice: settings.secondaryDjVoice,
+                isLongMessage: isLong,
               },
             },
             (response) => {
@@ -547,6 +614,7 @@ const mainLoop = setInterval(() => {
               if (response && response.audio) {
                 console.log("[Generator] ✅ Audio received & Buffered. Waiting for outro...");
                 state.bufferedAudio = response.audio;
+                state.bufferedAudioType = isLong ? "LONG" : "SHORT";
                 state.status = "READY";
               } else {
                 console.warn("[Generator] ❌ No audio returned.");

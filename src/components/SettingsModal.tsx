@@ -15,6 +15,7 @@ interface Settings {
   secondaryDjVoice?: string;
   visualTheme?: string;
   apiKey?: string;
+  longMessageProbability?: number;
 }
 
 export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -29,6 +30,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     dualDjMode: false,
     secondaryDjVoice: "sulafat",
     apiKey: "",
+    longMessageProbability: 0.5,
   });
   const [status, setStatus] = useState("");
 
@@ -217,6 +219,56 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 </div>
               </div>
             </section>
+
+            {/* 02b BROADCAST VARIETY */}
+            <section className="mt-8 pt-8 border-t border-white/5">
+              <h3 className="text-lg font-medium text-white/80 mb-4">Message Variety</h3>
+              <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <div className="text-white font-medium">Long vs Short Messages</div>
+                    <div className="text-white/50 text-sm mt-1">
+                      Higher values mean more detailed stories, trivia, and jokes.
+                    </div>
+                  </div>
+                  <div className="font-mono text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-lg">
+                    {Math.round((settings.longMessageProbability ?? 0.5) * 100)}% Long
+                  </div>
+                </div>
+
+                <div className="relative h-12 flex items-center">
+                  {/* Track */}
+                  <div className="absolute w-full h-2 bg-black/40 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-indigo-500 transition-all duration-300"
+                      style={{ width: `${(settings.longMessageProbability ?? 0.5) * 100}%` }}
+                    />
+                  </div>
+                  {/* Slider Input */}
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={settings.longMessageProbability ?? 0.5}
+                    onChange={(e) => saveSettings({ ...settings, longMessageProbability: parseFloat(e.target.value) })}
+                    className="absolute w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  {/* Thumb (Visual Only) */}
+                  <div
+                    className="absolute h-6 w-6 bg-white rounded-full shadow-lg pointer-events-none transition-all duration-300 transform -translate-x-1/2"
+                    style={{ left: `${(settings.longMessageProbability ?? 0.5) * 100}%` }}
+                  />
+                </div>
+
+                <div className="flex justify-between text-xs text-white/30 mt-1 font-medium">
+                  <span>Mostly Short (Transitions)</span>
+                  <span>Balanced</span>
+                  <span>Mostly Long (Stories/Trivia)</span>
+                </div>
+              </div>
+            </section>
+
 
             <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
 
