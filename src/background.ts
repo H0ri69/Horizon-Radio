@@ -31,9 +31,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       recentThemeIndices,
       debugSettings,
       themeUsageHistory,
+      textModel,
+      ttsModel,
     } = message.data;
-
-    console.log("Generating Intro for:", currentSong.title, "->", nextSong.title);
 
     // 1. Fetch History
     chrome.storage.local.get(["narrativeHistory"], (result) => {
@@ -55,28 +55,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         message.data.isLongMessage,
         recentThemeIndices || [],
         debugSettings,
-        themeUsageHistory || {}
+        themeUsageHistory || {},
+        textModel || "FLASH",
+        ttsModel || "PRO"
       )
         .then((result) => {
           if (result.audio) {
-            console.log("Audio generated.");
-
             // 3. Update History
             const newEntry = `Transitioned: "${currentSong.title}" -> "${nextSong.title}"`;
             const updatedHistory = [newEntry, ...history].slice(0, MAX_HISTORY);
             chrome.storage.local.set({ narrativeHistory: updatedHistory });
-            console.log(
-              `[Background] 📜 History Saved (${updatedHistory.length} items). Last: ${newEntry}`
-            );
 
             const base64 = arrayBufferToBase64(result.audio);
-            sendResponse({ audio: base64, themeIndex: result.themeIndex });
+            sendResponse({ audio: base64, themeIndex: result.themeIndex, script: result.script });
           } else {
             sendResponse({ error: "Failed to generate audio" });
           }
         })
         .catch((err) => {
-          console.error(err);
+          console.error("[Hori-s:Background] ❌ Error:", err);
           sendResponse({ error: err.message });
         });
     });

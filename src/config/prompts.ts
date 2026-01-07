@@ -88,21 +88,33 @@ export const LENGTH_CONSTRAINT =
   "Keep it brief - real DJs know when to talk and when to let the music breathe. Aim for 2-4 sentences most of the time. Dual DJ conversations should be punchy and quick-paced.";
 
 export const TTS_DUAL_DJ_DIRECTION =
-  "Read this as a natural, spontaneous conversation between two radio DJs. Use natural pacing with brief pauses between speakers. Keep energy high and avoid robotic delivery.";
+  "Read this as a natural, spontaneous conversation between two radio DJs. Use realistic pacing, including occasional interruptions or overlapping energy when excited. Pro-fidelity voice-acting is required: use the emotional tags provided in the text to drive the performance.";
 
-export const MARKUP_TAG_GUIDANCE = `
-AVAILABLE VOICE CONTROLS (use sparingly for natural effect):
+export const getMarkupTagGuidance = (tier: "FLASH" | "PRO") => {
+  const commonTags = `
 - [short pause] / [medium pause] / [long pause] - timing control
 - [uhm] - hesitation/thinking sound
 - [sigh] - emotional breath
 - [laughing] - genuine laugh
 - [whispering] - quiet delivery
-- [extremely fast] - speed up (great for disclaimers/asides)
+- [extremely fast] - speed up`;
+
+  const proTags = `
+- [excited] / [cheerful] / [amazed] - positive energy
+- [nostalgic] / [warm] / [empathetic] - emotional connection
+- [serious] / [professional] - news/formal tone
+- [sarcastic] / [scornful] - for edgy personas (use sparingly)
+- [extremely slow] - dramatic emphasis`;
+
+  return `
+AVAILABLE VOICE CONTROLS (use sparingly for natural effect):
+${commonTags}${tier === "PRO" ? proTags : ""}
 
 IMPORTANT: Only use VOCALIZATION tags (sounds you can hear). NEVER use visual cues like [smile], [wink], [nod], [shrug], etc. - these cannot be vocalized and will cause issues.
 
 Use these naturally, not in every sentence. Real humans don't telegraph every emotion.
 `;
+};
 
 export const DEFAULT_DJ_STYLE = "ROLE: Standard Radio DJ. Be professional and smooth.";
 
@@ -110,12 +122,12 @@ export const DEFAULT_DJ_STYLE = "ROLE: Standard Radio DJ. Be professional and sm
 // These control HOW the text is spoken (performance, delivery, pacing)
 // If undefined, no system instruction is sent to TTS
 export const DJ_STYLE_TTS_SYSTEM_PROMPTS: Record<DJStyle, string | undefined> = {
-  [DJStyle.STANDARD]: "", // "You are a high-energy commercial radio DJ voiceover.",
-  [DJStyle.CHILL]: "", // "You are a late-night radio host with a deep, soothing, intimate presence.",
-  [DJStyle.TECHNICAL]: "", // "You are an enthusiastic music historian and audio nerd.",
-  [DJStyle.MINIMAL]: "", // "You are an automated station voice - neutral, robotic, efficient.",
-  [DJStyle.ASMR]: "Read the following strictly in a whispering, ASMR-like voice:",
-  [DJStyle.DRUNK]: "", // "You are tipsy (3-4 drinks in) but still functional.",
+  [DJStyle.STANDARD]: "SCENE: Professional radio studio. Keep a slight 'smile' in the voice. Performance: Use [excited] for high-tempo song intros and [professional] for station IDs. Speak with high-end condenser mic proximity.",
+  [DJStyle.CHILL]: "SCENE: Late-night candlelit booth. Performance: Soft, rhythmic delivery. Use a [warm], intimate voice with [nostalgic] or [empathetic] undertones. Lean into the mic.",
+  [DJStyle.TECHNICAL]: "SCENE: High-tech podcasting setup. Performance: Rapid, knowledgeable fire. Sound [cheerful] or [amazed] when sharing fun facts. Be very [professional] with technical specs.",
+  [DJStyle.MINIMAL]: "Neutral, clean, and robotic station voice ID.",
+  [DJStyle.ASMR]: "SCENE: Binaural microphone setup. Performance: Maximum proximity, ultra-soft whispering. Minimal vocal intensity.",
+  [DJStyle.DRUNK]: "SCENE: Talking to a friend in a dark living room. Performance: Tipsy and slightly [sarcastic] or [laughing]. Pacing should be erratic with frequent [uhm] and [short pause].",
   [DJStyle.CUSTOM]: "", // Custom style doesn't have a default TTS system prompt
 };
 
@@ -123,5 +135,5 @@ export const getLanguageInstruction = (lang: AppLanguage) =>
   lang === "cs"
     ? "Speak in Czech language!!"
     : lang === "ja"
-    ? "Speak in Japanese language!!"
-    : "Speak in English.";
+      ? "Speak in Japanese language!!"
+      : "Speak in English.";
