@@ -55,6 +55,15 @@ const getMoviePlayer = () => {
   return videos[0];
 };
 
+const normalizeString = (str: string | null | undefined): string => {
+  if (!str) return "";
+  return str
+    .replace(/\bExplicit\b/gi, "") // Remove "Explicit" text
+    .replace(/\s+/g, " ")          // Collapse multiple spaces
+    .trim()
+    .toLowerCase();                // Case insensitive
+};
+
 const getSongInfo = () => {
   // 1. Current Song Parsers - SCOPED TO PLAYER BAR
   const playerBar = document.querySelector("ytmusic-player-bar");
@@ -68,7 +77,8 @@ const getSongInfo = () => {
   const titleEl = playerBar.querySelector(".content-info-wrapper .title");
   const subtitleEl = playerBar.querySelector(".content-info-wrapper .subtitle");
 
-  let title = titleEl?.textContent || "";
+  let rawTitle = titleEl?.textContent || "";
+  let title = rawTitle.trim();
   let artist = "";
   let album = "";
 
@@ -79,51 +89,55 @@ const getSongInfo = () => {
   }
 
   // 2. Queue Logic (Context)
-  const queueItems = document.querySelectorAll("ytmusic-player-queue-item");
+  // SCOPE TO THE VISIBLE QUEUE CONTAINER
+  const queueContainer = document.querySelector("ytmusic-player-queue");
+  const queueItems = queueContainer ? Array.from(queueContainer.querySelectorAll("ytmusic-player-queue-item")) : [];
   let currentIndex = -1;
   const playlistContext: string[] = [];
+  const normalizedCurrentTitle = normalizeString(title);
 
   // --- ROBUST CURRENT INDEX DETECTION ---
 
   // Attempt 1: Trust 'selected' attribute
+  // We prioritize the item that YTM *says* is selected
   queueItems.forEach((item, index) => {
     if (item.hasAttribute("selected")) currentIndex = index;
   });
 
-  // Attempt 2: Validation - Does the 'selected' item actually match the current title?
-  let validationFailed = false;
-  if (currentIndex !== -1) {
-    const selectedTitle = queueItems[currentIndex].querySelector(".song-title")?.textContent;
-    if (selectedTitle && selectedTitle !== title) {
-      console.warn(
-        `[Hori-s] Queue Mismatch: Selected "${selectedTitle}" vs Playing "${title}". Rescanning...`
-      );
-      validationFailed = true;
-      currentIndex = -1; // Reset to force rescan
-    }
+  // Attempt 2: Fallback - Look for the playing indicator (sometimes 'selected' is delayed?)
+  if (currentIndex === -1) {
+    queueItems.forEach((item, index) => {
+      const playBtn = item.querySelector("ytmusic-play-button-renderer");
+      // state property can be "playing" or "paused"
+      if (playBtn && (playBtn.getAttribute("state") === "playing" || playBtn.getAttribute("state") === "paused")) {
+        currentIndex = index;
+      }
+    });
   }
 
-  // Attempt 3: Scanner - Find item matching current title
+  // Attempt 3: Scanner - Find item matching current title (Last Resort - prone to duplicates)
   if (currentIndex === -1) {
-    // We look for the first match. In a perfect world we'd use previous history to disambiguate duplicates,
-    // but for now, first match is safer than "no match".
+    // console.warn("[Hori-s] 'selected' item not found. Falling back to title scan (May be inaccurate for duplicates).");
     for (let i = 0; i < queueItems.length; i++) {
       const itemTitle = queueItems[i].querySelector(".song-title")?.textContent;
-      if (itemTitle === title) {
+      const normItemTitle = normalizeString(itemTitle);
+
+      if (normItemTitle === normalizedCurrentTitle) {
         currentIndex = i;
-        break; // Take first match
+        break;
       }
     }
   }
+
 
   // Capture context around the determined index
   if (currentIndex !== -1) {
     const start = Math.max(0, currentIndex - 5);
     const end = Math.min(queueItems.length, currentIndex + 5);
     for (let i = start; i < end; i++) {
-      const title = queueItems[i].querySelector(".song-title")?.textContent || "Unknown";
-      const artist = queueItems[i].querySelector(".byline")?.textContent || "Unknown";
-      playlistContext.push(`${itemIndexToLabel(i, currentIndex)}: ${title} by ${artist}`);
+      const t = queueItems[i].querySelector(".song-title")?.textContent || "Unknown";
+      const a = queueItems[i].querySelector(".byline")?.textContent || "Unknown";
+      playlistContext.push(`${itemIndexToLabel(i, currentIndex)}: ${t} by ${a}`);
     }
   }
 
@@ -131,30 +145,35 @@ const getSongInfo = () => {
   let nextTitle = "";
   let nextArtist = "";
 
-  // Strategy A: Queue (Preferred)
-  if (currentIndex !== -1 && currentIndex + 1 < queueItems.length) {
-    nextTitle = queueItems[currentIndex + 1].querySelector(".song-title")?.textContent || "";
-    nextArtist = queueItems[currentIndex + 1].querySelector(".byline")?.textContent || "";
+  // Strategy A: Queue (Preferred) - Skipping hidden/phantom items
+  if (currentIndex !== -1) {
+    for (let i = currentIndex + 1; i < queueItems.length; i++) {
+      const nextItem = queueItems[i];
+      // CRITICAL: Check if item is visible. YTM hides duplicates/alternates in the DOM (height=0).
+      if ((nextItem as HTMLElement).offsetHeight > 0 || (nextItem as HTMLElement).offsetParent !== null) {
+        nextTitle = nextItem.querySelector(".song-title")?.textContent || "";
+        nextArtist = nextItem.querySelector(".byline")?.textContent || "";
+        break; // Found the true next song
+      }
+    }
   }
 
   // Strategy B: "Next" Button Tooltip (Fallback)
-  // The next button often has a title like "Next: Song Name" or "Next song"
   if (!nextTitle) {
     const nextButton = document.querySelector(".next-button");
     if (nextButton) {
       const buttonTitle = nextButton.getAttribute("title");
       if (buttonTitle && buttonTitle.startsWith("Next: ")) {
-        // "Next: Song Name" - sadly doesn't give artist, but better than nothing
         nextTitle = buttonTitle.replace("Next: ", "");
-        nextArtist = "Unknown"; // We can't easily get artist from tooltip
+        nextArtist = "Unknown";
         console.log(`[Hori-s] Fallback: Used Next Button tooltip for "${nextTitle}"`);
       }
     }
   }
 
   return {
-    current: { title, artist, album },
-    next: { title: nextTitle, artist: nextArtist },
+    current: { title: title.replace(/\bExplicit\b/gi, "").trim(), artist, album }, // Clean title for AI too
+    next: { title: nextTitle.replace(/\bExplicit\b/gi, "").trim(), artist: nextArtist },
     playlistContext,
   };
 };
