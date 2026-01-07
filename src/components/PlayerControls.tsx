@@ -3,9 +3,10 @@ import { createPortal } from "react-dom";
 
 interface PlayerControlsProps {
   onOpenSettings: () => void;
+  onOpenCall: () => void;
 }
 
-export const PlayerControls: React.FC<PlayerControlsProps> = ({ onOpenSettings }) => {
+export const PlayerControls: React.FC<PlayerControlsProps> = ({ onOpenSettings, onOpenCall }) => {
   const [container, setContainer] = useState<HTMLElement | null>(null);
   const [hasApiKey, setHasApiKey] = useState(true);
   const [djStatus, setDjStatus] = useState<string>("IDLE");
@@ -131,6 +132,33 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ onOpenSettings }
           </>
         )}
       </div>
+
+      {/* Call Button */}
+      <button
+        onClick={() => {
+          console.log("[Hori-s] Call Button Clicked");
+          onOpenCall();
+        }}
+        className="style-scope yt-icon-button"
+        title="Call the DJ"
+        style={{
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          padding: "8px",
+          color: "var(--yt-spec-text-secondary)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          opacity: 0.9,
+          transition: "opacity 0.2s",
+          marginLeft: "4px",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.9")}
+      >
+        <span>📞</span>
+      </button>
 
       <button
         onClick={() => {
