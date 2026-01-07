@@ -79,5 +79,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
 
     return true;
+  } else if (message.type === "SEARCH_SONGS") {
+    const query = message.data.query;
+    const url = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(query)}`;
+
+    fetch(url)
+      .then((res) => res.text()) // Sometimes returns weird JSON
+      .then((text) => {
+        // Clean up JSONP if present "window.google.ac.h(...)"
+        const jsonText = text.replace(/^window\.google\.ac\.h\((.*)\)$/, "$1");
+        return JSON.parse(jsonText);
+      })
+      .then((data) => {
+        sendResponse({ data });
+      })
+      .catch((err) => {
+        console.error("Search failed", err);
+        sendResponse({ error: err.message });
+      });
+
+    return true;
   }
 });

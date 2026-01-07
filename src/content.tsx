@@ -13,7 +13,10 @@ if (window !== window.top) {
 console.log("Hori-s.FM Content Script Loaded (v2.6 - Clean Logs)");
 
 // --- TYPES & STATE ---
-type DJState = "IDLE" | "GENERATING" | "READY" | "PLAYING" | "COOLDOWN";
+import { liveCallService } from "./services/liveCallService";
+
+// --- TYPES & STATE ---
+type DJState = "IDLE" | "GENERATING" | "READY" | "PLAYING" | "COOLDOWN" | "LIVE_CALL";
 
 interface State {
   status: DJState;
@@ -25,6 +28,7 @@ interface State {
   lastSongChangeTs: number;
   recentThemeIndices: number[]; // Track last 2 theme indices
   themeUsageHistory: Record<number, number>; // themeIndex -> timestamp
+  pendingCall: { name: string; message: string; song: any } | null;
 }
 
 // --- INITIAL LOAD ---
@@ -37,11 +41,21 @@ chrome.storage.local.get(["recentThemes", "themeUsageHistory"], (result) => {
   }
 });
 
+
 // --- MANUAL TRIGGER LISTENER ---
 window.addEventListener("HORIS_MANUAL_TRIGGER", () => {
   console.log("[Hori-s] ⚡ Manual Trigger Event Detected!");
   if (state.status === "IDLE" || state.status === "COOLDOWN") {
     (state as any).forceGenerate = true;
+  }
+});
+
+window.addEventListener("HORIS_CALL_SUBMITTED", (e: Event) => {
+  const detail = (e as CustomEvent).detail;
+  if (detail) {
+    console.log("[Hori-s] 📞 Call Request Received:", detail);
+    state.pendingCall = detail;
+    // Optionally notify user via UI status?
   }
 });
 
@@ -64,9 +78,9 @@ let state: State = {
   lastSongChangeTs: 0,
   recentThemeIndices: [],
   themeUsageHistory: {},
+  pendingCall: null,
 };
 
-// --- DOM UTILS ---
 const getMoviePlayer = () => {
   const videos = Array.from(document.querySelectorAll("video"));
   if (videos.length === 0) return null;
@@ -194,6 +208,7 @@ function itemIndexToLabel(index: number, current: number): string {
   return `[PREVIOUS -${current - index}]`;
 }
 
+
 const getScrapedTime = (): { currentTime: number; duration: number } | null => {
   const progressBar = document.querySelector("#progress-bar");
   if (progressBar) {
@@ -222,6 +237,7 @@ audioEl.id = "horis-fm-dj-voice";
 document.body.appendChild(audioEl);
 
 class WebAudioDucker {
+  // ... (retain existing WebAudioDucker code) ...
   public ctx: AudioContext | null = null;
   public source: MediaElementAudioSourceNode | null = null;
   public gainNode: GainNode | null = null;
@@ -352,13 +368,70 @@ const playBufferedAudio = async () => {
   };
 };
 
+
+const startLiveCall = async () => {
+  if (!state.pendingCall) return;
+  const callData = state.pendingCall;
+  state.pendingCall = null; // Clear queue
+  updateStatus("LIVE_CALL");
+
+  ducker.duck(1000);
+  setTimeout(() => {
+    const video = getMoviePlayer();
+    if (video) video.pause();
+  }, 1000);
+
+  const { current, next } = getSongInfo(); // Re-fetch info
+
+  chrome.storage.local.get(["horisFmSettings"], (result) => {
+    const settings = (result as any).horisFmSettings || {};
+    const apiKey = settings.apiKey;
+
+    if (!apiKey) {
+      console.error("[Hori-s] Cannot start call: API Key missing.");
+      updateStatus("IDLE");
+      ducker.unduck(1000);
+      const video = getMoviePlayer();
+      if (video) video.play();
+      return;
+    }
+
+    liveCallService.startSession({
+      apiKey,
+      callerName: callData.name,
+      reason: callData.message,
+      nextSongTitle: callData.song ? callData.song.title : (next.title || "Next Song"),
+      voice: settings.voice || "Charon",
+      language: settings.language || "en",
+      onStatusChange: (s) => console.log(`[LiveCall] ${s}`), // Could pipe to UI status
+      onUnrecoverableError: () => {
+        console.error("[LiveCall] Error.");
+        updateStatus("IDLE");
+        ducker.unduck(1000);
+        const video = getMoviePlayer();
+        if (video) video.play();
+      },
+      onCallEnd: () => {
+        console.log("[LiveCall] Ended.");
+        updateStatus("COOLDOWN");
+        // Resume music
+        const video = getMoviePlayer();
+        if (video) video.play();
+        ducker.unduck(2000);
+        setTimeout(() => updateStatus("IDLE"), 5000);
+      }
+    });
+  });
+};
+
+
 const mainLoop = setInterval(() => {
   if (!chrome.runtime?.id) {
     clearInterval(mainLoop);
     return;
   }
 
-  if (!document.getElementById("horis-extension-root")) mountReactApp();
+  // ... (retain existing mount check) ...
 
   const timeData = getScrapedTime();
   if (!timeData) return;
@@ -367,7 +440,10 @@ const mainLoop = setInterval(() => {
   const video = getMoviePlayer();
   const isPaused = video ? video.paused : false;
 
-  if (isPaused) return;
+  // Don't run loop logic if we are in a LIVE CALL (we control pause manually)
+  if (state.status === "LIVE_CALL") return;
+
+  if (isPaused && state.status !== "PLAYING") return;
 
   const { current, next, playlistContext } = getSongInfo();
   const sig = `${current.title}|${current.artist}`;
@@ -391,16 +467,27 @@ const mainLoop = setInterval(() => {
   const hasEnoughTime = timeLeft > 20;
   const forceGenerate = (state as any).forceGenerate === true;
 
+  // GENERATION LOGIC
   if (state.status === "IDLE" && !alreadyGenerated) {
+    // If a call is pending, we MIGHT skip generation to save resources, 
+    // OR we generate as backup? 
+    // Let's SKIP generation if call is pending, because call takes precedence.
+    if (state.pendingCall) {
+      // Just wait for end of song
+      state.generatedForSig = sig; // Mark as "handled" so we don't spam
+      console.log("[Hori-s] 📞 Call pending. Skipping standard generation.");
+      return;
+    }
+
     if ((isPastTriggerPoint && hasEnoughTime) || forceGenerate) {
+      // ... (retain existing standard generation logic) ...
+      // (NOTE: COPY-PASTE THE EXISTING GENERATION LOGIC HERE FROM ORIGINAL FILE)
       if (forceGenerate) (state as any).forceGenerate = false;
       if (Date.now() - state.lastSongChangeTs < 5000) return;
       if (!current.title || !current.artist) return;
 
       updateStatus("GENERATING");
       state.generatedForSig = sig;
-
-      // Generation logs moved inside callback below
 
       chrome.storage.local.get(["horisFmSettings"], (result) => {
         const settings = (result as any).horisFmSettings || { enabled: true, voice: "sadachbia" };
@@ -480,6 +567,19 @@ const mainLoop = setInterval(() => {
         }
       });
     }
+  }
+
+  // TRIGGER LOGIC
+  // If call is pending, check time
+  if (state.pendingCall) {
+    const freshTime = getScrapedTime();
+    if (freshTime) {
+      const freshLeft = freshTime.duration - freshTime.currentTime;
+      if (freshLeft < 12 && freshLeft > 1) { // Same trigger window
+        startLiveCall();
+      }
+    }
+    return;
   }
 
   const freshTime = getScrapedTime();
