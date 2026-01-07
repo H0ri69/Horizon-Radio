@@ -518,7 +518,7 @@ const mainLoop = setInterval(() => {
 
   if (isPaused) return;
 
-  const { current, next } = getSongInfo(); // We get playlist context here too
+  const { current, next, playlistContext } = getSongInfo(); // Extraction fixed
   const sig = `${current.title}|${current.artist}`;
   const timeLeft = duration - currentTime;
 
@@ -641,7 +641,7 @@ const mainLoop = setInterval(() => {
                   artist: next.artist || "Unknown",
                   id: "ytm-next",
                 },
-                playlistContext: (current as any).playlistContext || [],
+                playlistContext: playlistContext || [],
                 style: settings.style || "STANDARD",
                 voice: settings.voice,
                 language: settings.language || "en",

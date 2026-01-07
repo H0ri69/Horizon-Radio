@@ -17,7 +17,7 @@ import {
 const LONG_MESSAGE_THEMES = [
   "Tell a short, music-related Joke",
   "Share a Trivium or Fun Fact about the artist or song",
-  "Preview upcoming songs in the queue (use ONLY the playlist context provided below, do NOT invent song titles)",
+  "Preview upcoming songs in the queue. Mention the titles and artists of the next 2-3 specific songs using ONLY the playlist context provided ([UP NEXT +1], [UP NEXT +2], etc). Do NOT invent song titles or be vague.",
   "Spotlight a story about the Artist",
   "Briefly mention current Weather for the country where ${location} is located (Use Google Search). Interpret the timezone as a country, not a specific city. Use Celsius for temperatures unless location is in USA/Canada, then use Fahrenheit.",
   "Briefly mention local News for the country where ${location} is located (Use Google Search). Interpret the timezone as a country, not a specific city.",
