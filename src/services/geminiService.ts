@@ -19,7 +19,8 @@ const LONG_MESSAGE_THEMES = [
   "Share a Trivium or Fun Fact about the artist or song",
   "Preview what is coming up later (creative improvisation)",
   "Spotlight a story about the Artist",
-  "Briefly mention current Weather or local News (Use Google Search)",
+  "Briefly mention current Weather for the country where ${location} is located (Use Google Search). Interpret the timezone as a country, not a specific city. Use Celsius for temperatures unless location is in USA/Canada, then use Fahrenheit.",
+  "Briefly mention local News for the country where ${location} is located (Use Google Search). Interpret the timezone as a country, not a specific city.",
 ];
 
 const SHORT_MESSAGE_INSTRUCTION = "Keep it extremely concise. Maximum 2 sentences. Focus strictly on the transition (Song A to Song B).";
@@ -379,6 +380,7 @@ export const generateDJIntro = async (
       hour: "numeric",
       minute: "2-digit",
     });
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Unknown Location";
     const { context } = getTimeOfDay();
 
     // Determine Style Instruction based on Enum (MOVED TO TOP)
@@ -406,20 +408,29 @@ export const generateDJIntro = async (
       const host1Name = DJ_PERSONA_NAMES[voice]?.[language] || "DJ 1";
       const host2Name = DJ_PERSONA_NAMES[secondaryVoice]?.[language] || "DJ 2";
 
+      let longMessageTheme = "";
+      if (isLongMessage) {
+        longMessageTheme = LONG_MESSAGE_THEMES[Math.floor(Math.random() * LONG_MESSAGE_THEMES.length)];
+        longMessageTheme = longMessageTheme.replace("${location}", userTimezone); // Inject location into theme
+        console.log("------------------------------------------------");
+        console.log(`[Gemini] 🎭 LONG MESSAGE THEME SELECTED: "${longMessageTheme}"`);
+        console.log("------------------------------------------------");
+      }
+
       prompt = `
          You are TWO Radio DJs covering a shift together on "Horis FM".
          HOST 1 (Main): Named "${host1Name}"
          HOST 2 (Co-Host): Named "${host2Name}"
   
-         CURRENT SITUATION:
          - Song Ending: "${currentSong.title}" by ${currentSong.artist}
          - Song Starting: "${nextSong?.title}" by "${nextSong?.artist}"
          - Time: ${context} (${timeString})
+         - Location: ${userTimezone}
          
          TONE/STYLE:
          TONE/STYLE:
          ${styleInstruction}
-         ${isLongMessage ? `\nVARIETY MODE: LONG MESSAGE. \nTheme: ${LONG_MESSAGE_THEMES[Math.floor(Math.random() * LONG_MESSAGE_THEMES.length)]}\nTake your time. You can use up to 4 sentences. Engage the listener.` : SHORT_MESSAGE_INSTRUCTION}
+         ${isLongMessage ? `\nVARIETY MODE: LONG MESSAGE. \nTheme: ${longMessageTheme}\nTake your time. You can use up to 4 sentences. Engage the listener.` : SHORT_MESSAGE_INSTRUCTION}
   
          ${historyBlock}
          ${playlistBlock}
@@ -478,6 +489,16 @@ export const generateDJIntro = async (
          Important: ${langInstruction}
          `;
     } else {
+      // Select Theme for Long Message (Single DJ)
+      let longMessageTheme = "";
+      if (isLongMessage) {
+        longMessageTheme = LONG_MESSAGE_THEMES[Math.floor(Math.random() * LONG_MESSAGE_THEMES.length)];
+        longMessageTheme = longMessageTheme.replace("${location}", userTimezone);
+        console.log("------------------------------------------------");
+        console.log(`[Gemini] 🎭 LONG MESSAGE THEME SELECTED: "${longMessageTheme}"`);
+        console.log("------------------------------------------------");
+      }
+
       prompt = `
         You are a specific persona: A Radio DJ on "Horis FM".
         
@@ -485,6 +506,7 @@ export const generateDJIntro = async (
         - Song Ending: "${currentSong.title}" by ${currentSong.artist}
         - Song Starting: "${nextSong?.title}" by "${nextSong?.artist}"
         - Time: ${context} (${timeString})
+        - Location: ${userTimezone}
         
         ${historyBlock}
         ${playlistBlock}
@@ -496,7 +518,7 @@ export const generateDJIntro = async (
         STYLE PROTOCOL:
         STYLE PROTOCOL:
         ${styleInstruction}
-        ${isLongMessage ? `\nVARIETY MODE: LONG MESSAGE. \nTheme: ${LONG_MESSAGE_THEMES[Math.floor(Math.random() * LONG_MESSAGE_THEMES.length)]}\nTake your time. You can use up to 4 sentences. Engage the listener.` : SHORT_MESSAGE_INSTRUCTION}
+        ${isLongMessage ? `\nVARIETY MODE: LONG MESSAGE. \nTheme: ${longMessageTheme}\nTake your time. You can use up to 4 sentences. Engage the listener.` : SHORT_MESSAGE_INSTRUCTION}
   
         ${MARKUP_TAG_GUIDANCE}
   
