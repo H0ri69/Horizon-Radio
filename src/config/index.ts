@@ -35,8 +35,8 @@ export const MODEL_MAPPING = {
     PRO: "gemini-2.5-pro-preview-tts",
   },
   LIVE: {
-    FLASH: "gemini-2.5-flash-native-audio-preview-09-2025",
-    PRO: "gemini-2.5-pro-native-audio-preview-09-2025",
+    FLASH: "gemini-2.5-flash-native-audio-preview",
+    PRO: "gemini-2.5-flash-native-audio-preview",
   }
 };
 
