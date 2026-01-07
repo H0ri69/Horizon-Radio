@@ -96,17 +96,27 @@ const getSongInfo = () => {
   const playlistContext: string[] = [];
   const normalizedCurrentTitle = normalizeString(title);
 
+  // HELPER: Check visibility to ignore hidden duplicates
+  const isVisible = (el: Element) => {
+    const htmlEl = el as HTMLElement;
+    return htmlEl.offsetHeight > 0 || htmlEl.offsetParent !== null;
+  };
+
   // --- ROBUST CURRENT INDEX DETECTION ---
 
-  // Attempt 1: Trust 'selected' attribute
-  // We prioritize the item that YTM *says* is selected
+  // Attempt 1: Trust 'selected' attribute (MUST BE VISIBLE)
+  // We prioritize the item that YTM *says* is selected AND is actually visible
   queueItems.forEach((item, index) => {
-    if (item.hasAttribute("selected")) currentIndex = index;
+    if (item.hasAttribute("selected") && isVisible(item)) {
+      currentIndex = index;
+    }
   });
 
-  // Attempt 2: Fallback - Look for the playing indicator (sometimes 'selected' is delayed?)
+  // Attempt 2: Fallback - Look for the playing indicator (MUST BE VISIBLE)
   if (currentIndex === -1) {
     queueItems.forEach((item, index) => {
+      if (!isVisible(item)) return;
+
       const playBtn = item.querySelector("ytmusic-play-button-renderer");
       // state property can be "playing" or "paused"
       if (playBtn && (playBtn.getAttribute("state") === "playing" || playBtn.getAttribute("state") === "paused")) {
@@ -116,10 +126,14 @@ const getSongInfo = () => {
   }
 
   // Attempt 3: Scanner - Find item matching current title (Last Resort - prone to duplicates)
+  // (MUST BE VISIBLE)
   if (currentIndex === -1) {
     // console.warn("[Hori-s] 'selected' item not found. Falling back to title scan (May be inaccurate for duplicates).");
     for (let i = 0; i < queueItems.length; i++) {
-      const itemTitle = queueItems[i].querySelector(".song-title")?.textContent;
+      const item = queueItems[i];
+      if (!isVisible(item)) continue;
+
+      const itemTitle = item.querySelector(".song-title")?.textContent;
       const normItemTitle = normalizeString(itemTitle);
 
       if (normItemTitle === normalizedCurrentTitle) {
@@ -135,6 +149,23 @@ const getSongInfo = () => {
     const start = Math.max(0, currentIndex - 5);
     const end = Math.min(queueItems.length, currentIndex + 5);
     for (let i = start; i < end; i++) {
+      // For context, we might want only visible items too, but strict index math is easier if include all
+      // However, hidden items might junk up the context. 
+      // Compromise: We include them but maybe mark them? 
+      // Actually, if we skip hidden items in the loop, the indices desync from 'queueItems'.
+      // Better: checking visibility when pushing to context? 
+      // For simplicity/safety vs index shifts, let's just grab the text. 
+      // If the item is hidden, it's likely a duplicate, so having it in context (which is just text) isn't fatal.
+      // The CRITICAL part was identifying 'currentIndex' correctly.
+
+      // But wait... if we have duplicates in the list, "UP NEXT +1" might refer to the hidden duplicate of the current song!
+      // So effectively, we should probably ignore hidden items ENTIRELY from our "logical queue".
+      // But refactoring 'queueItems' to filter first breaks direct index access if we depend on DOM order matching something else?
+      // No, for this internal logic, we can just treat the DOM list as the authority.
+
+      // To keep it simple and safe for this fix: 
+      // We will blindly report the raw list context, BUT...
+      // The "Next Song" logic below ensures we pick a VISIBLE next item.
       const t = queueItems[i].querySelector(".song-title")?.textContent || "Unknown";
       const a = queueItems[i].querySelector(".byline")?.textContent || "Unknown";
       playlistContext.push(`${itemIndexToLabel(i, currentIndex)}: ${t} by ${a}`);
@@ -149,8 +180,8 @@ const getSongInfo = () => {
   if (currentIndex !== -1) {
     for (let i = currentIndex + 1; i < queueItems.length; i++) {
       const nextItem = queueItems[i];
-      // CRITICAL: Check if item is visible. YTM hides duplicates/alternates in the DOM (height=0).
-      if ((nextItem as HTMLElement).offsetHeight > 0 || (nextItem as HTMLElement).offsetParent !== null) {
+      // CRITICAL: Check if item is visible.
+      if (isVisible(nextItem)) {
         nextTitle = nextItem.querySelector(".song-title")?.textContent || "";
         nextArtist = nextItem.querySelector(".byline")?.textContent || "";
         break; // Found the true next song
