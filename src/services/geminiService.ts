@@ -339,7 +339,7 @@ export const generateDJIntro = async (
       const script = await generateScript(prompt, textModel);
       if (!script) return { audio: null, themeIndex: null };
 
-      console.log(`[Hori-s] 📝 Script: "${script.substring(0, 100)}${script.length > 100 ? "..." : ""}"`);
+      console.log(`[Hori-s] 📝 Script: "${script}"`);
 
       if (debugSettings?.skipTTS) return { audio: null, themeIndex: selectedThemeIndex, script };
       const audio = await speakText(script, voice, secondaryVoice, host1Name, host2Name, style, ttsModel);
@@ -361,7 +361,7 @@ export const generateDJIntro = async (
     const script = await generateScript(prompt, textModel);
     if (!script) return { audio: null, themeIndex: null };
 
-    console.log(`[Hori-s] 📝 Script: "${script.substring(0, 100)}${script.length > 100 ? "..." : ""}"`);
+    console.log(`[Hori-s] 📝 Script: "${script}"`);
 
     if (debugSettings?.skipTTS) return { audio: null, themeIndex: selectedThemeIndex, script };
     const audio = await speakText(script, voice, undefined, undefined, undefined, style, ttsModel);
