@@ -16,6 +16,13 @@ interface Settings {
   visualTheme?: string;
   apiKey?: string;
   longMessageProbability?: number;
+  debug?: {
+    enabledThemes: boolean[];
+    skipTTS: boolean;
+    forceTheme: number | null;
+    verboseLogging: boolean;
+    triggerPoint: number;
+  };
 }
 
 export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -31,6 +38,13 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     secondaryDjVoice: "sulafat",
     apiKey: "",
     longMessageProbability: 0.5,
+    debug: {
+      enabledThemes: [true, true, true, true, true, true],
+      skipTTS: false,
+      forceTheme: null,
+      verboseLogging: false,
+      triggerPoint: 0.25,
+    },
   });
   const [status, setStatus] = useState("");
 
@@ -383,6 +397,148 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                   </p>
                 </div>
               </div>
+            </section>
+
+            {/* 06 DEBUG SETTINGS (Collapsible) */}
+            <section className="pt-8 border-t border-white/10">
+              <details className="group">
+                <summary className="text-xl font-semibold text-white/40 cursor-pointer list-none flex items-center gap-3 hover:text-white transition-colors">
+                  <span className="text-red-400 font-mono text-base opacity-80">99</span> Debug Settings
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="ml-auto transform group-open:rotate-180 transition-transform"
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </summary>
+
+                <div className="mt-8 space-y-10 animate-in fade-in slide-in-from-top-4 duration-300">
+                  {/* Skip TTS */}
+                  <div className="flex items-center justify-between p-6 bg-red-500/5 border border-red-500/20 rounded-2xl">
+                    <div>
+                      <div className="text-white font-medium">Text-Only Mode (Skip TTS)</div>
+                      <div className="text-xs text-white/40 mt-1">Prevents audio generation to save API credits. Logs only text to console.</div>
+                    </div>
+                    <button
+                      onClick={() => saveSettings({
+                        ...settings,
+                        debug: { ...settings.debug!, skipTTS: !settings.debug?.skipTTS }
+                      })}
+                      className={`w-14 h-7 rounded-full p-1 transition-colors ${settings.debug?.skipTTS ? "bg-red-500" : "bg-white/10"}`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${settings.debug?.skipTTS ? "translate-x-7" : "translate-x-0"}`} />
+                    </button>
+                  </div>
+
+                  {/* Manual Trigger */}
+                  <div className="flex items-center justify-between p-6 bg-blue-500/5 border border-blue-500/20 rounded-2xl">
+                    <div>
+                      <div className="text-white font-medium">Manual Trigger</div>
+                      <div className="text-xs text-white/40 mt-1">Force an AI generation right now (ignores trigger points).</div>
+                    </div>
+                    <button
+                      onClick={() => window.dispatchEvent(new CustomEvent("HORIS_MANUAL_TRIGGER"))}
+                      className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-full transition-all active:scale-95"
+                    >
+                      TRIGGER NOW
+                    </button>
+                  </div>
+
+                  {/* Trigger Point Slider */}
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <div className="text-sm font-bold text-white/40 uppercase tracking-widest">Trigger Point</div>
+                      <div className="font-mono text-red-400 text-sm">
+                        {Math.round((settings.debug?.triggerPoint || 0.25) * 100)}% of track
+                      </div>
+                    </div>
+                    <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-red-500/40"
+                        style={{ width: `${(settings.debug?.triggerPoint || 0.25) * 100}%` }}
+                      />
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="0.9"
+                        step="0.05"
+                        value={settings.debug?.triggerPoint || 0.25}
+                        onChange={(e) => saveSettings({
+                          ...settings,
+                          debug: { ...settings.debug!, triggerPoint: parseFloat(e.target.value) }
+                        })}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Theme Toggles */}
+                  <div className="space-y-4">
+                    <div className="text-sm font-bold text-white/40 uppercase tracking-widest">Enabled Themes</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {["Joke", "Trivia", "Preview", "Story", "Weather", "News"].map((name, i) => (
+                        <button
+                          key={name}
+                          onClick={() => {
+                            const newEnabled = [...(settings.debug?.enabledThemes || [true, true, true, true, true, true])];
+                            newEnabled[i] = !newEnabled[i];
+                            saveSettings({
+                              ...settings,
+                              debug: { ...settings.debug!, enabledThemes: newEnabled }
+                            });
+                          }}
+                          className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${settings.debug?.enabledThemes?.[i]
+                            ? "bg-white/10 border-white/20 text-white"
+                            : "bg-black/40 border-white/5 text-white/20"
+                            }`}
+                        >
+                          <div className={`w-2 h-2 rounded-full ${settings.debug?.enabledThemes?.[i] ? "bg-green-400" : "bg-red-500/50"}`} />
+                          <span className="text-sm font-medium">{name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Force Theme */}
+                  <div className="space-y-4">
+                    <div className="text-sm font-bold text-white/40 uppercase tracking-widest">Force Specific Theme</div>
+                    <select
+                      value={settings.debug?.forceTheme ?? "random"}
+                      onChange={(e) => saveSettings({
+                        ...settings,
+                        debug: { ...settings.debug!, forceTheme: e.target.value === "random" ? null : parseInt(e.target.value) }
+                      })}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white text-sm focus:outline-none focus:border-red-500/50"
+                    >
+                      <option value="random">Random Selection (Standard)</option>
+                      {["Joke", "Trivia", "Preview", "Story", "Weather", "News"].map((name, i) => (
+                        <option key={name} value={i} className="bg-zinc-900 text-white">{name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Verbose Logging */}
+                  <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
+                    <div className="text-sm text-white/70">Verbose Console Logging</div>
+                    <button
+                      onClick={() => saveSettings({
+                        ...settings,
+                        debug: { ...settings.debug!, verboseLogging: !settings.debug?.verboseLogging }
+                      })}
+                      className={`w-10 h-5 rounded-full p-1 transition-colors ${settings.debug?.verboseLogging ? "bg-indigo-500" : "bg-white/10"}`}
+                    >
+                      <div className={`w-3 h-3 rounded-full bg-white transition-transform ${settings.debug?.verboseLogging ? "translate-x-5" : "translate-x-0"}`} />
+                    </button>
+                  </div>
+                </div>
+              </details>
             </section>
           </main>
 

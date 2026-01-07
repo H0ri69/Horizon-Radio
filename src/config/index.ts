@@ -34,6 +34,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   customStylePrompt: "",
   language: "en",
   longMessageProbability: 0.5,
+  debug: {
+    enabledThemes: [true, true, true, true, true, true], // All themes enabled
+    skipTTS: false,
+    forceTheme: null, // Random selection
+    verboseLogging: false,
+    triggerPoint: 0.25, // 25% of song
+  },
 };
 
 // Voice profiles with persona names - single source of truth

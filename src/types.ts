@@ -44,4 +44,11 @@ export interface AppSettings {
   customStylePrompt: string;
   language: AppLanguage;
   longMessageProbability: number;
+  debug?: {
+    enabledThemes: boolean[];      // 6 items, one per theme
+    skipTTS: boolean;               // Skip audio generation (text only)
+    forceTheme: number | null;      // Force specific theme index (null = random)
+    verboseLogging: boolean;        // Detailed console logs
+    triggerPoint: number;           // 0.1 to 0.9 (percentage of song)
+  };
 }

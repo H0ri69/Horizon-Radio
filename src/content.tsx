@@ -23,7 +23,27 @@ interface State {
   bufferedAudioType: "SHORT" | "LONG"; // New State
   lastTime: number;
   lastSongChangeTs: number;
+  recentThemeIndices: number[]; // Track last 2 theme indices
 }
+
+// --- INITIAL LOAD ---
+chrome.storage.local.get(["recentThemes"], (result) => {
+  if (Array.isArray(result.recentThemes)) {
+    state.recentThemeIndices = result.recentThemes as number[];
+    console.log(`[Init] Loaded theme history: [${state.recentThemeIndices.join(", ")}]`);
+  }
+});
+
+// --- MANUAL TRIGGER LISTENER ---
+window.addEventListener("HORIS_MANUAL_TRIGGER", () => {
+  console.log("[Manual] ⚡ Manual Trigger Event Detected!");
+  if (state.status === "IDLE" || state.status === "COOLDOWN") {
+    // We'll force the main loop to ignore the trigger point next iteration
+    (state as any).forceGenerate = true;
+  } else {
+    console.warn(`[Manual] Skipping: Status is ${state.status}`);
+  }
+});
 
 const broadcastStatusUpdate = () => {
   window.dispatchEvent(new CustomEvent("HORIS_STATUS_UPDATE", { detail: state.status }));
@@ -42,6 +62,7 @@ let state: State = {
   bufferedAudioType: "SHORT",
   lastTime: 0,
   lastSongChangeTs: 0,
+  recentThemeIndices: [], // Initialize empty
 };
 
 // --- DOM UTILS ---
@@ -528,19 +549,24 @@ const mainLoop = setInterval(() => {
 
   // --- GENERATION TRIGGER ---
   const alreadyGenerated = state.generatedForSig === sig;
-  const isPastTriggerPoint = currentTime > (duration * 0.25); // CHANGED: Trigger at 25% (First Quarter)
+
+  // Use debug trigger point if available, otherwise default to 25%
+  const triggerRatio = (state as any).debugTriggerPoint || 0.25;
+  const isPastTriggerPoint = currentTime > (duration * triggerRatio);
+
   const hasEnoughTime = timeLeft > 20; // Need at least 20s to generate and prep
+  const forceGenerate = (state as any).forceGenerate === true;
 
   if (state.status === "IDLE" && !alreadyGenerated) {
     // Detailed Evaluation Logging (Throttle to avoid spam)
     if (Math.floor(currentTime) % 2 === 0) {
-      // Only log if we are getting close or if it's suspicious
-      if (currentTime < 10 || (currentTime > duration * 0.22 && currentTime < duration * 0.28)) {
-        console.debug(`[Generator:Eval] ${current.title}: Time=${Math.round(currentTime)}s, Dur=${Math.round(duration)}s, PastTrigger=${isPastTriggerPoint}, EnoughTime=${hasEnoughTime}`);
+      if (currentTime < 10 || (currentTime > duration * (triggerRatio - 0.03) && currentTime < duration * (triggerRatio + 0.03))) {
+        console.debug(`[Generator:Eval] ${current.title}: Time=${Math.round(currentTime)}s, Trigger=${Math.round(triggerRatio * 100)}%, PastTrigger=${isPastTriggerPoint}, EnoughTime=${hasEnoughTime}`);
       }
     }
 
-    if (isPastTriggerPoint && hasEnoughTime) {
+    if ((isPastTriggerPoint && hasEnoughTime) || forceGenerate) {
+      if (forceGenerate) (state as any).forceGenerate = false; // Reset flag
       // EXTRA SAFETY: 
       // Guard against start of song quirks (rare if halfway)
       // Guard against recent song changes (5s buffer)
@@ -581,7 +607,12 @@ const mainLoop = setInterval(() => {
             return;
           }
         }
-        const settings = (result as any).horisFmSettings || { enabled: true, voice: "kore" };
+        const settings = (result as any).horisFmSettings || { enabled: true, voice: "sadachbia" };
+
+        // Sync trigger point for next evaluation
+        if (settings.debug?.triggerPoint) {
+          (state as any).debugTriggerPoint = settings.debug.triggerPoint;
+        }
 
         if (!settings.enabled) {
           console.log("[Generator] System Disabled. Cancelling.");
@@ -618,6 +649,8 @@ const mainLoop = setInterval(() => {
                 dualDjMode: settings.dualDjMode,
                 secondaryVoice: settings.secondaryDjVoice,
                 isLongMessage: isLong,
+                recentThemeIndices: state.recentThemeIndices,
+                debugSettings: settings.debug,
               },
             },
             (response) => {
@@ -637,6 +670,14 @@ const mainLoop = setInterval(() => {
                 console.log("[Generator] ✅ Audio received & Buffered. Waiting for outro...");
                 state.bufferedAudio = response.audio;
                 state.bufferedAudioType = isLong ? "LONG" : "SHORT";
+
+                // Update theme history if we got a theme index back
+                if (response.themeIndex !== null && typeof response.themeIndex === "number") {
+                  state.recentThemeIndices = [response.themeIndex, ...state.recentThemeIndices].slice(0, 2);
+                  chrome.storage.local.set({ recentThemes: state.recentThemeIndices });
+                  console.log(`[Generator] Theme history updated: [${state.recentThemeIndices.join(", ")}]`);
+                }
+
                 updateStatus("READY");
               } else {
                 console.warn("[Generator] ❌ No audio returned.");

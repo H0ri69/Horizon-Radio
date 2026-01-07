@@ -17,7 +17,7 @@ import {
 const LONG_MESSAGE_THEMES = [
   "Tell a short, music-related Joke",
   "Share a Trivium or Fun Fact about the artist or song",
-  "Preview what is coming up later (creative improvisation)",
+  "Preview upcoming songs in the queue (use ONLY the playlist context provided below, do NOT invent song titles)",
   "Spotlight a story about the Artist",
   "Briefly mention current Weather for the country where ${location} is located (Use Google Search). Interpret the timezone as a country, not a specific city. Use Celsius for temperatures unless location is in USA/Canada, then use Fahrenheit.",
   "Briefly mention local News for the country where ${location} is located (Use Google Search). Interpret the timezone as a country, not a specific city.",
@@ -348,6 +348,48 @@ const getTimeOfDay = (): { context: string; greeting: string } => {
   return { context: "Late Night", greeting: "Hey night owls" };
 };
 
+// Theme Selection with History Tracking and Debug Controls
+const selectTheme = (
+  recentIndices: number[],
+  enabledThemes: boolean[],
+  forceTheme: number | null,
+  verboseLogging: boolean
+): { index: number; theme: string } => {
+  // Debug Override: Force specific theme
+  if (forceTheme !== null && forceTheme >= 0 && forceTheme < LONG_MESSAGE_THEMES.length) {
+    if (verboseLogging) console.log(`[Theme] FORCE OVERRIDE: Using theme ${forceTheme}`);
+    return { index: forceTheme, theme: LONG_MESSAGE_THEMES[forceTheme] };
+  }
+
+  // Filter: Exclude recent themes AND disabled themes
+  let availableIndices = LONG_MESSAGE_THEMES
+    .map((_, i) => i)
+    .filter(i => !recentIndices.includes(i) && enabledThemes[i]);
+
+  if (verboseLogging) {
+    console.log(`[Theme] Recent: [${recentIndices.join(", ")}]`);
+    console.log(`[Theme] Enabled: [${enabledThemes.map((e, i) => e ? i : null).filter(i => i !== null).join(", ")}]`);
+    console.log(`[Theme] Available: [${availableIndices.join(", ")}]`);
+  }
+
+  // Fallback: If all filtered out, use any enabled theme
+  if (availableIndices.length === 0) {
+    if (verboseLogging) console.warn(`[Theme] No available themes after filtering, using any enabled theme`);
+    availableIndices = enabledThemes
+      .map((enabled, i) => enabled ? i : -1)
+      .filter(i => i !== -1);
+  }
+
+  // Fallback: If STILL nothing (all disabled), use theme 0
+  if (availableIndices.length === 0) {
+    console.error(`[Theme] ALL THEMES DISABLED! Falling back to theme 0.`);
+    return { index: 0, theme: LONG_MESSAGE_THEMES[0] };
+  }
+
+  const index = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+  return { index, theme: LONG_MESSAGE_THEMES[index] };
+};
+
 export const generateDJIntro = async (
   currentSong: Song,
   nextSong: Song | null,
@@ -355,13 +397,21 @@ export const generateDJIntro = async (
   voice: DJVoice,
   language: AppLanguage,
   customPrompt?: string,
-  upcomingSongTitles: string[] = [], // Kept for compat
-  playlistContext: string[] = [], // NEW: Immediate surroundings
-  history: string[] = [], // NEW: Previous voiceovers
-  dualDjMode: boolean = false, // EXISTING ARGUMENT OR NEW? If I can't change signature easily, I might relying on customPrompt or overload.
+  upcomingSongTitles: string[] = [],
+  playlistContext: string[] = [],
+  history: string[] = [],
+  dualDjMode: boolean = false,
   secondaryVoice: DJVoice = "Puck",
-  isLongMessage: boolean = false
-): Promise<ArrayBuffer | null> => {
+  isLongMessage: boolean = false,
+  // Debug parameters
+  recentThemeIndices: number[] = [],
+  debugSettings?: {
+    enabledThemes: boolean[];
+    skipTTS: boolean;
+    forceTheme: number | null;
+    verboseLogging: boolean;
+  }
+): Promise<{ audio: ArrayBuffer | null; themeIndex: number | null }> => {
   const label = `[Gemini:Timing] Total DJ Intro Process`;
   console.time(label);
   console.log(`[Gemini] 🎉 Incoming DJ Intro Request:`, {
@@ -409,11 +459,21 @@ export const generateDJIntro = async (
       const host2Name = DJ_PERSONA_NAMES[secondaryVoice]?.[language] || "DJ 2";
 
       let longMessageTheme = "";
+      let selectedThemeIndex: number | null = null;
+
       if (isLongMessage) {
-        longMessageTheme = LONG_MESSAGE_THEMES[Math.floor(Math.random() * LONG_MESSAGE_THEMES.length)];
-        longMessageTheme = longMessageTheme.replace("${location}", userTimezone); // Inject location into theme
+        // Use debug settings or defaults
+        const enabledThemes = debugSettings?.enabledThemes || [true, true, true, true, true, true];
+        const forceTheme = debugSettings?.forceTheme ?? null;
+        const verboseLogging = debugSettings?.verboseLogging || false;
+
+        const themeSelection = selectTheme(recentThemeIndices, enabledThemes, forceTheme, verboseLogging);
+        selectedThemeIndex = themeSelection.index;
+        longMessageTheme = themeSelection.theme.replace("${location}", userTimezone);
+
         console.log("------------------------------------------------");
         console.log(`[Gemini] 🎭 LONG MESSAGE THEME SELECTED: "${longMessageTheme}"`);
+        console.log(`[Gemini] 🔢 Theme Index: ${selectedThemeIndex}`);
         console.log("------------------------------------------------");
       }
 
@@ -463,18 +523,25 @@ export const generateDJIntro = async (
       const script = await generateScript(prompt);
       if (!script) {
         console.warn("[Gemini] ⚠️ Dual DJ script generation failed.");
-        return null;
+        return { audio: null, themeIndex: null };
       }
 
       console.log("------------------------------------------------");
       console.log(`[Gemini] 🤖 GENERATED DIALOGUE:\n"${script}"`);
       console.log("------------------------------------------------");
 
+      if (debugSettings?.skipTTS) {
+        console.log(`[Gemini] ⏩ DEBUG: skipTTS is enabled. Skipping audio synthesis.`);
+        return { audio: null, themeIndex: selectedThemeIndex };
+      }
+
       console.log(`[Gemini] 🎙️ Synthesizing full conversation at once...`);
-      return speakText(script, voice, secondaryVoice, host1Name, host2Name, style);
+      const audio = await speakText(script, voice, secondaryVoice, host1Name, host2Name, style);
+      return { audio, themeIndex: selectedThemeIndex }; // Return selected theme index
     }
 
     // --- STANDARD SINGLE DJ LOGIC ---
+    let selectedThemeIndex: number | null = null; // Declare at function scope
 
     if (nextSong?.requestedBy) {
       prompt = `
@@ -491,11 +558,19 @@ export const generateDJIntro = async (
     } else {
       // Select Theme for Long Message (Single DJ)
       let longMessageTheme = "";
+
       if (isLongMessage) {
-        longMessageTheme = LONG_MESSAGE_THEMES[Math.floor(Math.random() * LONG_MESSAGE_THEMES.length)];
-        longMessageTheme = longMessageTheme.replace("${location}", userTimezone);
+        const enabledThemes = debugSettings?.enabledThemes || [true, true, true, true, true, true];
+        const forceTheme = debugSettings?.forceTheme ?? null;
+        const verboseLogging = debugSettings?.verboseLogging || false;
+
+        const themeSelection = selectTheme(recentThemeIndices, enabledThemes, forceTheme, verboseLogging);
+        selectedThemeIndex = themeSelection.index;
+        longMessageTheme = themeSelection.theme.replace("${location}", userTimezone);
+
         console.log("------------------------------------------------");
         console.log(`[Gemini] 🎭 LONG MESSAGE THEME SELECTED: "${longMessageTheme}"`);
+        console.log(`[Gemini] 🔢 Theme Index: ${selectedThemeIndex}`);
         console.log("------------------------------------------------");
       }
 
@@ -540,14 +615,20 @@ export const generateDJIntro = async (
     const script = await generateScript(prompt);
     if (!script) {
       console.warn("[Gemini] ⚠️ Standard script generation failed (empty response).");
-      return null;
+      return { audio: null, themeIndex: null };
     }
 
     console.log("------------------------------------------------");
     console.log(`[Gemini] 🤖 GENERATED SCRIPT:\n"${script}"`);
     console.log("------------------------------------------------");
 
-    return speakText(script, voice, undefined, undefined, undefined, style);
+    if (debugSettings?.skipTTS) {
+      console.log(`[Gemini] ⏩ DEBUG: skipTTS is enabled. Skipping audio synthesis.`);
+      return { audio: null, themeIndex: selectedThemeIndex };
+    }
+
+    const audio = await speakText(script, voice, undefined, undefined, undefined, style);
+    return { audio, themeIndex: selectedThemeIndex }; // Return theme index from selection
   } finally {
     console.timeEnd(label);
   }

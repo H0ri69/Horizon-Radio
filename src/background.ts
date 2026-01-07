@@ -28,6 +28,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       customPrompt,
       dualDjMode,
       secondaryVoice,
+      recentThemeIndices,
+      debugSettings,
     } = message.data;
 
     console.log("Generating Intro for:", currentSong.title, "->", nextSong.title);
@@ -49,10 +51,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         history,
         dualDjMode,
         secondaryVoice,
-        message.data.isLongMessage
+        message.data.isLongMessage,
+        recentThemeIndices || [],
+        debugSettings
       )
-        .then((arrayBuffer) => {
-          if (arrayBuffer) {
+        .then((result) => {
+          if (result.audio) {
             console.log("Audio generated.");
 
             // 3. Update History
@@ -63,8 +67,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               `[Background] 📜 History Saved (${updatedHistory.length} items). Last: ${newEntry}`
             );
 
-            const base64 = arrayBufferToBase64(arrayBuffer);
-            sendResponse({ audio: base64 });
+            const base64 = arrayBufferToBase64(result.audio);
+            sendResponse({ audio: base64, themeIndex: result.themeIndex });
           } else {
             sendResponse({ error: "Failed to generate audio" });
           }
