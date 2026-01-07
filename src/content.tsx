@@ -25,6 +25,15 @@ interface State {
   lastSongChangeTs: number;
 }
 
+const broadcastStatusUpdate = () => {
+  window.dispatchEvent(new CustomEvent("HORIS_STATUS_UPDATE", { detail: state.status }));
+};
+
+const updateStatus = (newStatus: DJState) => {
+  state.status = newStatus;
+  broadcastStatusUpdate();
+};
+
 let state: State = {
   status: "IDLE",
   currentSongSig: "",
@@ -352,14 +361,15 @@ const playBufferedAudio = async () => {
   // CONTEXT VALIDATION
   if (state.generatedForSig !== state.currentSongSig) {
     console.warn(`[Audio] Validation Failed! Stale buffer.`);
-    state.status = "IDLE";
+    updateStatus("IDLE");
     state.bufferedAudio = null;
     state.generatedForSig = null;
     return;
   }
 
   console.log(`[Audio] Playing buffered DJ intro (${state.bufferedAudioType})...`);
-  state.status = "PLAYING";
+  console.log(`[Audio] Playing buffered DJ intro (${state.bufferedAudioType})...`);
+  updateStatus("PLAYING");
 
   const url = `data:audio/wav;base64,${state.bufferedAudio}`;
   audioEl.src = url;
@@ -430,7 +440,9 @@ const playBufferedAudio = async () => {
   } catch (e) {
     console.error("[Audio] Playback failed:", e);
     ducker.unduck(1000);
-    state.status = "IDLE";
+    console.error("[Audio] Playback failed:", e);
+    ducker.unduck(1000);
+    updateStatus("IDLE");
     const video = getMoviePlayer();
     if (video && state.bufferedAudioType === "LONG") video.play(); // Safety resume
   }
@@ -439,11 +451,14 @@ const playBufferedAudio = async () => {
     console.log("[Audio] Playback finished.");
     ducker.unduck(3000);
 
-    state.status = "COOLDOWN";
+    console.log("[Audio] Playback finished.");
+    ducker.unduck(3000);
+
+    updateStatus("COOLDOWN");
     state.bufferedAudio = null;
 
     setTimeout(() => {
-      if (state.status === "COOLDOWN") state.status = "IDLE";
+      if (state.status === "COOLDOWN") updateStatus("IDLE");
     }, 5000);
   };
 };
@@ -491,7 +506,7 @@ const mainLoop = setInterval(() => {
     console.log(`[State] New Song detected: "${current.title}"`);
     console.log(`[State] Clearing previous generation state.`);
     state.currentSongSig = sig;
-    state.status = "IDLE";
+    updateStatus("IDLE");
     state.bufferedAudio = null;
     state.generatedForSig = null;
     state.lastSongChangeTs = Date.now();
@@ -513,19 +528,19 @@ const mainLoop = setInterval(() => {
 
   // --- GENERATION TRIGGER ---
   const alreadyGenerated = state.generatedForSig === sig;
-  const isPastHalfway = currentTime > (duration / 2);
+  const isPastTriggerPoint = currentTime > (duration * 0.25); // CHANGED: Trigger at 25% (First Quarter)
   const hasEnoughTime = timeLeft > 20; // Need at least 20s to generate and prep
 
   if (state.status === "IDLE" && !alreadyGenerated) {
     // Detailed Evaluation Logging (Throttle to avoid spam)
     if (Math.floor(currentTime) % 2 === 0) {
       // Only log if we are getting close or if it's suspicious
-      if (currentTime < 10 || (currentTime > duration * 0.4 && currentTime < duration * 0.6)) {
-        console.debug(`[Generator:Eval] ${current.title}: Time=${Math.round(currentTime)}s, Dur=${Math.round(duration)}s, PastHalf=${isPastHalfway}, EnoughTime=${hasEnoughTime}`);
+      if (currentTime < 10 || (currentTime > duration * 0.22 && currentTime < duration * 0.28)) {
+        console.debug(`[Generator:Eval] ${current.title}: Time=${Math.round(currentTime)}s, Dur=${Math.round(duration)}s, PastTrigger=${isPastTriggerPoint}, EnoughTime=${hasEnoughTime}`);
       }
     }
 
-    if (isPastHalfway && hasEnoughTime) {
+    if (isPastTriggerPoint && hasEnoughTime) {
       // EXTRA SAFETY: 
       // Guard against start of song quirks (rare if halfway)
       // Guard against recent song changes (5s buffer)
@@ -539,12 +554,13 @@ const mainLoop = setInterval(() => {
       }
 
       // >>> TRIGGER GENERATION <<<
-      state.status = "GENERATING";
+      // >>> TRIGGER GENERATION <<<
+      updateStatus("GENERATING");
       state.generatedForSig = sig; // Mark as started for this song
 
       console.log("------------------------------------------------");
       console.log(`[Generator] 🟢 TRIGGERING GENERATION`);
-      console.log(`[Generator] Trigger Reason: Middle of song reached (>50%).`);
+      console.log(`[Generator] Trigger Reason: 25% of song reached.`);
       console.log(`[Generator] Song: ${current.title}`);
       console.log(`[Generator] Next: ${next.title}`);
       console.log("------------------------------------------------");
@@ -558,16 +574,22 @@ const mainLoop = setInterval(() => {
         // ... existing message sending logic ...
         if (chrome.runtime.lastError) {
           console.error("[Generator] Storage access failed:", chrome.runtime.lastError);
-          state.status = "IDLE"; // Revert status so we can retry? Or maybe COOLDOWN?
-          state.generatedForSig = null; // Unmark
-          return;
+          if (chrome.runtime.lastError) {
+            console.error("[Generator] Storage access failed:", chrome.runtime.lastError);
+            updateStatus("IDLE"); // Revert status so we can retry? Or maybe COOLDOWN?
+            state.generatedForSig = null; // Unmark
+            return;
+          }
         }
         const settings = (result as any).horisFmSettings || { enabled: true, voice: "kore" };
 
         if (!settings.enabled) {
           console.log("[Generator] System Disabled. Cancelling.");
-          state.status = "COOLDOWN";
-          return;
+          if (!settings.enabled) {
+            console.log("[Generator] System Disabled. Cancelling.");
+            updateStatus("COOLDOWN");
+            return;
+          }
         }
 
         // Determine Message Type
@@ -615,10 +637,10 @@ const mainLoop = setInterval(() => {
                 console.log("[Generator] ✅ Audio received & Buffered. Waiting for outro...");
                 state.bufferedAudio = response.audio;
                 state.bufferedAudioType = isLong ? "LONG" : "SHORT";
-                state.status = "READY";
+                updateStatus("READY");
               } else {
                 console.warn("[Generator] ❌ No audio returned.");
-                state.status = "COOLDOWN";
+                updateStatus("COOLDOWN");
               }
             }
           );
