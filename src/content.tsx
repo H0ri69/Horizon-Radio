@@ -24,13 +24,18 @@ interface State {
   lastTime: number;
   lastSongChangeTs: number;
   recentThemeIndices: number[]; // Track last 2 theme indices
+  themeUsageHistory: Record<number, number>; // themeIndex -> timestamp
 }
 
 // --- INITIAL LOAD ---
-chrome.storage.local.get(["recentThemes"], (result) => {
+chrome.storage.local.get(["recentThemes", "themeUsageHistory"], (result) => {
   if (Array.isArray(result.recentThemes)) {
     state.recentThemeIndices = result.recentThemes as number[];
     console.log(`[Init] Loaded theme history: [${state.recentThemeIndices.join(", ")}]`);
+  }
+  if (result.themeUsageHistory) {
+    state.themeUsageHistory = result.themeUsageHistory as Record<number, number>;
+    console.log(`[Init] Loaded theme cooldowns for themes: ${Object.keys(result.themeUsageHistory).join(", ")}`);
   }
 });
 
@@ -63,6 +68,7 @@ let state: State = {
   lastTime: 0,
   lastSongChangeTs: 0,
   recentThemeIndices: [], // Initialize empty
+  themeUsageHistory: {}, // Initialize empty
 };
 
 // --- DOM UTILS ---
@@ -650,6 +656,7 @@ const mainLoop = setInterval(() => {
                 secondaryVoice: settings.secondaryDjVoice,
                 isLongMessage: isLong,
                 recentThemeIndices: state.recentThemeIndices,
+                themeUsageHistory: state.themeUsageHistory,
                 debugSettings: settings.debug,
               },
             },
@@ -674,7 +681,14 @@ const mainLoop = setInterval(() => {
                 // Update theme history if we got a theme index back
                 if (response.themeIndex !== null && typeof response.themeIndex === "number") {
                   state.recentThemeIndices = [response.themeIndex, ...state.recentThemeIndices].slice(0, 2);
-                  chrome.storage.local.set({ recentThemes: state.recentThemeIndices });
+
+                  // Update cooldown timestamp
+                  state.themeUsageHistory[response.themeIndex] = Date.now();
+
+                  chrome.storage.local.set({
+                    recentThemes: state.recentThemeIndices,
+                    themeUsageHistory: state.themeUsageHistory
+                  });
                   console.log(`[Generator] Theme history updated: [${state.recentThemeIndices.join(", ")}]`);
                 }
 

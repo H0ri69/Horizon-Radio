@@ -30,6 +30,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       secondaryVoice,
       recentThemeIndices,
       debugSettings,
+      themeUsageHistory,
     } = message.data;
 
     console.log("Generating Intro for:", currentSong.title, "->", nextSong.title);
@@ -53,7 +54,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         secondaryVoice,
         message.data.isLongMessage,
         recentThemeIndices || [],
-        debugSettings
+        debugSettings,
+        themeUsageHistory || {}
       )
         .then((result) => {
           if (result.audio) {

@@ -33,7 +33,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   djStyle: DJStyle.STANDARD,
   customStylePrompt: "",
   language: "en",
-  longMessageProbability: 0.5,
+  longMessageProbability: 0.3,
   debug: {
     enabledThemes: [true, true, true, true, true, true], // All themes enabled
     skipTTS: false,
