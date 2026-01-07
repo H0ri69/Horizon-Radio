@@ -14,6 +14,17 @@ import {
   lowestSafetySettings,
 } from "../config";
 
+const LONG_MESSAGE_THEMES = [
+  "Tell a short, music-related Joke",
+  "Share a Trivium or Fun Fact about the artist or song",
+  "Preview what is coming up later (creative improvisation)",
+  "Spotlight a story about the Artist",
+  "Briefly mention current Weather or local News (Use Google Search)",
+];
+
+const SHORT_MESSAGE_INSTRUCTION = "Keep it extremely concise. Maximum 2 sentences. Focus strictly on the transition (Song A to Song B).";
+
+
 // Type definitions for better type safety
 interface GeminiErrorResponse {
   status?: number;
@@ -153,10 +164,8 @@ async function callWithRetry<T>(
 
     if (retries > 0 && isRetryable) {
       console.warn(
-        `[Gemini] API Error (${
-          error.status || error.code || "Unknown"
-        }). Retrying in ${delay}ms... (Attempt ${attempt}, ${retries} retries left). Error: ${
-          error.message || "No message"
+        `[Gemini] API Error (${error.status || error.code || "Unknown"
+        }). Retrying in ${delay}ms... (Attempt ${attempt}, ${retries} retries left). Error: ${error.message || "No message"
         }`
       );
       await new Promise((resolve) => setTimeout(resolve, delay));
@@ -267,30 +276,30 @@ const speakText = async (
     const speechConfig: SpeechConfig =
       isDualDj && secondaryVoice && personaNameA && personaNameB
         ? {
-            // Multi-speaker configuration using actual persona names
-            multiSpeakerVoiceConfig: {
-              speakerVoiceConfigs: [
-                {
-                  speaker: personaNameA, // Use actual name like "Mike" instead of "Speaker 1"
-                  voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: voice },
-                  },
+          // Multi-speaker configuration using actual persona names
+          multiSpeakerVoiceConfig: {
+            speakerVoiceConfigs: [
+              {
+                speaker: personaNameA, // Use actual name like "Mike" instead of "Speaker 1"
+                voiceConfig: {
+                  prebuiltVoiceConfig: { voiceName: voice },
                 },
-                {
-                  speaker: personaNameB, // Use actual name like "Sarah" instead of "Speaker 2"
-                  voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: secondaryVoice },
-                  },
+              },
+              {
+                speaker: personaNameB, // Use actual name like "Sarah" instead of "Speaker 2"
+                voiceConfig: {
+                  prebuiltVoiceConfig: { voiceName: secondaryVoice },
                 },
-              ],
-            },
-          }
+              },
+            ],
+          },
+        }
         : {
-            // Single speaker configuration
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: voice },
-            },
-          };
+          // Single speaker configuration
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: voice },
+          },
+        };
 
     // Get TTS system prompt based on DJ style (if provided)
     const systemInstruction = style ? DJ_STYLE_TTS_SYSTEM_PROMPTS[style] || "" : "";
@@ -303,7 +312,7 @@ const speakText = async (
       () =>
         ai.models.generateContent({
           model: TTS_MODEL,
-          contents: [{ parts: [ { text: finalTextInput }] }],
+          contents: [{ parts: [{ text: finalTextInput }] }],
           config: {
             responseModalities: [Modality.AUDIO],
             // KEEP COMMENTED OUT FOR NOW, AS THE OFFICIAL GEMINI API CRASHES WITH THIS
@@ -349,7 +358,8 @@ export const generateDJIntro = async (
   playlistContext: string[] = [], // NEW: Immediate surroundings
   history: string[] = [], // NEW: Previous voiceovers
   dualDjMode: boolean = false, // EXISTING ARGUMENT OR NEW? If I can't change signature easily, I might relying on customPrompt or overload.
-  secondaryVoice: DJVoice = "Puck"
+  secondaryVoice: DJVoice = "Puck",
+  isLongMessage: boolean = false
 ): Promise<ArrayBuffer | null> => {
   const label = `[Gemini:Timing] Total DJ Intro Process`;
   console.time(label);
@@ -407,7 +417,9 @@ export const generateDJIntro = async (
          - Time: ${context} (${timeString})
          
          TONE/STYLE:
+         TONE/STYLE:
          ${styleInstruction}
+         ${isLongMessage ? `\nVARIETY MODE: LONG MESSAGE. \nTheme: ${LONG_MESSAGE_THEMES[Math.floor(Math.random() * LONG_MESSAGE_THEMES.length)]}\nTake your time. You can use up to 4 sentences. Engage the listener.` : SHORT_MESSAGE_INSTRUCTION}
   
          ${historyBlock}
          ${playlistBlock}
@@ -482,7 +494,9 @@ export const generateDJIntro = async (
         ${LENGTH_CONSTRAINT}
         
         STYLE PROTOCOL:
+        STYLE PROTOCOL:
         ${styleInstruction}
+        ${isLongMessage ? `\nVARIETY MODE: LONG MESSAGE. \nTheme: ${LONG_MESSAGE_THEMES[Math.floor(Math.random() * LONG_MESSAGE_THEMES.length)]}\nTake your time. You can use up to 4 sentences. Engage the listener.` : SHORT_MESSAGE_INSTRUCTION}
   
         ${MARKUP_TAG_GUIDANCE}
   
@@ -542,9 +556,8 @@ export const generateCallBridging = async (
 
     const outroPrompt = `
     You are a radio DJ. You just finished talking to a listener named "${callerName}".
-    Now you need to introduce the next song: "${nextSong?.title || "Unknown"}" by "${
-      nextSong?.artist || "Unknown"
-    }".
+    Now you need to introduce the next song: "${nextSong?.title || "Unknown"}" by "${nextSong?.artist || "Unknown"
+      }".
     
     Write a short outro thanking the caller and introducing the track.
     Example: "Thanks for calling in, [Name]. Here's [Song] by [Artist]."

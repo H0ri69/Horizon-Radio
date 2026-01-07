@@ -48,7 +48,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         playlistContext || [],
         history,
         dualDjMode,
-        secondaryVoice
+        secondaryVoice,
+        message.data.isLongMessage
       )
         .then((arrayBuffer) => {
           if (arrayBuffer) {

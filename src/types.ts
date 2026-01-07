@@ -43,4 +43,5 @@ export interface AppSettings {
   djStyle: DJStyle;
   customStylePrompt: string;
   language: AppLanguage;
+  longMessageProbability: number;
 }
