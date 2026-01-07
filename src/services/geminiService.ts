@@ -19,8 +19,8 @@ const LONG_MESSAGE_THEMES = [
   "Share a Trivium or Fun Fact about the artist or song",
   "Preview upcoming songs in the queue. Mention the titles and artists of the next 2-3 specific songs using ONLY the playlist context provided ([UP NEXT +1], [UP NEXT +2], etc). Do NOT invent song titles or be vague.",
   "Spotlight a story about the Artist",
-  "Briefly mention current Weather for the country where ${location} is located (Use Google Search). Interpret the timezone as a country, not a specific city. Use Celsius for temperatures unless location is in USA/Canada, then use Fahrenheit.",
-  "Briefly mention local News for the country where ${location} is located (Use Google Search). Interpret the timezone as a country, not a specific city.",
+  "Briefly mention current Weather for your listeners, referencing the local country of ${location}. USE GOOGLE SEARCH to get actual conditions. Interpret the timezone as a country, not a specific city. Deliver it naturally as a DJ update (e.g., 'A bit chilly here in the UK tonight...'). Use Celsius for temperatures unless location is in USA/Canada, then use Fahrenheit.",
+  "Briefly mention a local News headline relevant to the country where ${location} is located. USE GOOGLE SEARCH. Interpret the timezone as a country, not a specific city. Deliver it as a casual radio update, not a robotic headline read.",
 ];
 
 const SHORT_MESSAGE_INSTRUCTION = "Keep it extremely concise. Maximum 2 sentences. Focus strictly on the transition (Song A to Song B).";
@@ -353,7 +353,8 @@ const selectTheme = (
   recentIndices: number[],
   enabledThemes: boolean[],
   forceTheme: number | null,
-  verboseLogging: boolean
+  verboseLogging: boolean,
+  themeUsageHistory: Record<number, number> = {}
 ): { index: number; theme: string } => {
   // Debug Override: Force specific theme
   if (forceTheme !== null && forceTheme >= 0 && forceTheme < LONG_MESSAGE_THEMES.length) {
@@ -362,9 +363,28 @@ const selectTheme = (
   }
 
   // Filter: Exclude recent themes AND disabled themes
+  // Also enforce cooldowns for specific themes
+  const COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+  const now = Date.now();
+
   let availableIndices = LONG_MESSAGE_THEMES
     .map((_, i) => i)
-    .filter(i => !recentIndices.includes(i) && enabledThemes[i]);
+    .filter(i => {
+      // Basic checks
+      if (recentIndices.includes(i)) return false;
+      if (!enabledThemes[i]) return false;
+
+      // Cooldown checks for Weather (4) and News (5)
+      if (i === 4 || i === 5) {
+        const lastUsed = themeUsageHistory[i] || 0;
+        if (now - lastUsed < COOLDOWN_MS) {
+          if (verboseLogging) console.log(`[Theme] Skipping theme ${i} (Weather/News) due to cooldown. Last used: ${new Date(lastUsed).toLocaleTimeString()}`);
+          return false;
+        }
+      }
+
+      return true;
+    });
 
   if (verboseLogging) {
     console.log(`[Theme] Recent: [${recentIndices.join(", ")}]`);
@@ -410,7 +430,8 @@ export const generateDJIntro = async (
     skipTTS: boolean;
     forceTheme: number | null;
     verboseLogging: boolean;
-  }
+  },
+  themeUsageHistory: Record<number, number> = {}
 ): Promise<{ audio: ArrayBuffer | null; themeIndex: number | null }> => {
   const label = `[Gemini:Timing] Total DJ Intro Process`;
   console.time(label);
@@ -467,7 +488,7 @@ export const generateDJIntro = async (
         const forceTheme = debugSettings?.forceTheme ?? null;
         const verboseLogging = debugSettings?.verboseLogging || false;
 
-        const themeSelection = selectTheme(recentThemeIndices, enabledThemes, forceTheme, verboseLogging);
+        const themeSelection = selectTheme(recentThemeIndices, enabledThemes, forceTheme, verboseLogging, themeUsageHistory);
         selectedThemeIndex = themeSelection.index;
         longMessageTheme = themeSelection.theme.replace("${location}", userTimezone);
 
@@ -485,9 +506,9 @@ export const generateDJIntro = async (
          - Song Ending: "${currentSong.title}" by ${currentSong.artist}
          - Song Starting: "${nextSong?.title}" by "${nextSong?.artist}"
          - Time: ${context} (${timeString})
-         - Location: ${userTimezone}
+         - Reference Location: ${userTimezone} (INTERNAL INFO - DO NOT mention this specific location string or "Welcome Europe" unless relevant to a specific theme)
          
-         TONE/STYLE:
+         
          TONE/STYLE:
          ${styleInstruction}
          ${isLongMessage ? `\nVARIETY MODE: LONG MESSAGE. \nTheme: ${longMessageTheme}\nTake your time. You can use up to 4 sentences. Engage the listener.` : SHORT_MESSAGE_INSTRUCTION}
@@ -517,6 +538,12 @@ export const generateDJIntro = async (
          - Output ONLY the dialogue lines in the exact format shown above
          
          Important: ${langInstruction}
+
+         DJ CONSTRAINTS:
+         - NEVER mention the literal 'Location' or 'Time' labels from the context above.
+         - DO NOT say things like "Welcome Europe" just because the location says "Europe/Prague". Address your listeners naturally or stay localized to the music.
+         - If referencing the time, do it naturally like a human ("Just past 9 o'clock", "Middle of the night here"). Do NOT use military time or read out the time exactly as shown in metadata.
+         - Use location strictly for situational awareness (Weather/News/Flavor).
        `;
 
       console.log(`[Gemini] 🎙️ Generating DUAL DJ Intro: ${voice} & ${secondaryVoice}`);
@@ -564,7 +591,7 @@ export const generateDJIntro = async (
         const forceTheme = debugSettings?.forceTheme ?? null;
         const verboseLogging = debugSettings?.verboseLogging || false;
 
-        const themeSelection = selectTheme(recentThemeIndices, enabledThemes, forceTheme, verboseLogging);
+        const themeSelection = selectTheme(recentThemeIndices, enabledThemes, forceTheme, verboseLogging, themeUsageHistory);
         selectedThemeIndex = themeSelection.index;
         longMessageTheme = themeSelection.theme.replace("${location}", userTimezone);
 
@@ -581,7 +608,7 @@ export const generateDJIntro = async (
         - Song Ending: "${currentSong.title}" by ${currentSong.artist}
         - Song Starting: "${nextSong?.title}" by "${nextSong?.artist}"
         - Time: ${context} (${timeString})
-        - Location: ${userTimezone}
+        - Reference Location: ${userTimezone} (INTERNAL INFO - DO NOT mention this specific location string or "Welcome Europe" unless relevant to a specific theme)
         
         ${historyBlock}
         ${playlistBlock}
@@ -590,7 +617,7 @@ export const generateDJIntro = async (
         Generate a short, radio-realistic transition script.
         ${LENGTH_CONSTRAINT}
         
-        STYLE PROTOCOL:
+        
         STYLE PROTOCOL:
         ${styleInstruction}
         ${isLongMessage ? `\nVARIETY MODE: LONG MESSAGE. \nTheme: ${longMessageTheme}\nTake your time. You can use up to 4 sentences. Engage the listener.` : SHORT_MESSAGE_INSTRUCTION}
@@ -608,6 +635,12 @@ export const generateDJIntro = async (
         - Output ONLY the spoken words.
   
         Important: ${langInstruction}
+
+        DJ CONSTRAINTS:
+        - NEVER mention the literal 'Location' or 'Time' labels from the context above.
+        - DO NOT say things like "Welcome Europe" just because the location says "Europe/Prague". Address your listeners naturally or stay localized to the music.
+        - If referencing the time, do it naturally like a human ("Just past 9 o'clock", "Middle of the night here"). Do NOT use military time or read out the time exactly as shown in metadata.
+        - Use location strictly for situational awareness (Weather/News/Flavor).
         `;
     }
 

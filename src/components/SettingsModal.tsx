@@ -37,7 +37,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     dualDjMode: false,
     secondaryDjVoice: "sulafat",
     apiKey: "",
-    longMessageProbability: 0.5,
+    longMessageProbability: 0.3,
     debug: {
       enabledThemes: [true, true, true, true, true, true],
       skipTTS: false,
