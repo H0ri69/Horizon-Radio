@@ -17,9 +17,6 @@ export const DJStyle = {
 export type DJStyle = (typeof DJStyle)[keyof typeof DJStyle];
 
 export const GEMINI_CONFIG = {
-  TEXT_MODEL: "gemini-2.5-flash",
-  TTS_MODEL: "gemini-2.5-flash-preview-tts",
-  LIVE_MODEL: "gemini-2.5-flash-native-audio-preview-09-2025",
   RETRY_COUNT: 3,
   RETRY_DELAY: 1000,
 };
@@ -28,12 +25,29 @@ export const EXTENSION_CONFIG = {
   MAX_HISTORY: 7,
 };
 
+export const MODEL_MAPPING = {
+  TEXT: {
+    FLASH: "gemini-2.5-flash",
+    PRO: "gemini-2.5-pro",
+  },
+  TTS: {
+    FLASH: "gemini-2.5-flash-preview-tts",
+    PRO: "gemini-2.5-pro-preview-tts",
+  },
+  LIVE: {
+    FLASH: "gemini-2.5-flash-native-audio-preview-09-2025",
+    PRO: "gemini-2.5-pro-native-audio-preview-09-2025",
+  }
+};
+
 export const DEFAULT_SETTINGS: AppSettings = {
   djVoice: "sadachbia",
   djStyle: DJStyle.STANDARD,
   customStylePrompt: "",
   language: "en",
   longMessageProbability: 0.3,
+  textModel: "FLASH",
+  ttsModel: "FLASH",
   debug: {
     enabledThemes: [true, true, true, true, true, true], // All themes enabled
     skipTTS: false,

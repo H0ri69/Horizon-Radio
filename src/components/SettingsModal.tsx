@@ -23,6 +23,8 @@ interface Settings {
     verboseLogging: boolean;
     triggerPoint: number;
   };
+  textModel: "FLASH" | "PRO";
+  ttsModel: "FLASH" | "PRO";
 }
 
 export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -45,6 +47,8 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
       verboseLogging: false,
       triggerPoint: 0.25,
     },
+    textModel: "FLASH",
+    ttsModel: "FLASH",
   });
   const [status, setStatus] = useState("");
 
@@ -372,10 +376,59 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
               </div>
             </section>
 
-            {/* 05 API CONFIGURATION */}
+            {/* 05 MODEL SELECTION */}
             <section>
               <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
-                <span className="text-amber-400 font-mono text-base opacity-80">05</span> API Configuration
+                <span className="text-cyan-400 font-mono text-base opacity-80">05</span> High-Fidelity Engines
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Text Engine */}
+                <div className="space-y-4">
+                  <label className="text-sm font-bold text-white/40 uppercase tracking-widest block">Text Generation</label>
+                  <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
+                    {["FLASH", "PRO"].map((tier) => (
+                      <button
+                        key={tier}
+                        onClick={() => saveSettings({ ...settings, textModel: tier as any })}
+                        className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${settings.textModel === tier
+                          ? "bg-white text-black shadow-lg"
+                          : "text-white/40 hover:text-white/70"
+                          }`}
+                      >
+                        {tier === "FLASH" ? "Flash (Speed)" : "Pro (Intelligence)"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* TTS Engine */}
+                <div className="space-y-4">
+                  <label className="text-sm font-bold text-white/40 uppercase tracking-widest block">Voice Synthesis (TTS)</label>
+                  <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
+                    {["FLASH", "PRO"].map((tier) => (
+                      <button
+                        key={tier}
+                        onClick={() => saveSettings({ ...settings, ttsModel: tier as any })}
+                        className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${settings.ttsModel === tier
+                          ? "bg-white text-black shadow-lg"
+                          : "text-white/40 hover:text-white/70"
+                          }`}
+                      >
+                        {tier === "FLASH" ? "Flash (Fast)" : "Pro (Expressive)"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-white/30 mt-4 leading-relaxed">
+                <span className="text-indigo-400 font-bold">Pro Models</span> unlock advanced emotional range, sarcasm, and professional radio delivery, but may be slightly slower to generate.
+              </p>
+            </section>
+
+            {/* 06 API CONFIGURATION */}
+            <section>
+              <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
+                <span className="text-amber-400 font-mono text-base opacity-80">06</span> API Configuration
               </h2>
               <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
                 <div className="mb-4">
@@ -399,7 +452,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
               </div>
             </section>
 
-            {/* 06 DEBUG SETTINGS (Collapsible) */}
+            {/* 07 DEBUG SETTINGS (Collapsible) */}
             <section className="pt-8 border-t border-white/10">
               <details className="group">
                 <summary className="text-xl font-semibold text-white/40 cursor-pointer list-none flex items-center gap-3 hover:text-white transition-colors">

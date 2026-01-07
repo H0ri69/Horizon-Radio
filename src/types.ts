@@ -38,12 +38,16 @@ export interface VoiceProfile {
 // App Settings Types
 export type AppLanguage = "en" | "cs" | "ja";
 
+export type GeminiModelTier = "FLASH" | "PRO";
+
 export interface AppSettings {
   djVoice: DJVoice;
   djStyle: DJStyle;
   customStylePrompt: string;
   language: AppLanguage;
   longMessageProbability: number;
+  textModel: GeminiModelTier;
+  ttsModel: GeminiModelTier;
   debug?: {
     enabledThemes: boolean[];      // 6 items, one per theme
     skipTTS: boolean;               // Skip audio generation (text only)
