@@ -55,5 +55,6 @@ export interface AppSettings {
     forceTheme: number | null;      // Force specific theme index (null = random)
     verboseLogging: boolean;        // Detailed console logs
     triggerPoint: number;           // 0.1 to 0.9 (percentage of song)
+    callHistoryLimit: number;       // Max callers to remember (1-15)
   };
 }

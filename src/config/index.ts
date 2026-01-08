@@ -43,6 +43,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     forceTheme: null, // Random selection
     verboseLogging: false,
     triggerPoint: 0.25, // 25% of song
+    callHistoryLimit: 5, // Max callers to remember
   },
 };
 
