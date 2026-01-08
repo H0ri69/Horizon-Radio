@@ -242,14 +242,40 @@ export const appleMusicThemeCss = `
 
   /* PLAYER PAGE REFINEMENT */
   ytmusic-player-page {
-    /* Keep default z-index/positioning but add glass background */
+    /* Ensure it fills the space correctly without native margins */
     background: transparent !important; 
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 50 !important; /* Lower than player bar */
   }
 
   ytmusic-app-layout[player-page-open] ytmusic-player-page {
-    background: rgba(0, 0, 0, 0.45) !important;
-    backdrop-filter: blur(100px) saturate(180%) brightness(1.0) !important;
-    -webkit-backdrop-filter: blur(100px) saturate(180%) brightness(1.0) !important;
+    /* Use a more solid glass to prevent vibrant background from "leaking" through too much */
+    background: rgba(0, 0, 0, 0.75) !important; 
+    backdrop-filter: blur(140px) saturate(160%) brightness(0.65) !important;
+    -webkit-backdrop-filter: blur(140px) saturate(160%) brightness(0.65) !important;
+    
+    /* EXTEND TO FULL HEIGHT */
+    height: 100vh !important;
+    max-height: 100vh !important;
+    position: fixed !important;
+    top: 0 !important;
+  }
+
+  /* Make sure the internal background also covers gaps */
+  #background.ytmusic-player-page {
+    background: transparent !important;
+  }
+
+  /* Make sure the internal background also covers gaps */
+  #background.ytmusic-player-page {
+    background: transparent !important;
+  }
+
+  /* Restore native content layout to prevent "bigger" unconstrained player */
+  ytmusic-player-page .content.ytmusic-player-page {
+    background: transparent !important;
+    /* Removed padding:0 and margin:0 which caused the expansion issue */
   }
 
   /* FIX CLICKABILITY IN PLAYER PAGE QUEUE */
@@ -371,11 +397,23 @@ export const appleMusicThemeCss = `
   ytmusic-player-bar {
     border-radius: 64px !important;
     margin: 0 !important;
-    width: calc(100% - 32px) !important;
-    left: 16px !important;
+    /* Symmetric 300px gaps on both sides */
+    width: calc(100% - 600px) !important;
+    left: 300px !important;
+    transform: none !important;
     bottom: 16px !important;
     position: fixed !important;
     overflow: hidden !important;
+    z-index: 999 !important; /* Ensure it stays on top of everything */
+    transition: width 0.3s ease, left 0.3s ease, transform 0.3s ease !important;
+  }
+
+  /* Make bar glass again but slightly more opaque when player page is open to hide the sharp mask edge */
+  ytmusic-app-layout[player-page-open] ytmusic-player-bar {
+    background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 100%), rgba(25, 25, 27, 0.55) !important;
+    backdrop-filter: blur(40px) saturate(180%) brightness(1.2) !important;
+    -webkit-backdrop-filter: blur(40px) saturate(180%) brightness(1.2) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
   }
   
   /* SEARCH BOX - Keep appearance but reset position */
@@ -556,12 +594,17 @@ export const appleMusicThemeCss = `
     background: transparent !important;
   }
 
-  /* HIGH-DYNAMIC PLAYER ART - Keep this as it's nice */
+  /* PLAYER - ALBUM ART / VIDEO CONTAINER */
   ytmusic-player {
     box-shadow: 0 20px 50px rgba(0,0,0,0.5) !important;
     border-radius: 12px !important;
     overflow: hidden !important;
-    background: transparent !important;
+    background: #000 !important; /* Solid black behind video/art to prevent leaks */
+  }
+
+  /* Ensure video fills correctly or is centered with black background */
+  #player.ytmusic-player-page {
+    background: #000 !important;
   }
 
   #song-image {
