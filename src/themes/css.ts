@@ -311,7 +311,8 @@ export const appleMusicThemeCss = `
     left: -25%;
     width: 150%;
     height: 150%;
-    background-image: var(--horis-album-art);
+    /* Fallback gradient when no song is playing */
+    background-image: var(--horis-album-art, linear-gradient(180deg, #1a1a1a 0%, #000000 100%));
     background-size: cover;
     background-position: center;
     filter: blur(120px) saturate(2.8) brightness(0.6);
@@ -337,7 +338,6 @@ export const appleMusicThemeCss = `
   /* MACHINED GLASS PANELS (Glassmorphism 2.0) */
   /* Applied to standard elements without changing their position/size */
   #nav-bar-background, 
-  #player-bar-background,
   #guide-wrapper,
   ytmusic-player-bar {
     background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 100%), var(--ts-theme-apple-glass) !important;
@@ -348,11 +348,22 @@ export const appleMusicThemeCss = `
     transition: none !important;
   }
 
-  /* Remove Floating Styles from Player Bar */
+  /* HIDE PLAYER BAR BACKGROUND */
+  #player-bar-background {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+
+  /* FLOATING PLAYER BAR */
   ytmusic-player-bar {
-    border-radius: 0 !important; /* Full width means no corners usually, or only top corners */
+    border-radius: 64px !important;
     margin: 0 !important;
-    width: 100% !important;
+    width: calc(100% - 32px) !important;
+    left: 16px !important;
+    bottom: 16px !important;
+    position: fixed !important;
+    overflow: hidden !important;
   }
   
   /* SEARCH BOX - Keep appearance but reset position */
