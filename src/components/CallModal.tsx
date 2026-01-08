@@ -1,213 +1,264 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from "react-dom";
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
+import {
+    Phone, User, Music, MessageSquare,
+    Search, Trash2, ShieldCheck, X,
+    Check, Play, Loader2
+} from 'lucide-react';
 import { SongSearchService } from '../services/songSearchService';
 
 interface CallModalProps {
     onClose: () => void;
-    onSubmit: (name: string, message: string, song: any | null) => void;
+    onSubmit: (data: { name: string; song: any; message: string }) => void;
 }
+
+const containerVariants = {
+    hidden: { opacity: 0, scale: 0.95, y: 20 },
+    visible: {
+        opacity: 1, scale: 1, y: 0,
+        transition: {
+            duration: 0.4,
+            ease: [0.16, 1, 0.3, 1],
+            staggerChildren: 0.05
+        }
+    },
+    exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }
+} as any;
+
+const itemVariants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: { opacity: 1, y: 0 }
+};
 
 export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
     const [name, setName] = useState('');
-    const [message, setMessage] = useState('');
     const [songQuery, setSongQuery] = useState('');
+    const [message, setMessage] = useState('');
     const [suggestions, setSuggestions] = useState<any[]>([]);
-    const [selectedSong, setSelectedSong] = useState<any | null>(null);
+    const [selectedSong, setSelectedSong] = useState<any>(null);
     const [isSearching, setIsSearching] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
 
-    // Debounce search
     useEffect(() => {
         const timer = setTimeout(async () => {
             if (songQuery.length > 2 && !selectedSong) {
                 setIsSearching(true);
-                const results = await SongSearchService.search(songQuery);
-                setSuggestions(results);
-                setIsSearching(false);
                 setDropdownOpen(true);
+                try {
+                    const results = await SongSearchService.search(songQuery);
+                    setSuggestions(results);
+                } catch (error) {
+                    console.error("Search failed", error);
+                } finally {
+                    setIsSearching(false);
+                }
             } else {
                 setSuggestions([]);
                 setDropdownOpen(false);
             }
         }, 500);
+
         return () => clearTimeout(timer);
     }, [songQuery, selectedSong]);
 
     const handleSelectSong = (song: any) => {
         setSelectedSong(song);
-        setSongQuery(`${song.title} - ${song.artist}`);
+        setSongQuery(song.title);
         setDropdownOpen(false);
     };
 
     const handleClearSong = () => {
         setSelectedSong(null);
         setSongQuery('');
-        setSuggestions([]);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name.trim()) return;
-        onSubmit(name, message, selectedSong);
+        onSubmit({ name, song: selectedSong, message });
         onClose();
     };
 
     return createPortal(
-        <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-6 font-sans"
-            onClick={onClose}
-        >
-            <div
-                className="bg-background w-full max-w-[900px] max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 shadow-2xl relative flex flex-col"
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 font-sans">
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                onClick={onClose}
+            />
+
+            <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="glass-effect w-full max-w-[900px] max-h-[90vh] overflow-hidden rounded-3xl relative flex flex-col"
                 onClick={(e) => e.stopPropagation()}
-                style={{ backgroundColor: "#09090b", color: "#FAFAFA" }}
             >
-                {/* Close Button UI - Same as Settings */}
-                <button
-                    onClick={onClose}
-                    className="absolute top-8 right-8 p-3 rounded-full hover:bg-white/10 transition-colors z-10"
-                >
-                    <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="opacity-70"
-                    >
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-
-                <div className="p-10 md:p-14 space-y-12">
-                    {/* Header - Same as Settings */}
-                    <header className="flex justify-between items-center pb-8 border-b border-white/5">
-                        <div>
-                            <h1 className="text-4xl font-bold tracking-tight text-white mb-2">Live Call</h1>
-                            <p className="text-lg text-white/50">
-                                Connect with the DJ and request a song
-                            </p>
+                {/* Header - Fixed */}
+                <div className="p-8 md:p-10 border-b border-white/5 flex justify-between items-center bg-[#09090b]/40 backdrop-blur-md z-20">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
+                            <Phone className="w-8 h-8 text-indigo-400" />
                         </div>
-                    </header>
+                        <div>
+                            <h1 className="text-3xl font-bold tracking-tight text-white mb-1">Live Studio Call</h1>
+                            <p className="text-base text-white/40">Enter the broadcast queue and request a track</p>
+                        </div>
+                    </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-12">
+                    <button
+                        onClick={onClose}
+                        className="p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all group"
+                    >
+                        <X className="w-6 h-6 text-white/40 group-hover:text-white transition-colors" />
+                    </button>
+                </div>
+
+                {/* Scrollable Content */}
+                <div className="overflow-y-auto custom-scrollbar flex-1">
+                    <form onSubmit={handleSubmit} className="p-10 md:p-14 space-y-16">
+
                         {/* 00 CALLER IDENTITY */}
-                        <section>
-                            <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
-                                <span className="text-indigo-400 font-mono text-base opacity-80">00</span> Your Identity
+                        <motion.section variants={itemVariants}>
+                            <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/30 mb-8 flex items-center gap-3">
+                                <User className="w-4 h-4 text-indigo-400" /> Caller Identity
                             </h2>
-                            <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
-                                <label className="block text-sm font-medium text-white/70 mb-3">
-                                    Display Name
+                            <div className="bg-white/5 rounded-3xl p-8 border border-white/5 group focus-within:border-indigo-500/30 transition-colors">
+                                <label className="block text-xs font-black uppercase tracking-widest text-white/40 mb-4 ml-1">
+                                    Broadcast Name
                                 </label>
-                                <input
-                                    type="text"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    placeholder="e.g. Alex"
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-base focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder-white/20"
-                                    required
-                                />
+                                <div className="relative">
+                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-indigo-400 transition-colors" />
+                                    <input
+                                        type="text"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        placeholder="Enter your name..."
+                                        className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder-white/10 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                                        required
+                                    />
+                                </div>
                             </div>
-                        </section>
+                        </motion.section>
 
                         {/* 01 SONG REQUEST */}
-                        <section>
-                            <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
-                                <span className="text-indigo-400 font-mono text-base opacity-80">01</span> Song Request
+                        <motion.section variants={itemVariants} className="relative">
+                            <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/30 mb-8 flex items-center gap-3">
+                                <Music className="w-4 h-4 text-indigo-400" /> Song Request
                             </h2>
-                            <div className="bg-white/5 rounded-3xl p-6 border border-white/5 relative">
-                                <label className="block text-sm font-medium text-white/70 mb-3">
+                            <div className="bg-white/5 rounded-3xl p-8 border border-white/5 group focus-within:border-indigo-500/30 transition-colors relative">
+                                <label className="block text-xs font-black uppercase tracking-widest text-white/40 mb-4 ml-1">
                                     Search YouTube Music
                                 </label>
                                 <div className="relative">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-indigo-400 transition-colors" />
                                     <input
                                         type="text"
                                         value={songQuery}
                                         onChange={(e) => { setSongQuery(e.target.value); setSelectedSong(null); }}
-                                        placeholder="Search for a track..."
-                                        className={`w-full bg-black/40 border ${selectedSong ? 'border-green-500/50' : 'border-white/10'} rounded-xl p-4 text-white text-base focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder-white/20 pr-12`}
+                                        placeholder="Track or Artist name..."
+                                        className={`w-full bg-black/40 border transition-all rounded-2xl p-4 pl-12 text-white placeholder-white/10 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 ${selectedSong ? 'border-green-500/50 ring-1 ring-green-500/30' : 'border-white/10 focus:border-indigo-500/50'}`}
                                     />
-                                    {selectedSong && (
-                                        <button
-                                            type="button"
-                                            onClick={handleClearSong}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-green-400 hover:text-white transition-colors"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                        </button>
-                                    )}
-                                    {isSearching && !selectedSong && (
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                        </div>
-                                    )}
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                        {selectedSong && (
+                                            <button type="button" onClick={handleClearSong} className="p-1.5 hover:bg-white/10 rounded-lg text-white/40 hover:text-red-400 transition-all">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                        {isSearching && <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />}
+                                    </div>
                                 </div>
 
-                                {/* Dropdown - Styled like Settings menu items */}
-                                {dropdownOpen && suggestions.length > 0 && (
-                                    <div className="mt-4 bg-black/60 border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto custom-scrollbar">
-                                        {suggestions.map((song) => (
-                                            <button
-                                                key={song.id}
-                                                type="button"
-                                                onClick={() => handleSelectSong(song)}
-                                                className="w-full text-left px-4 py-4 hover:bg-white/10 flex items-center gap-4 transition-colors border-b border-white/5 last:border-0"
-                                            >
-                                                {song.cover ? (
-                                                    <img src={song.cover} alt="" className="w-12 h-12 rounded-lg object-cover" />
-                                                ) : (
-                                                    <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center text-lg">🎵</div>
-                                                )}
-                                                <div>
-                                                    <div className="text-white font-medium text-base line-clamp-1">{song.title}</div>
-                                                    <div className="text-white/40 text-sm line-clamp-1">{song.artist}</div>
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
+                                <AnimatePresence>
+                                    {dropdownOpen && suggestions.length > 0 && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                                            className="absolute top-full left-0 right-0 mt-4 bg-[#09090b] border border-white/10 rounded-3xl shadow-2xl overflow-hidden z-50 p-2"
+                                        >
+                                            <div className="max-h-80 overflow-y-auto custom-scrollbar">
+                                                {suggestions.map((song, i) => (
+                                                    <motion.button
+                                                        initial={{ opacity: 0, x: -10 }}
+                                                        animate={{ opacity: 1, x: 0 }}
+                                                        transition={{ delay: i * 0.03 }}
+                                                        key={song.id}
+                                                        type="button"
+                                                        onClick={() => handleSelectSong(song)}
+                                                        className="w-full text-left p-4 hover:bg-white/5 flex items-center gap-4 transition-colors rounded-2xl group"
+                                                    >
+                                                        {song.cover ? (
+                                                            <img src={song.cover} alt="" className="w-12 h-12 rounded-xl object-cover shadow-lg" />
+                                                        ) : (
+                                                            <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center"><Music className="w-5 h-5 text-white/20" /></div>
+                                                        )}
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-white font-bold text-sm truncate group-hover:text-indigo-400 transition-colors uppercase tracking-tight">{song.title}</div>
+                                                            <div className="text-white/40 text-[10px] font-black uppercase tracking-wider truncate">{song.artist}</div>
+                                                        </div>
+                                                        <div className="p-2 rounded-full border border-white/5 group-hover:border-indigo-500/30 group-hover:bg-indigo-500/10 transition-all">
+                                                            <Play className="w-3 h-3 text-white/20 group-hover:text-indigo-400" fill="currentColor" />
+                                                        </div>
+                                                    </motion.button>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
-                        </section>
+                        </motion.section>
 
                         {/* 02 CONVERSATION */}
-                        <section>
-                            <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
-                                <span className="text-indigo-400 font-mono text-base opacity-80">02</span> Conversation
+                        <motion.section variants={itemVariants}>
+                            <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/30 mb-8 flex items-center gap-3">
+                                <MessageSquare className="w-4 h-4 text-indigo-400" /> Conversation Starter
                             </h2>
-                            <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
-                                <label className="block text-sm font-medium text-white/70 mb-3">
+                            <div className="bg-white/5 rounded-3xl p-8 border border-white/5 group focus-within:border-indigo-500/30 transition-colors">
+                                <label className="block text-xs font-black uppercase tracking-widest text-white/40 mb-4 ml-1">
                                     Message for the DJ
                                 </label>
                                 <textarea
                                     value={message}
                                     onChange={(e) => setMessage(e.target.value)}
-                                    placeholder="Tell the DJ why you're calling..."
-                                    className="w-full h-32 bg-black/40 border border-white/10 rounded-xl p-4 text-white text-base focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder-white/20 resize-none"
+                                    placeholder="Tell the host why you're calling..."
+                                    className="w-full h-32 bg-black/40 border border-white/10 rounded-2xl p-4 text-white placeholder-white/10 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none"
                                 />
                             </div>
-                        </section>
+                        </motion.section>
 
-                        <div className="pt-6">
+                        <motion.div variants={itemVariants} className="pt-6">
                             <button
                                 type="submit"
-                                className="w-full py-5 rounded-2xl text-xl font-bold bg-white text-black hover:bg-white/90 border-white shadow-lg shadow-white/10 transition-all active:scale-[0.98]"
+                                className="shimmer w-full py-6 rounded-2xl text-xl font-black uppercase tracking-[0.2em] bg-indigo-600 text-white hover:bg-indigo-500 shadow-xl shadow-indigo-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-4"
                             >
-                                CALL STUDIO NOW
+                                <Phone className="w-6 h-6 fill-current" />
+                                Call Studio Now
                             </button>
-                        </div>
+                        </motion.div>
                     </form>
-
-                    <footer className="pt-8 border-t border-white/5 flex justify-between items-center text-sm text-white/30">
-                        <div className="font-mono uppercase">Live Call System v1.0</div>
-                        <div className="font-medium text-indigo-400/50 uppercase tracking-widest">Encrypted Connection</div>
-                    </footer>
                 </div>
-            </div>
+
+                {/* Footer - Fixed */}
+                <div className="p-8 md:p-10 border-t border-white/5 bg-[#09090b]/40 backdrop-blur-md flex justify-between items-center z-20">
+                    <div className="flex items-center gap-6">
+                        <div className="font-mono text-[10px] font-black tracking-[0.4em] text-white/20 uppercase">STX-PROTOCOL-1.0</div>
+                        <div className="h-4 w-px bg-white/10" />
+                        <div className="flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4 text-indigo-500/50" />
+                            <span className="text-[10px] font-black text-indigo-400/50 uppercase tracking-[0.2em]">End-to-End Encryption</span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[10px] font-black text-white/20 uppercase tracking-widest">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500/40" />
+                        Studio Ready
+                    </div>
+                </div>
+            </motion.div>
         </div>,
         document.body
     );

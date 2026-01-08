@@ -37,11 +37,11 @@ export const InjectedApp: React.FC<InjectedAppProps> = ({ ducker }) => {
     return () => chrome.storage.onChanged.removeListener(listener);
   }, []);
 
-  const handleCallSubmit = (name: string, message: string, song: any | null) => {
-    console.log("[InjectedApp] Call Submitted:", { name, message, song });
+  const handleCallSubmit = (data: { name: string; song: any; message: string }) => {
+    console.log("[InjectedApp] Call Submitted:", data);
     // Dispatch event for content script to handle
     window.dispatchEvent(new CustomEvent("HORIS_CALL_SUBMITTED", {
-      detail: { name, message, song }
+      detail: data
     }));
   };
 

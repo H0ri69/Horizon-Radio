@@ -1,23 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-
-// Inject ping animation for status indicators
-if (typeof document !== 'undefined') {
-  const styleId = 'horis-ping-animation';
-  if (!document.getElementById(styleId)) {
-    const style = document.createElement('style');
-    style.id = styleId;
-    style.textContent = `
-      @keyframes ping {
-        75%, 100% {
-          transform: scale(2);
-          opacity: 0;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-}
+import {
+  Settings2, PhoneForwarded,
+  Radio, Sparkles, Mic2, Zap, Hourglass
+} from "lucide-react";
 
 interface PlayerControlsProps {
   onOpenSettings: () => void;
@@ -30,19 +16,13 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ onOpenSettings, 
   const [djStatus, setDjStatus] = useState<string>("IDLE");
 
   useEffect(() => {
-    // Check initial settings
     chrome.storage.local.get(["horisFmSettings"], (result) => {
       const settings = result.horisFmSettings as { apiKey?: string } | undefined;
-      if (settings?.apiKey) {
-        setHasApiKey(true);
-      } else {
-        setHasApiKey(false);
-      }
+      setHasApiKey(!!settings?.apiKey);
     });
 
-    // Listen for changes
     const listener = (changes: any) => {
-      if (changes.horisFmSettings && changes.horisFmSettings.newValue) {
+      if (changes.horisFmSettings?.newValue) {
         setHasApiKey(!!changes.horisFmSettings.newValue.apiKey);
       }
     };
@@ -50,222 +30,104 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ onOpenSettings, 
     return () => chrome.storage.onChanged.removeListener(listener);
   }, []);
 
-  // Listen for DJ Status Updates from content script
   useEffect(() => {
     const statusListener = (event: Event) => {
       const customEvent = event as CustomEvent;
-      if (customEvent.detail) {
-        console.log("[PlayerControls] Status Update:", customEvent.detail);
-        setDjStatus(customEvent.detail);
-      }
+      if (customEvent.detail) setDjStatus(customEvent.detail);
     };
     window.addEventListener("HORIS_STATUS_UPDATE", statusListener);
     return () => window.removeEventListener("HORIS_STATUS_UPDATE", statusListener);
   }, []);
 
   useEffect(() => {
-    // Find the injection point
-    // Using interval to wait for YTM to load the DOM
     const interval = setInterval(() => {
       const middleControls = document.querySelector(".middle-controls-buttons");
       if (middleControls) {
-        // Ensure we haven't already injected (though React should handle this via root)
-        // But for Portal we need a container *inside* the target.
-        // Or we can just portal to the target itself?
-        // Portaling to the target appends to end. That's fine.
-        // The inspiration project used 'append'.
-
-        // Let's create a dedicated container to be safe
         let myContainer = document.getElementById("horis-controls-container");
         if (!myContainer) {
           myContainer = document.createElement("div");
           myContainer.id = "horis-controls-container";
-          myContainer.style.display = "flex";
-          myContainer.style.alignItems = "center";
+          myContainer.className = "flex items-center gap-1.5 px-4 mr-4 border-l border-white/5";
           middleControls.appendChild(myContainer);
         }
         setContainer(myContainer);
         clearInterval(interval);
       }
     }, 1000);
-
     return () => clearInterval(interval);
   }, []);
 
   if (!container) return null;
 
+  const getStatusBadge = () => {
+    switch (djStatus) {
+      case "GENERATING":
+        return (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 group animate-pulse">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Writing</span>
+          </div>
+        );
+      case "READY":
+        return (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400">
+            <Zap className="w-3.5 h-3.5 fill-current" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Ready</span>
+          </div>
+        );
+      case "PLAYING":
+        return (
+          <div className="shimmer flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+            <Mic2 className="w-3.5 h-3.5" />
+            <span className="text-[10px] font-black uppercase tracking-widest">On Air</span>
+          </div>
+        );
+      case "COOLDOWN":
+        return (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 text-white/30">
+            <Hourglass className="w-3.5 h-3.5" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Resting</span>
+          </div>
+        );
+      default:
+        return (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 text-white/20">
+            <Radio className="w-3.5 h-3.5" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Idle</span>
+          </div>
+        );
+    }
+  };
+
   return createPortal(
-    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-      {/* Status Indicator Badge - Always Visible */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          fontSize: "12px",
-          fontWeight: 500,
-          fontFamily: "Roboto, sans-serif",
-          gap: "6px",
-          opacity: 0.9,
-        }}
-        title={`DJ Status: ${djStatus}`}
-      >
-        {djStatus === "IDLE" && (
-          <>
-            <span style={{ color: "var(--yt-spec-text-secondary)", fontSize: "11px" }}>●</span>
-            <span style={{ color: "var(--yt-spec-text-secondary)" }}>IDLE</span>
-          </>
-        )}
-
-        {djStatus === "GENERATING" && (
-          <>
-            <span style={{ position: "relative", display: "flex", height: "8px", width: "8px" }}>
-              <span style={{
-                position: "absolute",
-                display: "inline-flex",
-                height: "100%",
-                width: "100%",
-                borderRadius: "9999px",
-                backgroundColor: "#fbbf24",
-                opacity: 0.75,
-                animation: "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite"
-              }}></span>
-              <span style={{
-                position: "relative",
-                display: "inline-flex",
-                borderRadius: "9999px",
-                height: "8px",
-                width: "8px",
-                backgroundColor: "#eab308"
-              }}></span>
-            </span>
-            <span style={{ color: "#fbbf24" }}>WRITING</span>
-          </>
-        )}
-
-        {djStatus === "READY" && (
-          <>
-            <span style={{
-              position: "relative",
-              display: "inline-flex",
-              borderRadius: "9999px",
-              height: "8px",
-              width: "8px",
-              backgroundColor: "#22c55e"
-            }}></span>
-            <span style={{ color: "#4ade80" }}>READY</span>
-          </>
-        )}
-
-        {djStatus === "PLAYING" && (
-          <>
-            <span style={{ position: "relative", display: "flex", height: "8px", width: "8px" }}>
-              <span style={{
-                position: "absolute",
-                display: "inline-flex",
-                height: "100%",
-                width: "100%",
-                borderRadius: "9999px",
-                backgroundColor: "#ef4444",
-                opacity: 0.75,
-                animation: "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite"
-              }}></span>
-              <span style={{
-                position: "relative",
-                display: "inline-flex",
-                borderRadius: "9999px",
-                height: "8px",
-                width: "8px",
-                backgroundColor: "#ef4444"
-              }}></span>
-            </span>
-            <span style={{ color: "#ef4444" }}>ON AIR</span>
-          </>
-        )}
-
-        {djStatus === "COOLDOWN" && (
-          <>
-            <span style={{ color: "var(--yt-spec-text-secondary)", fontSize: "11px" }}>●</span>
-            <span style={{ color: "var(--yt-spec-text-secondary)" }}>COOLDOWN</span>
-          </>
-        )}
+    <div className="flex items-center gap-3">
+      {/* Dynamic Status Badge */}
+      <div className="hidden lg:block">
+        {getStatusBadge()}
       </div>
 
-      {/* Call Button */}
-      <button
-        onClick={() => {
-          console.log("[Hori-s] Call Button Clicked");
-          onOpenCall();
-        }}
-        className="style-scope yt-icon-button"
-        title="Call the DJ"
-        style={{
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          padding: "8px",
-          color: "#ffffff", // Pure white for the phone icon
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: 0.9,
-          transition: "opacity 0.2s",
-          marginLeft: "4px",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.9")}
-      >
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-          <path d="M6.62,10.79C8.06,13.62 10.38,15.94 13.21,17.38L15.41,15.18C15.69,14.9 16.08,14.82 16.43,14.93C17.55,15.3 18.75,15.5 20,15.5A1,1 0 0,1 21,16.5V20A1,1 0 0,1 20,21A17,17 0 0,1 3,4A1,1 0 0,1 4,3H7.5A1,1 0 0,1 8.5,4C8.5,5.25 8.7,6.45 9.07,7.57C9.18,7.92 9.1,8.31 8.82,8.59L6.62,10.79Z" />
-        </svg>
-      </button>
+      <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/5 backdrop-blur-md">
+        {/* Call Button */}
+        <button
+          onClick={onOpenCall}
+          className="p-2.5 rounded-xl hover:bg-white/5 text-white/40 hover:text-indigo-400 transition-all active:scale-90"
+          title="Voice Message to Studio"
+        >
+          <PhoneForwarded className="w-5 h-5" />
+        </button>
 
-      <button
-        onClick={() => {
-          console.log("[Hori-s] Settings Button Clicked");
-          onOpenSettings();
-        }}
-        className="style-scope yt-icon-button"
-        title={hasApiKey ? "Hori-s.FM Settings" : "Hori-s.FM (Setup Required)"}
-        style={{
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          padding: "8px",
-          color: "var(--yt-spec-text-secondary)", // Use YTM variable for consistency
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: 0.9,
-          transition: "opacity 0.2s",
-          marginLeft: "4px",
-          position: "relative", // Added for positioning the red dot
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.9")}
-      >
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-          {/* Hori-s Logo / Graphic EQ Icon */}
-          <path d="M10 20H6V4h4v16zm6-16h-4v16h4V4z" />
-          <path d="M18 8h2v8h-2zM4 8H2v8h2z" opacity=".5" />
-        </svg>
-
-        {/* Warning Dot */}
-        {!hasApiKey && (
-          <div
-            style={{
-              position: "absolute",
-              top: "6px",
-              right: "6px",
-              width: "8px",
-              height: "8px",
-              backgroundColor: "#ef4444",
-              borderRadius: "50%",
-              boxShadow: "0 0 4px rgba(239, 68, 68, 0.6)",
-              zIndex: 10
-            }}
-          />
-        )}
-      </button>
+        {/* Settings Button */}
+        <button
+          onClick={onOpenSettings}
+          className="relative p-2.5 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all active:scale-90 group"
+          title={hasApiKey ? "Studio Configuration" : "API KEY REQUIRED"}
+        >
+          <Settings2 className="w-5 h-5 group-hover:rotate-45 transition-transform duration-500" />
+          {!hasApiKey && (
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
+          )}
+        </button>
+      </div>
     </div>,
     container
   );

@@ -4,16 +4,55 @@
 
 @layer base {
   body {
-    @apply bg-background text-text antialiased;
+    @apply bg-background text-text antialiased selection:bg-indigo-500/30;
+  }
+}
+
+@layer components {
+  .glass-effect {
+    @apply bg-[#09090b]/80 backdrop-blur-2xl border border-white/10;
+    box-shadow: 0 0 50px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(to bottom right,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0) 40%,
+        rgba(255, 255, 255, 0.1) 50%,
+        rgba(255, 255, 255, 0) 60%,
+        rgba(255, 255, 255, 0) 100%);
+    transform: rotate(45deg);
+    animation: shimmer 3s infinite linear;
+  }
+
+  @keyframes shimmer {
+    from {
+      transform: translateX(-100%) rotate(45deg);
+    }
+
+    to {
+      transform: translateX(100%) rotate(45deg);
+    }
   }
 }
 
 @layer utilities {
-  /* Custom animations for CallModal */
   @keyframes fade-in {
     from {
       opacity: 0;
     }
+
     to {
       opacity: 1;
     }
@@ -24,36 +63,29 @@
       transform: translateY(20px);
       opacity: 0;
     }
+
     to {
       transform: translateY(0);
       opacity: 1;
     }
   }
 
-  .animate-fade-in {
-    animation: fade-in 0.2s ease-out;
-  }
-
-  .animate-slide-up {
-    animation: slide-up 0.3s ease-out;
-  }
-
-  /* Custom scrollbar for dropdown */
+  /* Custom scrollbar for premium look */
   .custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
   }
 
   .custom-scrollbar::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 4px;
+    background: transparent;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    transition: background 0.2s ease;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.2);
   }
 }
