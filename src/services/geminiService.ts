@@ -18,6 +18,7 @@ import {
   VOICE_PROFILES,
   LONG_MESSAGE_THEMES,
   SHORT_MESSAGE_INSTRUCTION,
+  generateDjIntroPrompt
 } from "../config";
 import { GeminiModelTier } from "../types";
 
@@ -232,7 +233,11 @@ const speakText = async (
         ai.models.generateContent({
           model: modelOverride || DEFAULT_TTS_MODEL,
           contents: [{ parts: [{ text: finalTextInput }] }],
-          config: { responseModalities: [Modality.AUDIO], speechConfig },
+          config: { 
+            responseModalities: [Modality.AUDIO], 
+            speechConfig,
+            systemInstruction: style ? DJ_STYLE_TTS_SYSTEM_PROMPTS[style] : undefined
+          },
         }),
       2,
       2000
@@ -323,7 +328,6 @@ export const generateDJIntro = async (
     const historyBlock = history.length > 0 ? `PREVIOUS VOICEOVERS: \n${history.join("\n")}` : "";
     const playlistBlock = playlistContext.length > 0 ? `PLAYLIST CONTEXT: \n${playlistContext.join("\n")}` : "";
 
-    let prompt = "";
     let selectedThemeIndex: number | null = null;
     const host1Profile = VOICE_PROFILES.find(p => p.id === voice);
     const host2Profile = secondaryVoice ? VOICE_PROFILES.find(p => p.id === secondaryVoice) : null;
@@ -333,35 +337,32 @@ export const generateDJIntro = async (
     const host1Gender = host1Profile?.gender || "Male";
     const host2Gender = host2Profile?.gender || "Male";
 
-    if (dualDjMode) {
-      let longMessageTheme = "";
-      if (isLongMessage) {
+    let longMessageTheme = "";
+    if (isLongMessage) {
         const themeSelection = selectTheme(recentThemeIndices, debugSettings?.enabledThemes || [true, true, true, true, true, true], debugSettings?.forceTheme ?? null, debugSettings?.verboseLogging || false, themeUsageHistory);
         selectedThemeIndex = themeSelection.index;
         longMessageTheme = themeSelection.theme.replace("${location}", userTimezone);
-      }
-      prompt = `TWO Radio DJs covering Hori-s FM shift. HOST 1: ${host1Name} (${host1Gender}), HOST 2: ${host2Name} (${host2Gender}). Ending: ${currentSong.title}, Starting: ${nextSong?.title}. Tone: ${styleInstruction}. ${isLongMessage ? `Theme: ${longMessageTheme}` : SHORT_MESSAGE_INSTRUCTION}. ${historyBlock} ${playlistBlock} ${dynamicMarkupGuidance} Write banter script using correct gendered grammar. Prefix lines with "${host1Name}: " or "${host2Name}: ". Output ONLY dialogue. ${LENGTH_CONSTRAINT} ${langInstruction}`;
-      const script = await generateScript(prompt, textModel);
-      if (!script) return { audio: null, themeIndex: null };
-
-      console.log(`[Hori-s] 📝 Script: "${script}"`);
-
-      if (debugSettings?.skipTTS) return { audio: null, themeIndex: selectedThemeIndex, script };
-      const audio = await speakText(script, voice, secondaryVoice, host1Name, host2Name, style, ttsModel);
-      return { audio, themeIndex: selectedThemeIndex, script };
     }
 
-    if (nextSong?.requestedBy) {
-      prompt = `DJ ${host1Name} (${host1Gender}) on Hori-s FM. Listener ${nextSong.requestedBy} requested ${nextSong.title}. Message: ${nextSong.requestMessage}. Shout out listener. Use correct gendered grammar. ${LENGTH_CONSTRAINT} ${dynamicMarkupGuidance} ${langInstruction}`;
-    } else {
-      let longMessageTheme = "";
-      if (isLongMessage) {
-        const themeSelection = selectTheme(recentThemeIndices, debugSettings?.enabledThemes || [true, true, true, true, true, true], debugSettings?.forceTheme ?? null, debugSettings?.verboseLogging || false, themeUsageHistory);
-        selectedThemeIndex = themeSelection.index;
-        longMessageTheme = themeSelection.theme.replace("${location}", userTimezone);
-      }
-      prompt = `DJ ${host1Name} (${host1Gender}) on Hori-s FM. Ending: ${currentSong.title}, Starting: ${nextSong?.title}. Tone: ${styleInstruction}. ${isLongMessage ? `Theme: ${longMessageTheme}` : SHORT_MESSAGE_INSTRUCTION}. ${historyBlock} ${playlistBlock} ${dynamicMarkupGuidance} Write using correct gendered grammar. Output ONLY spoken words. ${LENGTH_CONSTRAINT} ${langInstruction}`;
-    }
+
+    const prompt = generateDjIntroPrompt(
+        host1Name,
+        host1Gender,
+        currentSong.title,
+        nextSong?.title || "Next Song",
+        styleInstruction,
+        isLongMessage,
+        longMessageTheme,
+        historyBlock,
+        playlistBlock,
+        dynamicMarkupGuidance,
+        langInstruction,
+        dualDjMode,
+        host2Name,
+        host2Gender,
+        nextSong ? { requestedBy: nextSong.requestedBy, requestMessage: nextSong.requestMessage, title: nextSong.title } : undefined
+    );
+
 
     const script = await generateScript(prompt, textModel);
     if (!script) return { audio: null, themeIndex: null };

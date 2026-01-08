@@ -148,7 +148,7 @@ export const LIVE_DJ_STYLE_PROMPTS = {
   [DJStyle.CUSTOM]: (customPrompt: string) => `ACTING: Roleplay this CUSTOM Persona defined by the user: ${customPrompt || "Professional DJ"}`,
 };
 
-export const getGenderInstruction = (gender: string) => {
+export const getGenderInstruction = (gender: "Female" | "Male" | "Robot") => {
   return gender === "Female"
     ? "IDENTITY: You are a FEMALE speaker. Use female self-references and female gendered grammar."
     : gender === "Robot"
@@ -169,3 +169,96 @@ export const SHORT_MESSAGE_INSTRUCTION = "Keep it extremely concise. Maximum 2 s
 
 export const DEFAULT_VOICE_INSTRUCTION = "Speak naturally and clearly. Do not hype.";
 
+
+export const generateLiveSystemInstruction = (
+  personaName: string,
+  callerName: string,
+  previousSongTitle: string,
+  nextSongTitle: string,
+  nextSongArtist: string,
+  reason: string,
+  isRepeatCaller: boolean,
+  dualDjMode: boolean,
+  secondaryPersonaName: string | undefined,
+  style: DJStyle,
+  customPrompt: string | undefined,
+  voice: string,
+  language: AppLanguage,
+  callHistoryContext: string,
+  voiceProfile: { gender: "Male" | "Female" | "Robot", geminiVoiceName: string } | undefined
+) => {
+  const langInstruction = getLanguageInstruction(language);
+
+  // Build Persona/Style Instruction
+  const styleInstruction = style === DJStyle.CUSTOM
+    ? (LIVE_DJ_STYLE_PROMPTS[DJStyle.CUSTOM] as (p: string) => string)(customPrompt || "Professional DJ")
+    : (LIVE_DJ_STYLE_PROMPTS[style] as string) || (LIVE_DJ_STYLE_PROMPTS[DJStyle.STANDARD] as string);
+
+  const voiceInstruction = DEFAULT_VOICE_INSTRUCTION;
+
+  const dualDjNote = dualDjMode && secondaryPersonaName
+    ? `NARRATIVE NOTE: You are currently on a shift with your co-host ${secondaryPersonaName}, but they are BUSY (e.g., grabbing coffee, fixing a cable, or at the mixing board). You are handling this listener call SOLO. Briefly mention their absence to the caller.`
+    : "";
+
+  const gender = voiceProfile?.gender || "Male";
+  const genderInstruction = getGenderInstruction(gender);
+
+  // Get TTS Performance Instruction (controls HOW to speak)
+  const ttsPerformanceInstruction = style === DJStyle.CUSTOM
+    ? `Performance Direction: Embody the persona "${customPrompt || "Professional DJ"}" through your voice delivery, pacing, and tone. Let the character influence HOW you speak, not just WHAT you say.`
+    : DJ_STYLE_TTS_SYSTEM_PROMPTS[style] || "";
+
+  return `
+    ${genderInstruction}
+    ${styleInstruction}
+    ${ttsPerformanceInstruction ? `\n\nVOICE PERFORMANCE:\n${ttsPerformanceInstruction}` : ""}
+    ${voiceInstruction}
+    
+    IDENTITY: Your name is ${personaName}. You are the host of Hori-s FM.
+    
+    You are ON THE AIR on Hori-s FM. ${callerName} just called in.
+    Previous song: "${previousSongTitle}" | Next: "${nextSongTitle}" by "${nextSongArtist}"
+    ${isRepeatCaller ? `NOTE: ${callerName} is a REPEAT CALLER. Welcome them back to the show!` : ""}
+    ${dualDjNote}
+    
+    CALL FLOW:
+    1. START IMMEDIATELY: Outro the previous song ("${previousSongTitle}"), then introduce the caller: "${callerName}, you're live!"
+    2. ${isRepeatCaller ? "Welcome them back warmly." : (reason ? `Their topic: "${reason}"` : "Ask what's on their mind.")}
+    3. Have a natural conversation. React authentically. Ask follow-ups. Let it breathe.
+    4. When the caller says goodbye OR after 90 seconds, wrap up: Thank ${callerName}, intro "${nextSongTitle}", then call 'endCall'.
+    5. If interrupted mid-sentence, stop and respond to their interruption immediately.
+    6. Use Google Search for facts/news if asked.
+    7. ${langInstruction} Sound like you're on a quality broadcast mic—warm, clear, professional.
+    
+    PREVIOUS CALLERS THIS SHIFT:
+    ${callHistoryContext}
+  `;
+};
+
+export const generateDjIntroPrompt = (
+  host1Name: string,
+  host1Gender: string,
+  currentSongTitle: string,
+  nextSongTitle: string,
+  styleInstruction: string,
+  isLongMessage: boolean,
+  longMessageTheme: string,
+  historyBlock: string,
+  playlistBlock: string,
+  dynamicMarkupGuidance: string,
+  langInstruction: string,
+  dualDjMode: boolean = false,
+  host2Name?: string,
+  host2Gender?: string,
+  nextSong?: { requestedBy?: string, requestMessage?: string, title: string }
+) => {
+  if (dualDjMode && host2Name && host2Gender) {
+    return `TWO Radio DJs covering Hori-s FM shift. HOST 1: ${host1Name} (${host1Gender}), HOST 2: ${host2Name} (${host2Gender}). Ending: ${currentSongTitle}, Starting: ${nextSongTitle}. Tone: ${styleInstruction}. ${isLongMessage ? `Theme: ${longMessageTheme}` : SHORT_MESSAGE_INSTRUCTION}. ${historyBlock} ${playlistBlock} ${dynamicMarkupGuidance} Write banter script using correct gendered grammar. Prefix lines with "${host1Name}: " or "${host2Name}: ". Output ONLY dialogue. ${LENGTH_CONSTRAINT} ${langInstruction}`;
+  }
+
+  if (nextSong?.requestedBy) {
+    return `DJ ${host1Name} (${host1Gender}) on Hori-s FM. Listener ${nextSong.requestedBy} requested ${nextSong.title}. Message: ${nextSong.requestMessage}. Shout out listener. Use correct gendered grammar. ${LENGTH_CONSTRAINT} ${dynamicMarkupGuidance} ${langInstruction}`;
+  }
+
+  return `DJ ${host1Name} (${host1Gender}) on Hori-s FM. Ending: ${currentSongTitle}, Starting: ${nextSongTitle}. Tone: ${styleInstruction}. ${isLongMessage ? `Theme: ${longMessageTheme}` : SHORT_MESSAGE_INSTRUCTION}. ${historyBlock} ${playlistBlock} ${dynamicMarkupGuidance} Write using correct gendered grammar. Output ONLY spoken words. ${LENGTH_CONSTRAINT} ${langInstruction}`;
+};
