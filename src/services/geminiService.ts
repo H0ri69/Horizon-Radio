@@ -25,9 +25,6 @@ import { GeminiModelTier } from "../types";
 const DEFAULT_TEXT_MODEL = MODEL_MAPPING.TEXT.FLASH;
 const DEFAULT_TTS_MODEL = MODEL_MAPPING.TTS.FLASH;
 
-// LONG_MESSAGE_THEMES moved to src/config/prompts.ts
-// SHORT_MESSAGE_INSTRUCTION moved to src/config/prompts.ts
-
 interface GeminiErrorResponse {
   status?: number;
   code?: number;
@@ -292,7 +289,6 @@ export const generateDJIntro = async (
   voice: DJVoice,
   language: AppLanguage,
   customPrompt?: string,
-  upcomingSongTitles: string[] = [],
   playlistContext: string[] = [],
   history: string[] = [],
   dualDjMode: boolean = false,
@@ -341,7 +337,7 @@ export const generateDJIntro = async (
     if (isLongMessage) {
         const themeSelection = selectTheme(recentThemeIndices, debugSettings?.enabledThemes || [true, true, true, true, true, true], debugSettings?.forceTheme ?? null, debugSettings?.verboseLogging || false, themeUsageHistory);
         selectedThemeIndex = themeSelection.index;
-        longMessageTheme = themeSelection.theme.replace("${location}", userTimezone);
+        longMessageTheme = themeSelection.theme.replaceAll("${location}", userTimezone);
     }
 
 
@@ -357,6 +353,8 @@ export const generateDJIntro = async (
         playlistBlock,
         dynamicMarkupGuidance,
         langInstruction,
+        timeString,
+        context,
         dualDjMode,
         host2Name,
         host2Gender,

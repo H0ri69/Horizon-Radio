@@ -85,7 +85,7 @@ export const DJ_STYLE_PROMPTS = {
 };
 
 export const LENGTH_CONSTRAINT =
-  "Keep it brief - real DJs know when to talk and when to let the music breathe. Aim for 2-4 sentences most of the time. Dual DJ conversations should be punchy and quick-paced.";
+  "Keep it brief - real DJs know when to talk and when to let the music breathe. Aim for 3-5 sentences. Dual DJ conversations should be punchy and quick-paced.";
 
 export const TTS_DUAL_DJ_DIRECTION =
   "Read this as a natural, spontaneous conversation between two radio DJs. Use realistic pacing, including occasional interruptions or overlapping energy when excited. Pro-fidelity voice-acting is required: use the emotional tags provided in the text to drive the performance.";
@@ -165,7 +165,7 @@ export const LONG_MESSAGE_THEMES = [
   "Briefly mention a local News headline relevant to the country where ${location} is located. USE GOOGLE SEARCH. Interpret the timezone as a country, not a specific city. Deliver it as a casual radio update, not a robotic headline read.",
 ];
 
-export const SHORT_MESSAGE_INSTRUCTION = "Keep it extremely concise. Maximum 2 sentences. Focus strictly on the transition (Song A to Song B).";
+export const SHORT_MESSAGE_INSTRUCTION = "Keep it extremely concise. 2-3 sentences max. Focus strictly on the transition (Song A to Song B).";
 
 export const DEFAULT_VOICE_INSTRUCTION = "Speak naturally and clearly. Do not hype.";
 
@@ -247,18 +247,23 @@ export const generateDjIntroPrompt = (
   playlistBlock: string,
   dynamicMarkupGuidance: string,
   langInstruction: string,
+  currentTime: string,
+  timeContext: string,
   dualDjMode: boolean = false,
   host2Name?: string,
   host2Gender?: string,
   nextSong?: { requestedBy?: string, requestMessage?: string, title: string }
 ) => {
+  const timeInfo = `Current time: ${currentTime} (${timeContext}).`;
+  const lengthRule = isLongMessage ? LENGTH_CONSTRAINT : SHORT_MESSAGE_INSTRUCTION;
+
   if (dualDjMode && host2Name && host2Gender) {
-    return `TWO Radio DJs covering Hori-s FM shift. HOST 1: ${host1Name} (${host1Gender}), HOST 2: ${host2Name} (${host2Gender}). Ending: ${currentSongTitle}, Starting: ${nextSongTitle}. Tone: ${styleInstruction}. ${isLongMessage ? `Theme: ${longMessageTheme}` : SHORT_MESSAGE_INSTRUCTION}. ${historyBlock} ${playlistBlock} ${dynamicMarkupGuidance} Write banter script using correct gendered grammar. Prefix lines with "${host1Name}: " or "${host2Name}: ". Output ONLY dialogue. ${LENGTH_CONSTRAINT} ${langInstruction}`;
+    return `TWO Radio DJs covering Hori-s FM shift. HOST 1: ${host1Name} (${host1Gender}), HOST 2: ${host2Name} (${host2Gender}). ${timeInfo} Ending: ${currentSongTitle}, Starting: ${nextSongTitle}. Tone: ${styleInstruction}. ${isLongMessage ? `Theme: ${longMessageTheme}` : ""}. ${historyBlock} ${playlistBlock} ${dynamicMarkupGuidance} Write banter script using correct gendered grammar. Prefix lines with "${host1Name}: " or "${host2Name}: ". Output ONLY dialogue. ${lengthRule} ${langInstruction}`;
   }
 
   if (nextSong?.requestedBy) {
-    return `DJ ${host1Name} (${host1Gender}) on Hori-s FM. Listener ${nextSong.requestedBy} requested ${nextSong.title}. Message: ${nextSong.requestMessage}. Shout out listener. Use correct gendered grammar. ${LENGTH_CONSTRAINT} ${dynamicMarkupGuidance} ${langInstruction}`;
+    return `DJ ${host1Name} (${host1Gender}) on Hori-s FM. ${timeInfo} Listener ${nextSong.requestedBy} requested ${nextSong.title}. Message: ${nextSong.requestMessage}. Shout out listener. Use correct gendered grammar. ${lengthRule} ${dynamicMarkupGuidance} ${langInstruction}`;
   }
 
-  return `DJ ${host1Name} (${host1Gender}) on Hori-s FM. Ending: ${currentSongTitle}, Starting: ${nextSongTitle}. Tone: ${styleInstruction}. ${isLongMessage ? `Theme: ${longMessageTheme}` : SHORT_MESSAGE_INSTRUCTION}. ${historyBlock} ${playlistBlock} ${dynamicMarkupGuidance} Write using correct gendered grammar. Output ONLY spoken words. ${LENGTH_CONSTRAINT} ${langInstruction}`;
+  return `DJ ${host1Name} (${host1Gender}) on Hori-s FM. ${timeInfo} Ending: ${currentSongTitle}, Starting: ${nextSongTitle}. Tone: ${styleInstruction}. ${isLongMessage ? `Theme: ${longMessageTheme}` : ""}. ${historyBlock} ${playlistBlock} ${dynamicMarkupGuidance} Write using correct gendered grammar. Output ONLY spoken words. ${lengthRule} ${langInstruction}`;
 };
