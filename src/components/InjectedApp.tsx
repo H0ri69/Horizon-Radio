@@ -4,6 +4,7 @@ import { SettingsModal } from "./SettingsModal";
 import { CallModal } from "./CallModal"; // Import CallModal
 import { ThemeManager } from "../themes/ThemeManager";
 import { PaletteExtractor } from "../themes/PaletteExtractor";
+import { eventBus } from "../services/eventBus";
 
 interface InjectedAppProps {
   ducker: any; // Type as WebAudioDucker if exported
@@ -38,12 +39,10 @@ export const InjectedApp: React.FC<InjectedAppProps> = ({ ducker }) => {
     return () => chrome.storage.onChanged.removeListener(listener);
   }, []);
 
-  const handleCallSubmit = (data: { name: string; song: any; message: string }) => {
+  const handleCallSubmit = (data: { name: string; song: any; message: string; useRemote?: boolean; remoteSource?: any }) => {
     console.log("[InjectedApp] Call Submitted:", data);
-    // Dispatch event for content script to handle
-    window.dispatchEvent(new CustomEvent("HORIS_CALL_SUBMITTED", {
-      detail: data
-    }));
+    // Dispatch event via EventBus (Reference Safe)
+    eventBus.emit('HORIS_CALL_SUBMITTED', data);
   };
 
   return (

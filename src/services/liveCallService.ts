@@ -1,8 +1,90 @@
-
-import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type, StartSensitivity, EndSensitivity } from "@google/genai";
+import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type, StartSensitivity, EndSensitivity, Blob } from "@google/genai";
 import { decodeAudio, decodeAudioData, createPcmBlob, downsampleTo16k } from './liveAudioUtils';
 import { DJVoice, AppLanguage } from '../types';
 import { MODEL_MAPPING, VOICE_PROFILES, DJStyle, AUDIO, generateLiveSystemInstruction } from "@/config";
+
+// --- Input Source Abstraction ---
+
+export interface ILiveInputSource {
+    name: string;
+    /**
+     * Prepare the input source (e.g., request permissions, get stream).
+     * Must be called before connect.
+     */
+    initialize(context: AudioContext): Promise<void>;
+    
+    /**
+     * Start sending audio data.
+     * @param context The AudioContext to use for processing (if applicable)
+     * @param onAudioData Callback to receive ready-to-send PCM Blobs
+     */
+    connect(context: AudioContext, onAudioData: (pcmBlob: Blob) => void): void;
+    
+    /**
+     * Stop and cleanup resources.
+     */
+    disconnect(): void;
+}
+
+export class LocalMicSource implements ILiveInputSource {
+    public name = "Local Microphone";
+    private stream: MediaStream | null = null;
+    private audioSource: MediaStreamAudioSourceNode | null = null;
+    private scriptProcessor: ScriptProcessorNode | null = null;
+
+    async initialize(context: AudioContext): Promise<void> {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+                channelCount: 1,
+            }
+        });
+    }
+
+    connect(context: AudioContext, onAudioData: (pcmBlob: Blob) => void): void {
+        if (!this.stream) {
+            console.error("[LocalMicSource] Cannot connect: Stream not initialized");
+            return;
+        }
+
+        // Create nodes
+        this.audioSource = context.createMediaStreamSource(this.stream);
+        this.scriptProcessor = context.createScriptProcessor(AUDIO.BUFFER_SIZE, 1, 1);
+
+        // Handle audio process
+        this.scriptProcessor.onaudioprocess = (e) => {
+            const inputData = e.inputBuffer.getChannelData(0);
+            
+            // Convert to Gemini-compatible PCM
+            const pcmBlob = createPcmBlob(downsampleTo16k(inputData, context.sampleRate));
+            onAudioData(pcmBlob);
+        };
+
+        // Connect graph
+        this.audioSource.connect(this.scriptProcessor);
+        this.scriptProcessor.connect(context.destination);
+    }
+
+    disconnect(): void {
+        if (this.scriptProcessor) {
+            this.scriptProcessor.onaudioprocess = null;
+            try { this.scriptProcessor.disconnect(); } catch (e) { /* ignore */ }
+            this.scriptProcessor = null;
+        }
+        if (this.audioSource) {
+            try { this.audioSource.disconnect(); } catch (e) { /* ignore */ }
+            this.audioSource = null;
+        }
+        if (this.stream) {
+            this.stream.getTracks().forEach(track => track.stop());
+            this.stream = null;
+        }
+    }
+}
+
+// --- Main Service ---
 
 interface LiveCallConfig {
     apiKey: string;
@@ -22,12 +104,16 @@ interface LiveCallConfig {
     onStatusChange: (status: string) => void;
     onUnrecoverableError: () => void;
     onCallEnd: () => void;
+    // Future: inputSource?: ILiveInputSource;
 }
 
 export class LiveCallService {
     private liveInputContext: AudioContext | null = null;
     private liveOutputContext: AudioContext | null = null;
-    private liveStream: MediaStream | null = null;
+    
+    // Abstracted Input Source
+    private inputSource: ILiveInputSource = new LocalMicSource();
+    
     private liveSession: any = null; // Resolved session object
     private liveSources: Set<AudioBufferSourceNode> = new Set();
     private liveNextStartTime: number = 0;
@@ -35,10 +121,6 @@ export class LiveCallService {
 
     private config: LiveCallConfig | null = null;
     private currentSessionId: number = 0; // Track which session is active
-    
-    // Bug fix: Track audio nodes for proper cleanup
-    private audioSource: MediaStreamAudioSourceNode | null = null;
-    private scriptProcessor: ScriptProcessorNode | null = null;
     
     // Bug fix: Promise to await session resolution before using it
     private sessionResolve: ((session: any) => void) | null = null;
@@ -48,7 +130,7 @@ export class LiveCallService {
 
     constructor() { }
 
-    public async startSession(config: LiveCallConfig) {
+    public async startSession(config: LiveCallConfig & { inputSource?: ILiveInputSource }) {
         // Increment session ID to invalidate old event handlers
         this.currentSessionId++;
         const sessionId = this.currentSessionId;
@@ -60,6 +142,15 @@ export class LiveCallService {
         this.liveSources.clear();
         this.callEndFired = false; // Reset for new session
         this.config.onStatusChange('CONNECTING CALL...');
+
+        // Use custom input source if provided (for Remote Calls), otherwise default to LocalMic
+        if (config.inputSource) {
+             console.log(`[Hori-s] Using custom input source: ${config.inputSource.name}`);
+             this.inputSource = config.inputSource;
+        } else {
+             // ensure fresh instance for fresh stream
+             this.inputSource = new LocalMicSource();
+        }
 
         try {
             console.log(`[Hori-s] Creating AI client for session #${sessionId}`);
@@ -105,28 +196,21 @@ export class LiveCallService {
             const outputNode = this.liveOutputContext.createGain();
             outputNode.connect(this.liveOutputContext.destination);
 
-            // Ensure output context is running (might be suspended on subsequent calls)
+            // Ensure output context is running
             if (this.liveOutputContext.state === 'suspended') {
-                console.log(`[Hori-s] Resuming suspended output context for session #${sessionId}`);
                 await this.liveOutputContext.resume();
-                console.log(`[Hori-s] Output context resumed. New state: ${this.liveOutputContext.state}`);
             }
 
-            // Input Stream (Microphone) with professional processing
-            let stream: MediaStream;
+            // Initialize Input Source (e.g. Mic Permissions)
             try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true,
-                        channelCount: 1,
-                    }
-                });
-                this.liveStream = stream;
-            } catch (micError) {
-                console.error('[Hori-s] Microphone access denied or failed:', micError);
-                this.config.onStatusChange('MIC ACCESS DENIED');
+                await this.inputSource.initialize(this.liveInputContext);
+            } catch (inputError) {
+                console.error('[Hori-s] Input source initialization failed:', inputError);
+                if (inputError instanceof Error && (inputError.name === 'NotAllowedError' || inputError.name === 'PermissionDeniedError')) {
+                     this.config.onStatusChange('MIC ACCESS DENIED');
+                } else {
+                     this.config.onStatusChange('INPUT ERROR'); // Generic error
+                }
 
                 // Clean up contexts
                 if (this.liveOutputContext) {
@@ -143,7 +227,7 @@ export class LiveCallService {
                 return;
             }
 
-            // Session will be stored once connected - using Promise to avoid race condition (Bug #2 fix)
+            // Session will be stored once connected
             let resolvedSession: any = null;
             const sessionReadyPromise = new Promise<any>((resolve) => {
                 this.sessionResolve = resolve;
@@ -180,7 +264,7 @@ export class LiveCallService {
 
 
             const sessionConfig = {
-                model: MODEL_MAPPING.LIVE.PRO, // Use latest appropriate model
+                model: MODEL_MAPPING.LIVE.PRO, 
                 config: {
                     responseModalities: [Modality.AUDIO],
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceProfile?.geminiVoiceName || config.voice } } },
@@ -205,37 +289,26 @@ export class LiveCallService {
                         console.log(`[Hori-s] WebSocket opened for session #${sessionId}`);
                         this.config?.onStatusChange('LIVE: ON AIR');
                         
-                        // Bug #2 fix: Wait for session to be fully resolved before setting up audio
+                        // Wait for session to be fully resolved
                         const session = await sessionReadyPromise;
                         resolvedSession = session;
                         
-                        if (!this.liveInputContext || !this.liveStream) {
-                            console.error(`[Hori-s] Missing input context or stream for session #${sessionId}`);
+                        if (!this.liveInputContext) {
+                            console.warn(`[Hori-s] Missing input context for session #${sessionId}`);
                             return;
                         }
 
-                        console.log(`[Hori-s] Setting up audio input for session #${sessionId}`);
+                        console.log(`[Hori-s] Connecting input source for session #${sessionId}`);
 
-                        // Bug #4 fix: Store references for proper cleanup
-                        this.audioSource = this.liveInputContext.createMediaStreamSource(this.liveStream);
-                        this.scriptProcessor = this.liveInputContext.createScriptProcessor(AUDIO.BUFFER_SIZE, 1, 1);
-
-                        this.scriptProcessor.onaudioprocess = (e) => {
-                            if (!this.liveInputContext || !resolvedSession) return;
-                            const inputData = e.inputBuffer.getChannelData(0);
-
-                            // Send Audio directly to resolved session (no race condition)
-                            const pcmBlob = createPcmBlob(downsampleTo16k(inputData, this.liveInputContext.sampleRate));
-                            resolvedSession.sendRealtimeInput({ media: pcmBlob });
-                        };
-
-                        this.audioSource.connect(this.scriptProcessor);
-                        this.scriptProcessor.connect(this.liveInputContext.destination);
+                        // Connect Input Source
+                        this.inputSource.connect(this.liveInputContext, (pcmBlob) => {
+                             if (!resolvedSession) return;
+                             resolvedSession.sendRealtimeInput({ media: pcmBlob });
+                        });
                     },
                     onmessage: async (msg: LiveServerMessage) => {
                         if (msg.setupComplete) {
                             console.log(`[Hori-s] Setup complete for session #${sessionId}. Triggering intro.`);
-                            // Bug #2 fix: Await session before sending initial message
                             const session = await sessionReadyPromise;
                             session.sendClientContent({
                                 turns: [{
@@ -250,7 +323,6 @@ export class LiveCallService {
                             const { modelTurn, interrupted, turnComplete } = msg.serverContent;
                             if (interrupted) {
                                 console.log(`[Hori-s] 🛑 Model interrupted by user in session #${sessionId}`);
-                                // Stop all currently playing/queued audio chunks from the model
                                 this.liveSources.forEach(s => {
                                     try { s.stop(); } catch (e) { }
                                 });
@@ -261,10 +333,6 @@ export class LiveCallService {
 
                         if (msg.toolCall) {
                             console.log(`[Hori-s] 🛠️ Tool call received in session #${sessionId}:`, msg.toolCall);
-                        }
-
-                        // Handle Tool Calls (Hangup)
-                        if (msg.toolCall) {
                             for (const fc of msg.toolCall.functionCalls!) {
                                 if (fc.name === 'endCall') {
                                     if (resolvedSession) resolvedSession.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response: { result: "ok" } }] });
@@ -291,27 +359,17 @@ export class LiveCallService {
                                 source.buffer = audioBuffer;
                                 source.connect(outputNode);
 
-                                // Track when this source finishes
                                 source.addEventListener('ended', () => {
                                     this.liveSources.delete(source);
 
-                                    // Only trigger cleanup if this is still the active session
-                                    if (sessionId !== this.currentSessionId) {
-                                        console.log(`[Hori-s] Ignoring ended event from old session #${sessionId} (current: #${this.currentSessionId})`);
-                                        return;
-                                    }
+                                    if (sessionId !== this.currentSessionId) return;
 
-                                    // If no more sources are playing and session is inactive, finish cleanup
                                     if (!this.isLiveActive && this.liveSources.size === 0) {
                                         console.log("[Hori-s] All audio finished. Final cleanup.");
-
-                                        // Double-check no sources are queued before closing
                                         setTimeout(() => {
                                             if (this.liveSources.size === 0 && this.liveOutputContext) {
                                                 this.liveOutputContext.close();
                                                 this.liveOutputContext = null;
-
-                                                // Bug #3 fix: Guard against double onCallEnd calls
                                                 if (this.config && !this.callEndFired) {
                                                     this.callEndFired = true;
                                                     this.config.onCallEnd();
@@ -334,7 +392,6 @@ export class LiveCallService {
                             console.log(`[Hori-s] WebSocket connection closed for session #${sessionId}. Event:`, event);
                             const ctx = this.liveOutputContext;
                             if (ctx) {
-                                // Wait for all queued audio to finish playing
                                 const remaining = Math.max(0, this.liveNextStartTime - ctx.currentTime);
                                 console.log(`[Hori-s] ${remaining.toFixed(2)}s of audio remaining`);
                                 setTimeout(() => this.cleanupSession(true), remaining * 1000 + 500);
@@ -351,11 +408,8 @@ export class LiveCallService {
                 }
             });
             
-            // Store resolved session and notify awaiting callbacks (Bug #2 fix)
             sessionPromise.then(session => {
-                resolvedSession = session;
                 this.liveSession = session;
-                // Resolve the promise so awaiting callbacks can proceed
                 if (this.sessionResolve) {
                     this.sessionResolve(session);
                     this.sessionResolve = null;
@@ -375,42 +429,22 @@ export class LiveCallService {
         console.log("[Hori-s] Cleaning up live session...");
         this.isLiveActive = false;
 
-        // Close WebSocket session properly
         if (this.liveSession) {
             try { this.liveSession.close(); } catch (e) { /* ignore */ }
             this.liveSession = null;
         }
 
-        // Bug #4 fix: Explicitly disconnect audio nodes before closing context
-        if (this.scriptProcessor) {
-            try {
-                this.scriptProcessor.onaudioprocess = null; // Remove handler
-                this.scriptProcessor.disconnect();
-            } catch (e) { /* ignore */ }
-            this.scriptProcessor = null;
-        }
-        if (this.audioSource) {
-            try { this.audioSource.disconnect(); } catch (e) { /* ignore */ }
-            this.audioSource = null;
-        }
+        // Cleanup Input Source
+        this.inputSource.disconnect();
 
-        // Stop microphone
-        if (this.liveStream) {
-            this.liveStream.getTracks().forEach(track => track.stop());
-            this.liveStream = null;
-        }
-
-        // Close input context (no more recording)
+        // Close input context
         if (this.liveInputContext) {
             this.liveInputContext.close();
             this.liveInputContext = null;
         }
 
-        // DON'T close output context or stop sources
-        // Let the audio sources finish naturally via their 'ended' event handlers
         console.log(`[Hori-s] ${this.liveSources.size} audio sources still playing. Waiting for them to finish...`);
 
-        // If no audio is playing, clean up immediately
         if (this.liveSources.size === 0) {
             console.log("[Hori-s] No audio playing. Cleaning up immediately.");
             if (this.liveOutputContext) {
@@ -418,13 +452,11 @@ export class LiveCallService {
                 this.liveOutputContext = null;
             }
             this.liveNextStartTime = 0;
-            // Bug #3 fix: Guard against double onCallEnd calls
             if (graceful && this.config && !this.callEndFired) {
                 this.callEndFired = true;
                 this.config.onCallEnd();
             }
         }
-        // Otherwise, the 'ended' event handler will call onCallEnd when all audio finishes
     }
 }
 

@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { InjectedApp } from "./components/InjectedApp";
 import { Song, DJVoice, AppLanguage } from "./types";
 import { DJStyle, DJ_PERSONA_NAMES, TIMING, AUDIO } from "./config";
+import { eventBus } from "./services/eventBus";
 import "./index.css"; // Inject Tailwind Styles
 
 // Prevent running in iframes
@@ -28,7 +29,7 @@ interface State {
   lastSongChangeTs: number;
   recentThemeIndices: number[]; // Track last 2 theme indices
   themeUsageHistory: Record<number, number>; // themeIndex -> timestamp
-  pendingCall: { name: string; message: string; song: any } | null;
+  pendingCall: { name: string; message: string; song: any; inputSource?: any } | null;
 }
 
 // --- INITIAL LOAD ---
@@ -50,12 +51,21 @@ window.addEventListener("HORIS_MANUAL_TRIGGER", () => {
   }
 });
 
-window.addEventListener("HORIS_CALL_SUBMITTED", (e: Event) => {
-  const detail = (e as CustomEvent).detail;
+// --- EVENT BUS LISTENER ---
+
+eventBus.on("HORIS_CALL_SUBMITTED", (detail) => {
   if (detail) {
-    console.log("[Hori-s] 📞 Call Request Received:", detail);
+    console.log("[Hori-s] 📞 Call Request Received through EventBus:", detail);
     state.pendingCall = detail;
-    // Optionally notify user via UI status?
+    
+    // If it's a remote call, we might want to update the status callback to something persistent
+    // because the Modal is gone.
+    if (detail.remoteSource && typeof detail.remoteSource.setStatusCallback === 'function') {
+        detail.remoteSource.setStatusCallback((s: string) => {
+            console.log(`[Hori-s] [RemoteSourceStatus] ${s}`);
+            // Optionally broadcast this status to UI if we had a persistent status bar
+        });
+    }
   }
 });
 
@@ -433,6 +443,7 @@ const startLiveCall = async () => {
 
     liveCallService.startSession({
       apiKey,
+      inputSource: callData.inputSource,
       callerName: callData.name,
       reason: callData.message,
       previousSongTitle: current.title || "Unknown",
