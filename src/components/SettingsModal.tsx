@@ -11,9 +11,9 @@ import type { AppLanguage } from "../types";
 
 interface Settings {
   enabled: boolean;
-  voice: string;
-  style: any;
-  customPrompt?: string;
+  djVoice: string;
+  djStyle: any;
+  customStylePrompt?: string;
   visualizerEnabled?: boolean;
   language: string;
   dualDjMode?: boolean;
@@ -49,9 +49,9 @@ const itemVariants = {
 export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [settings, setSettings] = useState<Settings>({
     enabled: true,
-    voice: "kore",
-    style: DJStyle.STANDARD,
-    customPrompt: "",
+    djVoice: "kore",
+    djStyle: DJStyle.STANDARD,
+    customStylePrompt: "",
     visualizerEnabled: true,
     language: "en",
     visualTheme: "Standard",
@@ -192,18 +192,18 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 {VOICE_PROFILES.map((profile) => (
                   <button
                     key={profile.id}
-                    onClick={() => saveSettings({ ...settings, voice: profile.id })}
+                    onClick={() => saveSettings({ ...settings, djVoice: profile.id })}
                     className={`relative p-6 rounded-2xl text-left transition-all duration-300 border overflow-hidden group
-                                            ${settings.voice === profile.id
+                                            ${settings.djVoice === profile.id
                         ? "bg-indigo-500/10 border-indigo-500/50 ring-1 ring-indigo-500/50"
                         : "modal-section border-white/5 hover:border-white/10 hover:bg-white/10"
                       }`}
                   >
                     <div className="flex justify-between items-center mb-4">
-                      <span className={`text-xl font-bold ${settings.voice === profile.id ? "text-white" : "text-white/60 group-hover:text-white"}`}>
+                      <span className={`text-xl font-bold ${settings.djVoice === profile.id ? "text-white" : "text-white/60 group-hover:text-white"}`}>
                         {profile.personaNames[settings.language as AppLanguage]}
                       </span>
-                      {settings.voice === profile.id && (
+                      {settings.djVoice === profile.id && (
                         <CheckCircle2 className="w-5 h-5 text-indigo-400 drop-shadow-[0_0_8px_rgba(129,140,248,0.5)]" />
                       )}
                     </div>
@@ -228,9 +228,9 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 {Object.values(DJStyle).map((styleLabel: any) => (
                   <button
                     key={styleLabel}
-                    onClick={() => saveSettings({ ...settings, style: styleLabel })}
+                    onClick={() => saveSettings({ ...settings, djStyle: styleLabel })}
                     className={`py-4 px-6 rounded-2xl text-sm font-bold transition-all border
-                                            ${settings.style === styleLabel
+                                            ${settings.djStyle === styleLabel
                         ? "bg-indigo-500/20 border-indigo-500/50 text-white ring-1 ring-indigo-500/50 shadow-lg shadow-indigo-500/10"
                         : "modal-section border-white/5 text-white/60 hover:text-white hover:border-white/10 hover:bg-white/10"
                       }`}
@@ -241,7 +241,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
               </div>
 
               <AnimatePresence>
-                {settings.style === DJStyle.CUSTOM && (
+                {settings.djStyle === DJStyle.CUSTOM && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
@@ -250,8 +250,8 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                   >
                     <div className="modal-section rounded-3xl p-6 border border-white/5">
                       <textarea
-                        value={settings.customPrompt || ""}
-                        onChange={(e) => saveSettings({ ...settings, customPrompt: e.target.value })}
+                        value={settings.customStylePrompt || ""}
+                        onChange={(e) => saveSettings({ ...settings, customStylePrompt: e.target.value })}
                         placeholder="Define personality (e.g., 'Sarcastic AI from the 80s')..."
                         className="w-full h-32 modal-input border border-white/10 rounded-xl p-4 text-white placeholder-white/40 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none"
                       />
@@ -337,7 +337,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     >
                       <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] mb-6">Select Co-Host Persona</h3>
                       <div className="grid grid-cols-2 gap-4">
-                        {VOICE_PROFILES.filter((p) => p.id !== settings.voice).map((profile) => (
+                        {VOICE_PROFILES.filter((p) => p.id !== settings.djVoice).map((profile) => (
                           <button
                             key={profile.id}
                             onClick={() => saveSettings({ ...settings, secondaryDjVoice: profile.id })}

@@ -216,17 +216,20 @@ const speakText = async (
     }
 
     const ai = await getClient();
+    const host1Profile = VOICE_PROFILES.find(p => p.id === voice);
+    const host2Profile = secondaryVoice ? VOICE_PROFILES.find(p => p.id === secondaryVoice) : null;
+
     const speechConfig: SpeechConfig =
       isDualDj && secondaryVoice && personaNameA && personaNameB
         ? {
           multiSpeakerVoiceConfig: {
             speakerVoiceConfigs: [
-              { speaker: personaNameA, voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
-              { speaker: personaNameB, voiceConfig: { prebuiltVoiceConfig: { voiceName: secondaryVoice } } },
+              { speaker: personaNameA, voiceConfig: { prebuiltVoiceConfig: { voiceName: host1Profile?.geminiVoiceName || voice } } },
+              { speaker: personaNameB, voiceConfig: { prebuiltVoiceConfig: { voiceName: host2Profile?.geminiVoiceName || secondaryVoice } } },
             ],
           },
         }
-        : { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } };
+        : { voiceConfig: { prebuiltVoiceConfig: { voiceName: host1Profile?.geminiVoiceName || voice } } };
 
     const response = await callWithRetry(
       () =>
