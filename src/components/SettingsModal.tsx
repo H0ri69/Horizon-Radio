@@ -153,7 +153,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
             {/* 00 LANGUAGE */}
             <motion.section variants={itemVariants}>
-              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/50 mb-8 flex items-center gap-3">
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/60 mb-8 flex items-center gap-3">
                 <Globe className="w-4 h-4 text-indigo-400" /> Language & Region
               </h2>
               <div className="grid grid-cols-3 gap-5">
@@ -185,7 +185,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
             {/* 01 VOICE MODEL */}
             <motion.section variants={itemVariants}>
-              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/50 mb-8 flex items-center gap-3">
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/60 mb-8 flex items-center gap-3">
                 <Mic className="w-4 h-4 text-indigo-400" /> Primary Host Profile
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -221,7 +221,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
             {/* 02 BROADCAST STYLE */}
             <motion.section variants={itemVariants}>
-              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/50 mb-8 flex items-center gap-3">
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/60 mb-8 flex items-center gap-3">
                 <Radio className="w-4 h-4 text-indigo-400" /> Broadcast Character
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pb-6">
@@ -253,7 +253,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                         value={settings.customPrompt || ""}
                         onChange={(e) => saveSettings({ ...settings, customPrompt: e.target.value })}
                         placeholder="Define personality (e.g., 'Sarcastic AI from the 80s')..."
-                        className="w-full h-32 modal-input border border-white/10 rounded-xl p-4 text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none"
+                        className="w-full h-32 modal-input border border-white/10 rounded-xl p-4 text-white placeholder-white/40 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none"
                       />
                     </div>
                   </motion.div>
@@ -263,7 +263,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
             {/* 02b BROADCAST VARIETY */}
             <motion.section variants={itemVariants}>
-              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/50 mb-8 flex items-center gap-3">
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/60 mb-8 flex items-center gap-3">
                 <Sliders className="w-4 h-4 text-indigo-400" /> Content Density
               </h2>
               <div className="modal-section rounded-3xl p-8 border border-white/5">
@@ -305,7 +305,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
             {/* 03 DUAL DJ MODE */}
             <motion.section variants={itemVariants}>
-              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/50 mb-8 flex items-center gap-3">
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/60 mb-8 flex items-center gap-3">
                 <Zap className="w-4 h-4 text-indigo-400" /> Interactive Systems
               </h2>
               <div className={`rounded-3xl border transition-all duration-300 overflow-hidden ${settings.dualDjMode ? "bg-indigo-500/5 border-indigo-500/20" : "modal-section border-white/5"}`}>
@@ -360,7 +360,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
             {/* 04 VISUALS */}
             <motion.section variants={itemVariants}>
-              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/50 mb-8 flex items-center gap-3">
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/60 mb-8 flex items-center gap-3">
                 <Palette className="w-4 h-4 text-indigo-400" /> Visual Atmosphere
               </h2>
               <div className="grid grid-cols-2 gap-5">
@@ -387,7 +387,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
             {/* 05 MODEL SELECTION */}
             <motion.section variants={itemVariants}>
-              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/50 mb-8 flex items-center gap-3">
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/60 mb-8 flex items-center gap-3">
                 <Cpu className="w-4 h-4 text-indigo-400" /> AI Computation Engines
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -439,7 +439,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
             {/* 06 API CONFIGURATION */}
             <motion.section variants={itemVariants}>
-              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/50 mb-8 flex items-center gap-3">
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/60 mb-8 flex items-center gap-3">
                 <Key className="w-4 h-4 text-indigo-400" /> Secure Keys
               </h2>
               <div className="modal-section rounded-3xl p-8 border border-white/5">
@@ -454,7 +454,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                       value={settings.apiKey || ""}
                       onChange={(e) => saveSettings({ ...settings, apiKey: e.target.value })}
                       placeholder="••••••••••••••••••••••••••••"
-                      className="w-full modal-input border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder-white/10 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                      className="w-full modal-input border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
                     />
                   </div>
                   <div className="flex justify-between items-center mt-6">
@@ -472,7 +472,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
             {/* 07 DEBUG SETTINGS */}
             <motion.section variants={itemVariants} className="pt-12 border-t border-white/5">
               <details className="group">
-                <summary className="text-sm font-black text-white/50 uppercase tracking-[0.3em] cursor-pointer list-none flex items-center justify-between group-open:text-red-400/50 transition-colors">
+                <summary className="text-sm font-black text-white/60 uppercase tracking-[0.3em] cursor-pointer list-none flex items-center justify-between group-open:text-red-400/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <AlertTriangle className="w-4 h-4" /> Laboratory Settings
                   </div>
@@ -511,7 +511,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                         <Zap className="w-6 h-6 group-hover:scale-125 transition-transform" />
                       </button>
                       <div className="p-6 modal-section border border-white/5 rounded-3xl flex flex-col justify-center">
-                        <div className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] mb-3">Trigger Schedule</div>
+                        <div className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em] mb-3">Trigger Schedule</div>
                         <div className="flex justify-between items-center">
                           <div className="text-2xl font-black text-white">
                             {Math.round((settings.debug?.triggerPoint || 0.25) * 100)}%
@@ -535,7 +535,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         {/* Footer */}
         <div className="p-8 md:p-10 border-t border-white/5 modal-footer flex justify-between items-center z-20">
           <div className="flex items-center gap-6">
-            <div className="font-mono text-[10px] font-black tracking-[0.4em] text-white/40 uppercase">Core-v1.0.4-Stable</div>
+            <div className="font-mono text-[10px] font-black tracking-[0.4em] text-white/60 uppercase">Core-v1.0.4-Stable</div>
             <div className="h-4 w-px bg-white/10" />
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
