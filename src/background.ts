@@ -1,4 +1,4 @@
-import { generateDJIntro } from "./services/geminiService";
+import { generateDJIntro, testVoice } from "./services/geminiService";
 import { Song, DJVoice } from "./types";
 import { DJStyle } from "./config";
 import { EXTENSION_CONFIG } from "./config";
@@ -67,6 +67,65 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
     });
 
+    return true;
+  } else if (message.type === "TEST_VOICE") {
+    const { voice, language } = message.data;
+    const cacheKey = `voiceTestCache_${voice}_${language}`;
+    const CACHE_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+    
+    // Check cache first
+    chrome.storage.local.get([cacheKey], (result) => {
+      const cached = result[cacheKey] as { audio: string; timestamp: number } | undefined;
+      
+      // Check if cache exists and is still valid
+      if (cached && cached.timestamp && cached.audio) {
+        const age = Date.now() - cached.timestamp;
+        if (age < CACHE_EXPIRY_MS) {
+          console.log(`[Hori-s:Background] Using cached voice sample for ${voice}/${language} (age: ${Math.floor(age / (24 * 60 * 60 * 1000))} days)`);
+          sendResponse({ audio: cached.audio, fromCache: true });
+          return;
+        } else {
+          console.log(`[Hori-s:Background] Cache expired for ${voice}/${language}, regenerating...`);
+        }
+      }
+      
+      // Generate fresh sample and cache it with timestamp
+      testVoice(voice, language)
+        .then((audio) => {
+          if (audio) {
+            const base64 = encodeAudio(new Uint8Array(audio));
+            // Store in cache with timestamp for expiry tracking
+            chrome.storage.local.set({ 
+              [cacheKey]: { 
+                audio: base64, 
+                timestamp: Date.now() 
+              } 
+            });
+            console.log(`[Hori-s:Background] Cached voice sample for ${voice}/${language}`);
+            sendResponse({ audio: base64, fromCache: false });
+          } else {
+            sendResponse({ error: "Failed to generate test audio" });
+          }
+        })
+        .catch((err) => {
+          console.error("[Hori-s:Background] ❌ Test voice error:", err);
+          sendResponse({ error: err.message });
+        });
+    });
+    return true;
+  } else if (message.type === "CLEAR_VOICE_CACHE") {
+    // Clear all voice test cache entries
+    chrome.storage.local.get(null, (items) => {
+      const keysToRemove = Object.keys(items).filter(key => key.startsWith("voiceTestCache_"));
+      if (keysToRemove.length > 0) {
+        chrome.storage.local.remove(keysToRemove, () => {
+          console.log(`[Hori-s:Background] Cleared ${keysToRemove.length} voice cache entries`);
+          sendResponse({ cleared: keysToRemove.length });
+        });
+      } else {
+        sendResponse({ cleared: 0 });
+      }
+    });
     return true;
   } else if (message.type === "SEARCH_SONGS") {
     const query = message.data.query;

@@ -246,6 +246,39 @@ const speakText = async (
   }
 };
 
+// Test voice for preview in settings
+const TEST_PHRASES: Record<string, string> = {
+  en: "Hey there! This is your radio host checking in. How's this voice sounding?",
+  cs: "Ahoj! Tady váš rozhlasový moderátor. Jak vám zní můj hlas?",
+  ja: "こんにちは！ラジオホストです。この声はいかがですか？",
+};
+
+export const testVoice = async (voice: DJVoice, language: string): Promise<ArrayBuffer | null> => {
+  try {
+    const phrase = TEST_PHRASES[language] || TEST_PHRASES.en;
+    const ai = await getClient();
+    const profile = VOICE_PROFILES.find(p => p.id === voice);
+    
+    const response = await callWithRetry(
+      () =>
+        ai.models.generateContent({
+          model: DEFAULT_TTS_MODEL,
+          contents: [{ parts: [{ text: phrase }] }],
+          config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: profile?.geminiVoiceName || voice } } },
+          },
+        }),
+      2,
+      2000
+    );
+    return processAudioResponse(response);
+  } catch (e) {
+    console.error("[Hori-s] Test voice failed", e);
+    return null;
+  }
+};
+
 const getTimeOfDay = (): { context: string; greeting: string } => {
   const hour = new Date().getHours();
   if (hour >= 5 && hour < 12) return { context: "Morning", greeting: "Good morning" };

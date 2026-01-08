@@ -167,7 +167,7 @@ export const LONG_MESSAGE_THEMES = [
 
 export const SHORT_MESSAGE_INSTRUCTION = "Keep it extremely concise. 2-3 sentences max. Focus strictly on the transition (Song A to Song B).";
 
-export const DEFAULT_VOICE_INSTRUCTION = "Speak naturally and clearly. Do not hype.";
+export const DEFAULT_VOICE_INSTRUCTION = "Speak naturally and clearly.";
 
 
 export const generateLiveSystemInstruction = (
