@@ -1,4 +1,5 @@
 import { Blob } from '@google/genai';
+import { AUDIO } from '../config';
 
 export function decodeAudio(base64: string): Uint8Array {
     const binaryString = atob(base64);
@@ -23,7 +24,7 @@ export async function decodeAudioData(
     for (let channel = 0; channel < numChannels; channel++) {
         const channelData = buffer.getChannelData(channel);
         for (let i = 0; i < frameCount; i++) {
-            channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+            channelData[i] = dataInt16[i * numChannels + channel] / AUDIO.PCM_MAX_VALUE;
         }
     }
     return buffer;
@@ -39,9 +40,9 @@ export function encodeAudio(bytes: Uint8Array): string {
 }
 
 export function downsampleTo16k(buffer: Float32Array, inputRate: number): Float32Array {
-    if (inputRate === 16000) return buffer;
+    if (inputRate === AUDIO.SAMPLE_RATE_INPUT) return buffer;
 
-    const outputRate = 16000;
+    const outputRate = AUDIO.SAMPLE_RATE_INPUT;
     const ratio = inputRate / outputRate;
     const newLength = Math.floor(buffer.length / ratio);
     const result = new Float32Array(newLength);
@@ -63,10 +64,10 @@ export function createPcmBlob(data: Float32Array): Blob {
     const l = data.length;
     const int16 = new Int16Array(l);
     for (let i = 0; i < l; i++) {
-        int16[i] = Math.max(-1, Math.min(1, data[i])) * 32768;
+        int16[i] = Math.max(-1, Math.min(1, data[i])) * AUDIO.PCM_MAX_VALUE;
     }
     return {
         data: encodeAudio(new Uint8Array(int16.buffer)),
-        mimeType: 'audio/pcm;rate=16000',
+        mimeType: `audio/pcm;rate=${AUDIO.SAMPLE_RATE_INPUT}`,
     };
 }

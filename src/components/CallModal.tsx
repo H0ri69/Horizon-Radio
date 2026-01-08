@@ -4,7 +4,7 @@ import { motion, AnimatePresence, Variants } from 'framer-motion';
 import {
     Phone, User, Music, MessageSquare,
     Search, Trash2, ShieldCheck, X,
-    Check, Play, Loader2
+    Play, Loader2
 } from 'lucide-react';
 import { SongSearchService } from '../services/songSearchService';
 

@@ -2,17 +2,7 @@ import { generateDJIntro } from "./services/geminiService";
 import { Song, DJVoice } from "./types";
 import { DJStyle } from "./config";
 import { EXTENSION_CONFIG } from "./config";
-
-// Helper to convert ArrayBuffer to Base64
-function arrayBufferToBase64(buffer: ArrayBuffer) {
-  let binary = "";
-  const bytes = new Uint8Array(buffer);
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
+import { encodeAudio } from "./services/liveAudioUtils";
 
 const MAX_HISTORY = EXTENSION_CONFIG.MAX_HISTORY;
 
@@ -66,7 +56,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             const updatedHistory = [newEntry, ...history].slice(0, MAX_HISTORY);
             chrome.storage.local.set({ narrativeHistory: updatedHistory });
 
-            const base64 = arrayBufferToBase64(result.audio);
+            const base64 = encodeAudio(new Uint8Array(result.audio));
             sendResponse({ audio: base64, themeIndex: result.themeIndex, script: result.script });
           } else {
             sendResponse({ error: "Failed to generate audio" });

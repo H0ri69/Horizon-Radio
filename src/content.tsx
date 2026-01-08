@@ -2,7 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { InjectedApp } from "./components/InjectedApp";
 import { Song, DJVoice, AppLanguage } from "./types";
-import { DJStyle, DJ_PERSONA_NAMES } from "./config";
+import { DJStyle, DJ_PERSONA_NAMES, TIMING, AUDIO } from "./config";
 import "./index.css"; // Inject Tailwind Styles
 
 // Prevent running in iframes
@@ -285,7 +285,7 @@ class WebAudioDucker {
     }
   }
 
-  public async duck(duration: number = 2000, targetGain: number = 0.2) {
+  public async duck(duration: number = TIMING.DUCK_DURATION, targetGain: number = AUDIO.DUCK_GAIN) {
     const video = document.querySelector("video");
     if (!video) return;
     this.init(video);
@@ -296,12 +296,12 @@ class WebAudioDucker {
     this.gainNode.gain.linearRampToValueAtTime(targetGain, now + duration / 1000);
   }
 
-  public async unduck(duration: number = 3000) {
+  public async unduck(duration: number = TIMING.UNDUCK_DURATION) {
     if (!this.ctx || !this.gainNode) return;
     const now = this.ctx.currentTime;
     this.gainNode.gain.cancelScheduledValues(now);
     this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
-    this.gainNode.gain.linearRampToValueAtTime(1.0, now + duration / 1000);
+    this.gainNode.gain.linearRampToValueAtTime(AUDIO.FULL_GAIN, now + duration / 1000);
   }
 }
 
@@ -335,7 +335,7 @@ const playBufferedAudio = async () => {
   updateStatus("PLAYING");
   const url = `data:audio/wav;base64,${state.bufferedAudio}`;
   audioEl.src = url;
-  audioEl.volume = 1.0;
+  audioEl.volume = AUDIO.FULL_GAIN;
 
   await new Promise((resolve) => {
     audioEl.onloadedmetadata = resolve;
@@ -344,9 +344,9 @@ const playBufferedAudio = async () => {
   const djDuration = audioEl.duration;
 
   if (state.bufferedAudioType === "LONG") {
-    ducker.duck(2000);
+    ducker.duck(TIMING.DUCK_DURATION);
     const freshTime = getScrapedTime();
-    let musicPauseDelay = 2000;
+    let musicPauseDelay: number = TIMING.DUCK_DURATION;
     if (freshTime) {
       const remaining = freshTime.duration - freshTime.currentTime;
       musicPauseDelay = Math.max(0, (remaining - 2) * 1000);
@@ -367,26 +367,26 @@ const playBufferedAudio = async () => {
       }
     }, resumeDelay);
   } else {
-    ducker.duck(2000);
+    ducker.duck(TIMING.DUCK_DURATION);
   }
 
   try {
     await audioEl.play();
   } catch (e) {
     console.error("[Hori-s] Playback failed:", e);
-    ducker.unduck(1000);
+    ducker.unduck(TIMING.SONG_CHECK_INTERVAL);
     updateStatus("IDLE");
     const video = getMoviePlayer();
     if (video && state.bufferedAudioType === "LONG") video.play();
   }
 
   audioEl.onended = () => {
-    ducker.unduck(3000);
+    ducker.unduck(TIMING.UNDUCK_DURATION);
     updateStatus("COOLDOWN");
     state.bufferedAudio = null;
     setTimeout(() => {
       if (state.status === "COOLDOWN") updateStatus("IDLE");
-    }, 5000);
+    }, TIMING.COOLDOWN_PERIOD);
   };
 };
 
@@ -397,10 +397,10 @@ const startLiveCall = async () => {
   state.pendingCall = null; // Clear queue
   updateStatus("LIVE_CALL");
 
-  ducker.duck(1000);
+  ducker.duck(TIMING.SONG_CHECK_INTERVAL);
 
   const freshTime = getScrapedTime();
-  let musicPauseDelay = 2000;
+  let musicPauseDelay: number = TIMING.DUCK_DURATION;
   if (freshTime) {
     const remaining = freshTime.duration - freshTime.currentTime;
     musicPauseDelay = Math.max(0, (remaining - 2) * 1000);
@@ -420,7 +420,7 @@ const startLiveCall = async () => {
     if (!apiKey) {
       console.error("[Hori-s] Cannot start call: API Key missing.");
       updateStatus("IDLE");
-      ducker.unduck(1000);
+      ducker.unduck(TIMING.SONG_CHECK_INTERVAL);
       const video = getMoviePlayer();
       if (video) video.play();
       return;
@@ -444,7 +444,7 @@ const startLiveCall = async () => {
       onUnrecoverableError: () => {
         console.error("[Hori-s] [LiveCall] Error.");
         updateStatus("IDLE");
-        ducker.unduck(1000);
+        ducker.unduck(TIMING.SONG_CHECK_INTERVAL);
         const video = getMoviePlayer();
         if (video) video.play();
       },
@@ -454,8 +454,8 @@ const startLiveCall = async () => {
         // Resume music
         const video = getMoviePlayer();
         if (video) video.play();
-        ducker.unduck(2000);
-        setTimeout(() => updateStatus("IDLE"), 5000);
+        ducker.unduck(TIMING.DUCK_DURATION);
+        setTimeout(() => updateStatus("IDLE"), TIMING.COOLDOWN_PERIOD);
       }
     });
   });
@@ -530,7 +530,7 @@ const mainLoop = setInterval(() => {
 
     if ((isPastTriggerPoint && hasEnoughTime) || forceGenerate) {
       if (forceGenerate) (state as any).forceGenerate = false;
-      if (Date.now() - state.lastSongChangeTs < 5000) return;
+      if (Date.now() - state.lastSongChangeTs < TIMING.COOLDOWN_PERIOD) return;
       if (!current.title || !current.artist) return;
 
       updateStatus("GENERATING");
@@ -630,8 +630,8 @@ const mainLoop = setInterval(() => {
   const freshTime = getScrapedTime();
   if (state.status === "READY" && freshTime) {
     const freshLeft = freshTime.duration - freshTime.currentTime;
-    if (freshLeft < 12 && freshLeft > 1) {
+    if (freshLeft < (TIMING.DJ_TRIGGER_TIME / 1000) && freshLeft > 1) {
       playBufferedAudio();
     }
   }
-}, 1000);
+}, TIMING.SONG_CHECK_INTERVAL);

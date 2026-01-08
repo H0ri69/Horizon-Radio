@@ -1,20 +1,9 @@
 import { HarmBlockThreshold, HarmCategory, SafetySetting } from "@google/genai";
 import { AppSettings } from "../types";
+export * from "./constants";
 export * from "./prompts";
 import { AppLanguage, DJVoice, VoiceProfile } from "../types";
-
-// DJ Style Configuration
-export const DJStyle = {
-  STANDARD: "Standard (Radio Host)",
-  CHILL: "Late Night Radio (Chill)",
-  TECHNICAL: "Music Nerd (Facts & Stats)",
-  MINIMAL: "Minimal (Just Song Names)",
-  ASMR: "ASMR (Whispering)",
-  CUSTOM: "Custom (User Defined)",
-  DRUNK: "Drunk (Chaotic)",
-} as const;
-
-export type DJStyle = (typeof DJStyle)[keyof typeof DJStyle];
+import { COLORS, DJStyle } from "./constants";
 
 export const GEMINI_CONFIG = {
   RETRY_COUNT: 3,
@@ -109,24 +98,24 @@ export const DJ_PERSONA_NAMES: Record<DJVoice, Record<AppLanguage, string>> = VO
 
 export const THEME_PALETTES = {
   NEON: {
-    primary: "#ff2a6d",
-    secondary: "#05d9e8",
-    tertiary: "#00ff9f",
+    primary: COLORS.NEON.PRIMARY,
+    secondary: COLORS.NEON.SECONDARY,
+    tertiary: COLORS.NEON.TERTIARY,
   },
   PASTEL: {
-    primary: "#ffb7b2",
-    secondary: "#a2e1db",
-    tertiary: "#e2f0cb",
+    primary: COLORS.PASTEL.PRIMARY,
+    secondary: COLORS.PASTEL.SECONDARY,
+    tertiary: COLORS.PASTEL.TERTIARY,
   },
   MIDNIGHT: {
-    primary: "#7c4dff",
-    secondary: "#448aff",
-    tertiary: "#69f0ae",
+    primary: COLORS.MIDNIGHT.PRIMARY,
+    secondary: COLORS.MIDNIGHT.SECONDARY,
+    tertiary: COLORS.MIDNIGHT.TERTIARY,
   },
   GOLD: {
-    primary: "#ffd700",
-    secondary: "#c0c0c0",
-    tertiary: "#ffffff",
+    primary: COLORS.GOLD.PRIMARY,
+    secondary: COLORS.GOLD.SECONDARY,
+    tertiary: COLORS.GOLD.TERTIARY,
   },
 } as const;
 

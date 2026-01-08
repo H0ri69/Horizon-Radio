@@ -2,19 +2,8 @@
 import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type, StartSensitivity, EndSensitivity } from "@google/genai";
 import { decodeAudio, decodeAudioData, createPcmBlob, downsampleTo16k } from './liveAudioUtils';
 import { DJVoice, AppLanguage } from '../types';
-import { MODEL_MAPPING, VOICE_PROFILES, DJStyle } from "@/config";
+import { MODEL_MAPPING, VOICE_PROFILES, DJStyle, DJ_STYLE_TTS_SYSTEM_PROMPTS, AUDIO } from "@/config";
 
-// TTS Performance Prompts (defined inline to avoid circular dependency)
-// These control HOW the AI speaks (voice performance, delivery, pacing)
-const TTS_PERFORMANCE_PROMPTS: Record<string, string | undefined> = {
-    [DJStyle.STANDARD]: "SCENE: Professional radio studio. Keep a slight 'smile' in the voice. Performance: Use [excited] for high-tempo song intros and [professional] for station IDs. Speak with high-end condenser mic proximity.",
-    [DJStyle.CHILL]: "SCENE: Late-night candlelit booth. Performance: Soft, rhythmic delivery. Use a [warm], intimate voice with [nostalgic] or [empathetic] undertones. Lean into the mic.",
-    [DJStyle.TECHNICAL]: "SCENE: High-tech podcasting setup. Performance: Rapid, knowledgeable fire. Sound [cheerful] or [amazed] when sharing fun facts. Be very [professional] with technical specs.",
-    [DJStyle.MINIMAL]: "Neutral, clean, and robotic station voice ID.",
-    [DJStyle.ASMR]: "SCENE: Binaural microphone setup. Performance: Maximum proximity, ultra-soft whispering. Minimal vocal intensity.",
-    [DJStyle.DRUNK]: "SCENE: Talking to a friend in a dark living room. Performance: Tipsy and slightly [sarcastic] or [laughing]. Pacing should be erratic with frequent [uhm] and [short pause].",
-    [DJStyle.CUSTOM]: undefined,
-};
 interface LiveCallConfig {
     apiKey: string;
     callerName: string;
@@ -138,21 +127,6 @@ export class LiveCallService {
             let lastUserAudioTime = Date.now();
             let silenceWarningSent = false;
 
-            // Silence Check Loop - DISABLED
-            // The DJ will control call duration via the endCall function
-            // Silence detection was interfering with natural conversation flow
-            /*
-            if (this.liveSilenceInterval) clearInterval(this.liveSilenceInterval);
-            this.liveSilenceInterval = setInterval(() => {
-                if (!this.liveSession) return;
-                const timeSinceLastAudio = Date.now() - lastUserAudioTime;
-                if (timeSinceLastAudio > 60000 && !silenceWarningSent) {
-                    console.log("[Hori-s] Silence detected (60s). DJ should wrap up based on system instruction.");
-                    silenceWarningSent = true;
-                }
-            }, 1000);
-            */
-
             // Tool Definition
             const transitionTool: FunctionDeclaration = {
                 name: 'endCall',
@@ -182,10 +156,6 @@ export class LiveCallService {
                 ? `ACTING: Roleplay this CUSTOM Persona defined by the user: ${config.customPrompt || "Professional DJ"}`
                 : stylePrompts[config.style] || stylePrompts[DJStyle.STANDARD];
 
-            const voiceInstruction = config.voice.toLowerCase().includes('charon')
-                ? "Speak deeply, calmly, and professionally like a podcast host."
-                : "Speak naturally and clearly. Do not hype."; // Default fallback
-
             const dualDjNote = config.dualDjMode && config.secondaryPersonaName
                 ? `NARRATIVE NOTE: You are currently on a shift with your co-host ${config.secondaryPersonaName}, but they are BUSY (e.g., grabbing coffee, fixing a cable, or at the mixing board). You are handling this listener call SOLO. Briefly mention their absence to the caller.`
                 : "";
@@ -201,7 +171,7 @@ export class LiveCallService {
             // Get TTS Performance Instruction (controls HOW to speak)
             const ttsPerformanceInstruction = config.style === DJStyle.CUSTOM
                 ? `Performance Direction: Embody the persona "${config.customPrompt || "Professional DJ"}" through your voice delivery, pacing, and tone. Let the character influence HOW you speak, not just WHAT you say.`
-                : TTS_PERFORMANCE_PROMPTS[config.style] || "";
+                : DJ_STYLE_TTS_SYSTEM_PROMPTS[config.style] || "";
 
             console.log(`[Hori-s] 🎙️ Live Call Style: ${config.style}${config.style === DJStyle.CUSTOM && config.customPrompt ? ` (Custom: "${config.customPrompt}")` : ""}`);
             if (ttsPerformanceInstruction) {
@@ -262,7 +232,7 @@ export class LiveCallService {
                         console.log(`[Hori-s] Setting up audio input for session #${sessionId}`);
 
                         const source = this.liveInputContext.createMediaStreamSource(this.liveStream);
-                        const scriptProcessor = this.liveInputContext.createScriptProcessor(4096, 1, 1);
+                        const scriptProcessor = this.liveInputContext.createScriptProcessor(AUDIO.BUFFER_SIZE, 1, 1);
 
                         scriptProcessor.onaudioprocess = (e) => {
                             if (!this.liveInputContext) return;
@@ -313,9 +283,6 @@ export class LiveCallService {
                                 this.liveSources.clear();
                                 this.liveNextStartTime = this.liveOutputContext?.currentTime || 0;
                             }
-                            if (modelTurn) {
-                                // Noisy log removed
-                            }
                         }
 
                         if (msg.toolCall) {
@@ -345,7 +312,7 @@ export class LiveCallService {
                             const ctx = this.liveOutputContext;
                             this.liveNextStartTime = Math.max(this.liveNextStartTime, ctx.currentTime);
                             try {
-                                const audioBuffer = await decodeAudioData(decodeAudio(base64Audio), ctx, 24000, 1);
+                                const audioBuffer = await decodeAudioData(decodeAudio(base64Audio), ctx, AUDIO.SAMPLE_RATE_OUTPUT, 1);
                                 const source = ctx.createBufferSource();
                                 source.buffer = audioBuffer;
                                 source.connect(outputNode);

@@ -13,6 +13,8 @@ import {
   getMarkupTagGuidance,
   lowestSafetySettings,
   MODEL_MAPPING,
+  TIMING,
+  AUDIO,
   VOICE_PROFILES,
 } from "../config";
 import { GeminiModelTier } from "../types";
@@ -87,7 +89,7 @@ const writeString = (view: DataView, offset: number, str: string): void => {
   }
 };
 
-const createWavHeader = (dataLength: number, sampleRate: number = 24000): ArrayBuffer => {
+const createWavHeader = (dataLength: number, sampleRate: number = AUDIO.SAMPLE_RATE_OUTPUT): ArrayBuffer => {
   const numChannels = 1;
   const bitsPerSample = 16;
   const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
@@ -263,7 +265,7 @@ const selectTheme = (
   if (forceTheme !== null && forceTheme >= 0 && forceTheme < LONG_MESSAGE_THEMES.length) {
     return { index: forceTheme, theme: LONG_MESSAGE_THEMES[forceTheme] };
   }
-  const COOLDOWN_MS = 60 * 60 * 1000;
+  const COOLDOWN_MS = TIMING.THEME_COOLDOWN;
   const now = Date.now();
   let availableIndices = LONG_MESSAGE_THEMES.map((_, i) => i).filter(i => {
     if (recentIndices.includes(i)) return false;
@@ -378,15 +380,3 @@ export const generateDJIntro = async (
   }
 };
 
-export const generateCallBridging = async (callerName: string, reason: string, nextSong: Song | null, voice: DJVoice, language: AppLanguage): Promise<{ intro: ArrayBuffer | null; outro: ArrayBuffer | null }> => {
-  try {
-    const introPrompt = `DJ bringing listener ${callerName} on air. Reason: ${reason}. Output ONLY text. Under 15 words. ${getLanguageInstruction(language)}`;
-    const outroPrompt = `DJ thanking ${callerName} and playing ${nextSong?.title}. Output ONLY text. Under 20 words. ${getLanguageInstruction(language)}`;
-    const [introText, outroText] = await Promise.all([generateScript(introPrompt), generateScript(outroPrompt)]);
-    const [introBuffer, outroBuffer] = await Promise.all([introText ? speakText(introText, voice) : null, outroText ? speakText(outroText, voice) : null]);
-    return { intro: introBuffer, outro: outroBuffer };
-  } catch (e) {
-    console.error("[Hori-s] Call bridging failed", e);
-    return { intro: null, outro: null };
-  }
-};
