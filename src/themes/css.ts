@@ -1078,7 +1078,7 @@ ytmusic-responsive-list-item-renderer[play-button-state=paused] yt-icon {
 
 export const frosted_glass = /*css*/ `
 :root {
-  --ts-frosted-glass-blur: blur(12px);
+  --ts-frosted-glass-blur: blur(8px);
 }
 
 #nav-bar-background {
@@ -2252,8 +2252,8 @@ export const appleMusicThemeCss = /*css*/ `
 export const modalStyles = /*css*/ `
   .modal-backdrop {
     background-color: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
   }
 
   .modal-container {
@@ -2292,7 +2292,7 @@ export const modalStyles = /*css*/ `
 
   .modal-dropdown {
     background: var(--ts-playerbar-color);
-    backdrop-filter: blur(30px) saturate(180%);
+    backdrop-filter: blur(16px) saturate(180%);
     border: 1px solid var(--ts-base-100-alpha-01-color);
     box-shadow: 10px 10px 20px rgba(0,0,0,0.5);
   }

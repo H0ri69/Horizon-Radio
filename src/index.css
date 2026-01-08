@@ -10,7 +10,7 @@
 
 @layer components {
   .glass-effect {
-    @apply bg-[#09090b]/80 backdrop-blur-2xl border border-white/10;
+    @apply bg-[#09090b]/80 backdrop-blur-xl border border-white/10;
     box-shadow: 0 0 50px -12px rgba(0, 0, 0, 0.5);
   }
 
