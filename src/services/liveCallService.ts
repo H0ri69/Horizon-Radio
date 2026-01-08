@@ -35,6 +35,16 @@ export class LiveCallService {
 
     private config: LiveCallConfig | null = null;
     private currentSessionId: number = 0; // Track which session is active
+    
+    // Bug fix: Track audio nodes for proper cleanup
+    private audioSource: MediaStreamAudioSourceNode | null = null;
+    private scriptProcessor: ScriptProcessorNode | null = null;
+    
+    // Bug fix: Promise to await session resolution before using it
+    private sessionResolve: ((session: any) => void) | null = null;
+    
+    // Bug fix: Prevent double onCallEnd calls
+    private callEndFired: boolean = false;
 
     constructor() { }
 
@@ -48,6 +58,7 @@ export class LiveCallService {
         this.isLiveActive = true;
         this.liveNextStartTime = 0;
         this.liveSources.clear();
+        this.callEndFired = false; // Reset for new session
         this.config.onStatusChange('CONNECTING CALL...');
 
         try {
@@ -131,8 +142,11 @@ export class LiveCallService {
                 return;
             }
 
-            // Session will be stored once connected
+            // Session will be stored once connected - using Promise to avoid race condition (Bug #2 fix)
             let resolvedSession: any = null;
+            const sessionReadyPromise = new Promise<any>((resolve) => {
+                this.sessionResolve = resolve;
+            });
 
             // Tool Definition
             const transitionTool: FunctionDeclaration = {
@@ -186,9 +200,14 @@ export class LiveCallService {
             const sessionPromise = ai.live.connect({
                 ...sessionConfig,
                 callbacks: {
-                    onopen: () => {
+                    onopen: async () => {
                         console.log(`[Hori-s] WebSocket opened for session #${sessionId}`);
                         this.config?.onStatusChange('LIVE: ON AIR');
+                        
+                        // Bug #2 fix: Wait for session to be fully resolved before setting up audio
+                        const session = await sessionReadyPromise;
+                        resolvedSession = session;
+                        
                         if (!this.liveInputContext || !this.liveStream) {
                             console.error(`[Hori-s] Missing input context or stream for session #${sessionId}`);
                             return;
@@ -196,10 +215,11 @@ export class LiveCallService {
 
                         console.log(`[Hori-s] Setting up audio input for session #${sessionId}`);
 
-                        const source = this.liveInputContext.createMediaStreamSource(this.liveStream);
-                        const scriptProcessor = this.liveInputContext.createScriptProcessor(AUDIO.BUFFER_SIZE, 1, 1);
+                        // Bug #4 fix: Store references for proper cleanup
+                        this.audioSource = this.liveInputContext.createMediaStreamSource(this.liveStream);
+                        this.scriptProcessor = this.liveInputContext.createScriptProcessor(AUDIO.BUFFER_SIZE, 1, 1);
 
-                        scriptProcessor.onaudioprocess = (e) => {
+                        this.scriptProcessor.onaudioprocess = (e) => {
                             if (!this.liveInputContext || !resolvedSession) return;
                             const inputData = e.inputBuffer.getChannelData(0);
 
@@ -208,22 +228,21 @@ export class LiveCallService {
                             resolvedSession.sendRealtimeInput({ media: pcmBlob });
                         };
 
-                        source.connect(scriptProcessor);
-                        scriptProcessor.connect(this.liveInputContext.destination);
+                        this.audioSource.connect(this.scriptProcessor);
+                        this.scriptProcessor.connect(this.liveInputContext.destination);
                     },
                     onmessage: async (msg: LiveServerMessage) => {
                         if (msg.setupComplete) {
                             console.log(`[Hori-s] Setup complete for session #${sessionId}. Triggering intro.`);
-                            // Trigger the first response immediately after setup
-                            if (resolvedSession) {
-                                resolvedSession.sendClientContent({
-                                    turns: [{
-                                        role: 'user',
-                                        parts: [{ text: "SYSTEM_NOTE: The call has just connected. Start your introduction immediately as per your instructions." }]
-                                    }],
-                                    turnComplete: true
-                                });
-                            }
+                            // Bug #2 fix: Await session before sending initial message
+                            const session = await sessionReadyPromise;
+                            session.sendClientContent({
+                                turns: [{
+                                    role: 'user',
+                                    parts: [{ text: "SYSTEM_NOTE: The call has just connected. Start your introduction immediately as per your instructions." }]
+                                }],
+                                turnComplete: true
+                            });
                         }
 
                         if (msg.serverContent) {
@@ -291,7 +310,9 @@ export class LiveCallService {
                                                 this.liveOutputContext.close();
                                                 this.liveOutputContext = null;
 
-                                                if (this.config) {
+                                                // Bug #3 fix: Guard against double onCallEnd calls
+                                                if (this.config && !this.callEndFired) {
+                                                    this.callEndFired = true;
                                                     this.config.onCallEnd();
                                                 }
                                             }
@@ -329,10 +350,15 @@ export class LiveCallService {
                 }
             });
             
-            // Store resolved session for direct access (fixes race condition)
+            // Store resolved session and notify awaiting callbacks (Bug #2 fix)
             sessionPromise.then(session => {
                 resolvedSession = session;
                 this.liveSession = session;
+                // Resolve the promise so awaiting callbacks can proceed
+                if (this.sessionResolve) {
+                    this.sessionResolve(session);
+                    this.sessionResolve = null;
+                }
             });
 
         } catch (e) {
@@ -352,6 +378,19 @@ export class LiveCallService {
         if (this.liveSession) {
             try { this.liveSession.close(); } catch (e) { /* ignore */ }
             this.liveSession = null;
+        }
+
+        // Bug #4 fix: Explicitly disconnect audio nodes before closing context
+        if (this.scriptProcessor) {
+            try {
+                this.scriptProcessor.onaudioprocess = null; // Remove handler
+                this.scriptProcessor.disconnect();
+            } catch (e) { /* ignore */ }
+            this.scriptProcessor = null;
+        }
+        if (this.audioSource) {
+            try { this.audioSource.disconnect(); } catch (e) { /* ignore */ }
+            this.audioSource = null;
         }
 
         // Stop microphone
@@ -378,7 +417,9 @@ export class LiveCallService {
                 this.liveOutputContext = null;
             }
             this.liveNextStartTime = 0;
-            if (graceful && this.config) {
+            // Bug #3 fix: Guard against double onCallEnd calls
+            if (graceful && this.config && !this.callEndFired) {
+                this.callEndFired = true;
                 this.config.onCallEnd();
             }
         }
