@@ -64,9 +64,10 @@ export class LiveCallService {
         try {
             console.log(`[Hori-s] Creating AI client for session #${sessionId}`);
 
-            // Get Call History for context
-            const historyResult = await chrome.storage.local.get(["horisCallHistory"]);
-            const history: any[] = Array.isArray(historyResult.horisCallHistory) ? historyResult.horisCallHistory : [];
+            // Get Call History for context and settings for limit
+            const storageResult = await chrome.storage.local.get(["horisCallHistory", "horisFmSettings"]);
+            const history: any[] = Array.isArray(storageResult.horisCallHistory) ? storageResult.horisCallHistory : [];
+            const callHistoryLimit = (storageResult.horisFmSettings as any)?.debug?.callHistoryLimit || 5;
 
             // Check if this specific person has called before
             const isRepeatCaller = history.some(h => h.name.toLowerCase() === config.callerName.toLowerCase());
@@ -75,10 +76,10 @@ export class LiveCallService {
                 ? history.map((h: any) => `- ${h.name} (Topic: ${h.reason || 'None'})`).join("\n")
                 : "No previous callers recorded.";
 
-            // Save this caller to history (limit to last 5)
+            // Save this caller to history (limit by configurable setting)
             // We filter out previous entries of the same name to keep it clean
             const filteredHistory = history.filter(h => h.name.toLowerCase() !== config.callerName.toLowerCase());
-            const updatedHistory = [{ name: config.callerName, reason: config.reason, timestamp: Date.now() }, ...filteredHistory].slice(0, 5);
+            const updatedHistory = [{ name: config.callerName, reason: config.reason, timestamp: Date.now() }, ...filteredHistory].slice(0, callHistoryLimit);
             chrome.storage.local.set({ horisCallHistory: updatedHistory });
 
             const ai = new GoogleGenAI({ apiKey: config.apiKey });

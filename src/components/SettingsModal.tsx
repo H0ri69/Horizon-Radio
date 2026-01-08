@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Settings, Radio, Globe, Mic,
   Palette, Zap, Cpu, Key, AlertTriangle,
-  ChevronDown, CheckCircle2, Sliders
+  ChevronDown, CheckCircle2, Sliders, Volume2, Loader2, Check, Trash2, Play, Square
 } from "lucide-react";
 import { DJStyle, VOICE_PROFILES } from "../config";
 import type { AppLanguage } from "../types";
@@ -27,6 +27,7 @@ interface Settings {
     forceTheme: number | null;
     verboseLogging: boolean;
     triggerPoint: number;
+    callHistoryLimit: number;
   };
   textModel: "FLASH" | "PRO";
   ttsModel: "FLASH" | "PRO";
@@ -65,17 +66,34 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
       forceTheme: null,
       verboseLogging: false,
       triggerPoint: 0.25,
+      callHistoryLimit: 5,
     },
     textModel: "FLASH",
     ttsModel: "FLASH",
   });
   const [status, setStatus] = useState("");
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const [loadingVoiceId, setLoadingVoiceId] = useState<string | null>(null);
+  const [cachedVoices, setCachedVoices] = useState<Set<string>>(new Set());
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    chrome.storage.local.get(["horisFmSettings"], (result) => {
+    chrome.storage.local.get(null, (result) => {
+      // Load settings
       if (result.horisFmSettings) {
         setSettings((prev) => ({ ...prev, ...(result.horisFmSettings as Settings) }));
       }
+      
+      // Load cached voice status
+      const cached = new Set<string>();
+      Object.keys(result).forEach(key => {
+        if (key.startsWith("voiceTestCache_")) {
+          // Format: voiceTestCache_VOICEID_LANG
+          const parts = key.replace("voiceTestCache_", "");
+          cached.add(parts);
+        }
+      });
+      setCachedVoices(cached);
     });
 
     // Handle ESC key
@@ -83,7 +101,14 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
+    return () => {
+      window.removeEventListener("keydown", handleEsc);
+      // Cleanup audio on unmount
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
   }, [onClose]);
 
   const saveSettings = (newSettings: Settings) => {
@@ -92,6 +117,81 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
       setStatus("Saved");
       setTimeout(() => setStatus(""), 2000);
     });
+  };
+
+  const stopVoice = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingVoiceId(null);
+  };
+
+  const testVoice = async (voiceId: string) => {
+    // If this voice is already playing, stop it
+    if (playingVoiceId === voiceId) {
+      stopVoice();
+      return;
+    }
+    
+    // Stop any currently playing voice
+    stopVoice();
+    
+    // Don't allow multiple loading at once
+    if (loadingVoiceId) return;
+    
+    setLoadingVoiceId(voiceId);
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: "TEST_VOICE",
+        data: { voice: voiceId, language: settings.language }
+      });
+      if (response?.audio) {
+        // Track if this voice was cached
+        if (response.fromCache) {
+          setCachedVoices(prev => new Set(prev).add(`${voiceId}_${settings.language}`));
+        }
+        
+        const binaryString = atob(response.audio);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: "audio/wav" });
+        const audioEl = new Audio(URL.createObjectURL(blob));
+        audioRef.current = audioEl;
+        setPlayingVoiceId(voiceId);
+        setLoadingVoiceId(null);
+        
+        audioEl.onended = () => {
+          setPlayingVoiceId(null);
+          audioRef.current = null;
+        };
+        audioEl.onerror = () => {
+          setPlayingVoiceId(null);
+          audioRef.current = null;
+        };
+        audioEl.play();
+      } else {
+        setLoadingVoiceId(null);
+      }
+    } catch (e) {
+      console.error("Test voice failed", e);
+      setLoadingVoiceId(null);
+    }
+  };
+
+  const clearVoiceCache = async () => {
+    try {
+      const response = await chrome.runtime.sendMessage({ type: "CLEAR_VOICE_CACHE" });
+      if (response?.cleared !== undefined) {
+        setStatus(`Cleared ${response.cleared} cached samples`);
+        setTimeout(() => setStatus(""), 3000);
+        setCachedVoices(new Set());
+      }
+    } catch (e) {
+      console.error("Clear cache failed", e);
+    }
   };
 
   return createPortal(
@@ -189,33 +289,74 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 <Mic className="w-4 h-4 text-indigo-400" /> Primary Host Profile
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {VOICE_PROFILES.map((profile) => (
-                  <button
-                    key={profile.id}
-                    onClick={() => saveSettings({ ...settings, djVoice: profile.id })}
-                    className={`relative p-6 rounded-2xl text-left transition-all duration-300 border overflow-hidden group
-                                            ${settings.djVoice === profile.id
-                        ? "bg-indigo-500/10 border-indigo-500/50 ring-1 ring-indigo-500/50"
-                        : "modal-section border-white/5 hover:border-white/10 hover:bg-white/10"
-                      }`}
-                  >
-                    <div className="flex justify-between items-center mb-4">
-                      <span className={`text-xl font-bold ${settings.djVoice === profile.id ? "text-white" : "text-white/60 group-hover:text-white"}`}>
-                        {profile.personaNames[settings.language as AppLanguage]}
-                      </span>
-                      {settings.djVoice === profile.id && (
-                        <CheckCircle2 className="w-5 h-5 text-indigo-400 drop-shadow-[0_0_8px_rgba(129,140,248,0.5)]" />
-                      )}
+                {VOICE_PROFILES.map((profile) => {
+                  const isPlaying = playingVoiceId === profile.id;
+                  const isLoading = loadingVoiceId === profile.id;
+                  const isCached = cachedVoices.has(`${profile.id}_${settings.language}`);
+                  
+                  return (
+                    <div
+                      key={profile.id}
+                      className={`relative p-6 rounded-2xl transition-all duration-300 border overflow-hidden
+                        ${settings.djVoice === profile.id
+                          ? "bg-indigo-500/10 border-indigo-500/50 ring-1 ring-indigo-500/50"
+                          : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
+                        }`}
+                    >
+                      {/* Selectable area */}
+                      <button
+                        onClick={() => saveSettings({ ...settings, djVoice: profile.id })}
+                        className="w-full text-left"
+                      >
+                        <div className="flex justify-between items-center mb-4">
+                          <span className={`text-xl font-bold ${settings.djVoice === profile.id ? "text-white" : "text-white/60"}`}>
+                            {profile.personaNames[settings.language as AppLanguage]}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {isCached && (
+                              <span className="text-[9px] px-2 py-0.5 bg-green-500/20 border border-green-500/30 rounded-full text-green-400 font-bold uppercase tracking-wider">
+                                Cached
+                              </span>
+                            )}
+                            {settings.djVoice === profile.id && (
+                              <CheckCircle2 className="w-5 h-5 text-indigo-400 drop-shadow-[0_0_8px_rgba(129,140,248,0.5)]" />
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {profile.tags.map((tag) => (
+                            <span key={tag} className="bg-black/40 px-3 py-1 rounded-lg border border-white/5 text-[10px] uppercase font-bold tracking-widest text-white/60">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                      
+                      {/* Play/Stop button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          testVoice(profile.id);
+                        }}
+                        disabled={isLoading || (loadingVoiceId !== null && loadingVoiceId !== profile.id)}
+                        className={`mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all
+                          ${isPlaying 
+                            ? "bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30" 
+                            : "bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
+                          }
+                          disabled:opacity-40 disabled:cursor-not-allowed`}
+                      >
+                        {isLoading ? (
+                          <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
+                        ) : isPlaying ? (
+                          <><Square className="w-4 h-4" /> Stop</>
+                        ) : (
+                          <><Play className="w-4 h-4" /> Preview</>
+                        )}
+                      </button>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {profile.tags.map((tag) => (
-                        <span key={tag} className="bg-black/40 px-3 py-1 rounded-lg border border-white/5 text-[10px] uppercase font-bold tracking-widest text-white/60">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             </motion.section>
 
@@ -525,6 +666,41 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                         </div>
                       </div>
                     </div>
+                  </section>
+
+                  {/* Call History Limit */}
+                  <section className="space-y-6">
+                    <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">Live Call Memory</h3>
+                    <div className="p-6 modal-section border border-white/5 rounded-3xl">
+                      <div className="flex justify-between items-center mb-4">
+                        <div>
+                          <div className="text-white font-bold">Caller History Limit</div>
+                          <div className="text-white/60 text-sm">How many callers the DJ remembers</div>
+                        </div>
+                        <div className="font-mono text-indigo-400 bg-indigo-500/10 px-4 py-2 rounded-xl border border-indigo-500/20 text-lg font-bold">
+                          {settings.debug?.callHistoryLimit || 5}
+                        </div>
+                      </div>
+                      <input
+                        type="range" min="1" max="15" step="1"
+                        value={settings.debug?.callHistoryLimit || 5}
+                        onChange={(e) => saveSettings({ ...settings, debug: { ...settings.debug!, callHistoryLimit: parseInt(e.target.value) } })}
+                        className="w-full accent-indigo-500"
+                      />
+                    </div>
+                  </section>
+
+                  {/* Clear Voice Cache */}
+                  <section className="space-y-6">
+                    <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">Voice Test Cache</h3>
+                    <button
+                      onClick={clearVoiceCache}
+                      className="w-full flex items-center justify-center gap-3 p-6 bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded-3xl font-bold transition-all hover:bg-orange-500/20 hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                      Clear Cached Voice Samples
+                    </button>
+                    <p className="text-xs text-white/50 text-center">Clears all stored test voices (regenerates on next use, max 30-day cache)</p>
                   </section>
                 </div>
               </details>
