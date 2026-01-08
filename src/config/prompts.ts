@@ -174,6 +174,7 @@ export const generateLiveSystemInstruction = (
   personaName: string,
   callerName: string,
   previousSongTitle: string,
+  previousSongArtist: string,
   nextSongTitle: string,
   nextSongArtist: string,
   reason: string,
@@ -182,7 +183,6 @@ export const generateLiveSystemInstruction = (
   secondaryPersonaName: string | undefined,
   style: DJStyle,
   customPrompt: string | undefined,
-  voice: string,
   language: AppLanguage,
   callHistoryContext: string,
   voiceProfile: { gender: "Male" | "Female" | "Robot", geminiVoiceName: string } | undefined
@@ -217,7 +217,7 @@ export const generateLiveSystemInstruction = (
     IDENTITY: Your name is ${personaName}. You are the host of Hori-s FM.
     
     You are ON THE AIR on Hori-s FM. ${callerName} just called in.
-    Previous song: "${previousSongTitle}" | Next: "${nextSongTitle}" by "${nextSongArtist}"
+    Previous song: "${previousSongTitle}" by "${previousSongArtist}" | Next: "${nextSongTitle}" by "${nextSongArtist}"
     ${isRepeatCaller ? `NOTE: ${callerName} is a REPEAT CALLER. Welcome them back to the show!` : ""}
     ${dualDjNote}
     

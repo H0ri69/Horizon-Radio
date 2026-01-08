@@ -28,10 +28,9 @@ export class LiveCallService {
     private liveInputContext: AudioContext | null = null;
     private liveOutputContext: AudioContext | null = null;
     private liveStream: MediaStream | null = null;
-    private liveSession: Promise<any> | null = null;
+    private liveSession: any = null; // Resolved session object
     private liveSources: Set<AudioBufferSourceNode> = new Set();
     private liveNextStartTime: number = 0;
-    private liveSilenceInterval: any = null;
     private isLiveActive: boolean = false;
 
     private config: LiveCallConfig | null = null;
@@ -132,9 +131,8 @@ export class LiveCallService {
                 return;
             }
 
-            // Silence Detection Vars
-            let lastUserAudioTime = Date.now();
-            let silenceWarningSent = false;
+            // Session will be stored once connected
+            let resolvedSession: any = null;
 
             // Tool Definition
             const transitionTool: FunctionDeclaration = {
@@ -149,6 +147,7 @@ export class LiveCallService {
                 config.personaName,
                 config.callerName,
                 config.previousSongTitle,
+                config.previousSongArtist,
                 config.nextSongTitle,
                 config.nextSongArtist,
                 config.reason,
@@ -157,7 +156,6 @@ export class LiveCallService {
                 config.secondaryPersonaName,
                 config.style,
                 config.customPrompt,
-                config.voice,
                 config.language,
                 callHistoryContext,
                 voiceProfile
@@ -202,23 +200,12 @@ export class LiveCallService {
                         const scriptProcessor = this.liveInputContext.createScriptProcessor(AUDIO.BUFFER_SIZE, 1, 1);
 
                         scriptProcessor.onaudioprocess = (e) => {
-                            if (!this.liveInputContext) return;
+                            if (!this.liveInputContext || !resolvedSession) return;
                             const inputData = e.inputBuffer.getChannelData(0);
 
-                            // RMS Calculation for Silence Detection
-                            let sum = 0;
-                            for (let i = 0; i < inputData.length; i++) {
-                                sum += inputData[i] * inputData[i];
-                            }
-                            const rms = Math.sqrt(sum / inputData.length);
-                            if (rms > 0.02) {
-                                lastUserAudioTime = Date.now();
-                                silenceWarningSent = false;
-                            }
-
-                            // Send Audio
+                            // Send Audio directly to resolved session (no race condition)
                             const pcmBlob = createPcmBlob(downsampleTo16k(inputData, this.liveInputContext.sampleRate));
-                            sessionPromise.then(session => session.sendRealtimeInput({ media: pcmBlob }));
+                            resolvedSession.sendRealtimeInput({ media: pcmBlob });
                         };
 
                         source.connect(scriptProcessor);
@@ -228,15 +215,15 @@ export class LiveCallService {
                         if (msg.setupComplete) {
                             console.log(`[Hori-s] Setup complete for session #${sessionId}. Triggering intro.`);
                             // Trigger the first response immediately after setup
-                            sessionPromise.then((session) => {
-                                session.sendClientContent({
+                            if (resolvedSession) {
+                                resolvedSession.sendClientContent({
                                     turns: [{
                                         role: 'user',
                                         parts: [{ text: "SYSTEM_NOTE: The call has just connected. Start your introduction immediately as per your instructions." }]
                                     }],
                                     turnComplete: true
                                 });
-                            });
+                            }
                         }
 
                         if (msg.serverContent) {
@@ -260,7 +247,7 @@ export class LiveCallService {
                         if (msg.toolCall) {
                             for (const fc of msg.toolCall.functionCalls!) {
                                 if (fc.name === 'endCall') {
-                                    sessionPromise.then(session => session.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response: { result: "ok" } }] }));
+                                    if (resolvedSession) resolvedSession.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response: { result: "ok" } }] });
                                     const ctx = this.liveOutputContext;
                                     if (ctx) {
                                         // Wait for audio queue to finish then end
@@ -341,7 +328,12 @@ export class LiveCallService {
                     }
                 }
             });
-            this.liveSession = sessionPromise;
+            
+            // Store resolved session for direct access (fixes race condition)
+            sessionPromise.then(session => {
+                resolvedSession = session;
+                this.liveSession = session;
+            });
 
         } catch (e) {
             console.error("Failed to start live session", e);
@@ -356,8 +348,11 @@ export class LiveCallService {
         console.log("[Hori-s] Cleaning up live session...");
         this.isLiveActive = false;
 
-        // Close WebSocket
-        if (this.liveSession) this.liveSession = null;
+        // Close WebSocket session properly
+        if (this.liveSession) {
+            try { this.liveSession.close(); } catch (e) { /* ignore */ }
+            this.liveSession = null;
+        }
 
         // Stop microphone
         if (this.liveStream) {
@@ -369,12 +364,6 @@ export class LiveCallService {
         if (this.liveInputContext) {
             this.liveInputContext.close();
             this.liveInputContext = null;
-        }
-
-        // Stop silence detection
-        if (this.liveSilenceInterval) {
-            clearInterval(this.liveSilenceInterval);
-            this.liveSilenceInterval = null;
         }
 
         // DON'T close output context or stop sources
