@@ -500,6 +500,19 @@ const mainLoop = setInterval(() => {
     }
   }
 
+  // 2.1 Update Theme Classes (Perf optimization to avoid :root:has)
+  const appLayout = document.querySelector("ytmusic-app-layout");
+  if (appLayout) {
+    const isPlayerOpen = appLayout.hasAttribute("player-page-open");
+    const isFullscreen = appLayout.hasAttribute("player-fullscreened");
+
+    if (isPlayerOpen) document.documentElement.classList.add("ts-player-page-open");
+    else document.documentElement.classList.remove("ts-player-page-open");
+
+    if (isFullscreen) document.documentElement.classList.add("ts-player-fullscreened");
+    else document.documentElement.classList.remove("ts-player-fullscreened");
+  }
+
   // 3. Status Checks
   if (state.status === "LIVE_CALL") return;
   if (isPaused && state.status !== "PLAYING") return;

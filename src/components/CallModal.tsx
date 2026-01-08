@@ -100,12 +100,12 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
                 {/* Header - Fixed */}
                 <div className="p-8 md:p-10 border-b border-white/5 flex justify-between items-center modal-header z-20">
                     <div className="flex items-center gap-4">
-                        <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
-                            <Phone className="w-8 h-8 text-indigo-400" />
+                        <div className="p-3 bg-[var(--ts-accent-color-alpha-10)] rounded-2xl border border-[var(--ts-accent-color-alpha-20)]">
+                            <Phone className="w-8 h-8 text-[var(--ts-accent-color)]" />
                         </div>
                         <div>
                             <h1 className="text-3xl font-bold tracking-tight text-white mb-1">Live Studio Call</h1>
-                            <p className="text-base text-white/60">Enter the broadcast queue and request a track</p>
+                            <p className="text-base text-white/50">Enter the broadcast queue and request a track</p>
                         </div>
                     </div>
 
@@ -124,20 +124,20 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
                         {/* 00 CALLER IDENTITY */}
                         <motion.section variants={itemVariants}>
                             <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/50 mb-8 flex items-center gap-3">
-                                <User className="w-4 h-4 text-indigo-400" /> Caller Identity
+                                <User className="w-4 h-4 text-[var(--ts-accent-color)]" /> Caller Identity
                             </h2>
-                            <div className="bg-white/5 rounded-3xl p-8 border border-white/5 group focus-within:border-indigo-500/30 transition-colors">
-                                <label className="block text-xs font-black uppercase tracking-widest text-white/60 mb-4 ml-1">
+                            <div className="modal-section rounded-3xl p-8 border border-white/5 group focus-within:border-[var(--ts-accent-color-alpha-30)] transition-colors">
+                                <label className="block text-xs font-black uppercase tracking-widest text-white/40 mb-4 ml-1">
                                     Broadcast Name
                                 </label>
                                 <div className="relative">
-                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-indigo-400 transition-colors" />
+                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-[var(--ts-accent-color)] transition-colors" />
                                     <input
                                         type="text"
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
                                         placeholder="Enter your name..."
-                                        className="w-full modal-input border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder-white/10 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                                        className="w-full modal-input rounded-2xl p-4 pl-12 text-white placeholder-white/10 focus:outline-none transition-all"
                                         required
                                     />
                                 </div>
@@ -147,20 +147,20 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
                         {/* 01 SONG REQUEST */}
                         <motion.section variants={itemVariants} className="relative">
                             <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/50 mb-8 flex items-center gap-3">
-                                <Music className="w-4 h-4 text-indigo-400" /> Song Request
+                                <Music className="w-4 h-4 text-[var(--ts-accent-color)]" /> Song Request
                             </h2>
-                            <div className="modal-section rounded-3xl p-8 border border-white/5 group focus-within:border-indigo-500/30 transition-colors relative">
-                                <label className="block text-xs font-black uppercase tracking-widest text-white/60 mb-4 ml-1">
+                            <div className="modal-section rounded-3xl p-8 border border-white/5 group focus-within:border-[var(--ts-accent-color-alpha-30)] transition-colors relative">
+                                <label className="block text-xs font-black uppercase tracking-widest text-white/40 mb-4 ml-1">
                                     Search YouTube Music
                                 </label>
                                 <div className="relative">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-indigo-400 transition-colors" />
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-[var(--ts-accent-color)] transition-colors" />
                                     <input
                                         type="text"
                                         value={songQuery}
                                         onChange={(e) => { setSongQuery(e.target.value); setSelectedSong(null); }}
                                         placeholder="Track or Artist name..."
-                                        className={`w-full modal-input border transition-all rounded-2xl p-4 pl-12 text-white placeholder-white/10 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 ${selectedSong ? 'border-green-500/50 ring-1 ring-green-500/30' : 'border-white/10 focus:border-indigo-500/50'}`}
+                                        className={`w-full modal-input transition-all rounded-2xl p-4 pl-12 text-white placeholder-white/10 focus:outline-none ${selectedSong ? 'border-green-500/50 ring-1 ring-green-500/30' : ''}`}
                                     />
                                     <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                         {selectedSong && (
@@ -168,7 +168,7 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
                                         )}
-                                        {isSearching && <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />}
+                                        {isSearching && <Loader2 className="w-4 h-4 text-[var(--ts-accent-color)] animate-spin" />}
                                     </div>
                                 </div>
 
@@ -197,11 +197,11 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
                                                             <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center"><Music className="w-5 h-5 text-white/20" /></div>
                                                         )}
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="text-white font-bold text-sm truncate group-hover:text-indigo-400 transition-colors uppercase tracking-tight">{song.title}</div>
+                                                            <div className="text-white font-bold text-sm truncate group-hover:text-[var(--ts-accent-color)] transition-colors uppercase tracking-tight">{song.title}</div>
                                                             <div className="text-white/40 text-[10px] font-black uppercase tracking-wider truncate">{song.artist}</div>
                                                         </div>
-                                                        <div className="p-2 rounded-full border border-white/5 group-hover:border-indigo-500/30 group-hover:bg-indigo-500/10 transition-all">
-                                                            <Play className="w-3 h-3 text-white/20 group-hover:text-indigo-400" fill="currentColor" />
+                                                        <div className="p-2 rounded-full border border-white/5 group-hover:border-[var(--ts-accent-color-alpha-30)] group-hover:bg-[var(--ts-accent-color-alpha-10)] transition-all">
+                                                            <Play className="w-3 h-3 text-white/20 group-hover:text-[var(--ts-accent-color)]" fill="currentColor" />
                                                         </div>
                                                     </motion.button>
                                                 ))}
@@ -215,17 +215,17 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
                         {/* 02 CONVERSATION */}
                         <motion.section variants={itemVariants}>
                             <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/50 mb-8 flex items-center gap-3">
-                                <MessageSquare className="w-4 h-4 text-indigo-400" /> Conversation Starter
+                                <MessageSquare className="w-4 h-4 text-[var(--ts-accent-color)]" /> Conversation Starter
                             </h2>
-                            <div className="bg-white/5 rounded-3xl p-8 border border-white/5 group focus-within:border-indigo-500/30 transition-colors">
-                                <label className="block text-xs font-black uppercase tracking-widest text-white/60 mb-4 ml-1">
+                            <div className="modal-section rounded-3xl p-8 border border-white/5 group focus-within:border-[var(--ts-accent-color-alpha-30)] transition-colors">
+                                <label className="block text-xs font-black uppercase tracking-widest text-white/40 mb-4 ml-1">
                                     Message for the DJ
                                 </label>
                                 <textarea
                                     value={message}
                                     onChange={(e) => setMessage(e.target.value)}
                                     placeholder="Tell the host why you're calling..."
-                                    className="w-full h-32 modal-input border border-white/10 rounded-2xl p-4 text-white placeholder-white/10 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none"
+                                    className="w-full h-32 modal-input rounded-2xl p-4 text-white placeholder-white/10 focus:outline-none transition-all resize-none"
                                 />
                             </div>
                         </motion.section>
@@ -233,7 +233,7 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
                         <motion.div variants={itemVariants} className="pt-6">
                             <button
                                 type="submit"
-                                className="shimmer w-full py-6 rounded-2xl text-xl font-black uppercase tracking-[0.2em] bg-indigo-600 text-white hover:bg-indigo-500 shadow-xl shadow-indigo-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-4"
+                                className="shimmer w-full py-6 rounded-2xl text-xl font-black uppercase tracking-[0.2em] bg-[var(--ts-accent-color)] text-white shadow-xl shadow-[var(--ts-accent-color-alpha-20)] transition-all active:scale-[0.98] flex items-center justify-center gap-4"
                             >
                                 <Phone className="w-6 h-6 fill-current" />
                                 Call Studio Now
@@ -245,15 +245,15 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
                 {/* Footer - Fixed */}
                 <div className="p-8 md:p-10 border-t border-white/5 modal-footer flex justify-between items-center z-20">
                     <div className="flex items-center gap-6">
-                        <div className="font-mono text-[10px] font-black tracking-[0.4em] text-white/40 uppercase">STX-PROTOCOL-1.0</div>
+                        <div className="font-mono text-[10px] font-black tracking-[0.4em] text-white/30 uppercase">STX-PROTOCOL-1.0</div>
                         <div className="h-4 w-px bg-white/10" />
                         <div className="flex items-center gap-2">
-                            <ShieldCheck className="w-4 h-4 text-indigo-500/50" />
-                            <span className="text-[10px] font-black text-indigo-400/70 uppercase tracking-[0.2em]">End-to-End Encryption</span>
+                            <ShieldCheck className="w-4 h-4 text-[var(--ts-accent-color-alpha-50)]" />
+                            <span className="text-[10px] font-black text-[var(--ts-accent-color-alpha-70)] uppercase tracking-[0.2em]">End-to-End Encryption</span>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[10px] font-black text-white/40 uppercase tracking-widest">
+                    <div className="flex items-center gap-2 text-[10px] font-black text-white/30 uppercase tracking-widest">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500/40" />
                         Studio Ready
                     </div>
