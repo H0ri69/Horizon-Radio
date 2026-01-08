@@ -631,9 +631,6 @@ export const appleMusicThemeCss = `
   #progress-bar.ytmusic-player-bar #sliderKnob,
   #volume-slider.ytmusic-player-bar #sliderKnob,
   #progress-bar.ytmusic-player-bar .slider-knob,
-  #volume-slider.ytmusic-player-bar .slider-knob {
-    display: none !important;
-    opacity: 0 !important;
   }
   
   tp-yt-paper-slider:hover #sliderKnob,
@@ -693,6 +690,36 @@ export const appleMusicThemeCss = `
     background: rgba(255, 255, 255, 0.2) !important;
     border-radius: 4px !important;
   }
+
+  /* HORIS FM CONTROLS - THEME ALIGNMENT */
+  #horis-controls-container {
+    border-left: 1px solid var(--ts-theme-apple-border) !important;
+    padding-left: 12px !important;
+    margin-right: 12px !important;
+  }
+
+  /* Glass Pills for Status and Buttons */
+  .horis-glass-pill {
+    background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 100%), rgba(25, 25, 27, 0.45) !important;
+    backdrop-filter: blur(40px) saturate(210%) brightness(1.2) !important;
+    -webkit-backdrop-filter: blur(40px) saturate(210%) brightness(1.2) !important;
+    border: 1px solid var(--ts-theme-apple-border) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+    color: #fff !important;
+  }
+
+  /* Status Badge Overrides */
+  [class*="status-badge-"] {
+    font-weight: 700 !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+    font-size: 10px !important;
+  }
+
+  .status-badge-generating { color: #f59e0b !important; border-color: rgba(245, 158, 11, 0.3) !important; background: rgba(245, 158, 11, 0.1) !important; }
+  .status-badge-ready { color: #10b981 !important; border-color: rgba(16, 185, 129, 0.3) !important; background: rgba(16, 185, 129, 0.1) !important; }
+  .status-badge-playing { color: #ef4444 !important; border-color: rgba(239, 68, 68, 0.3) !important; background: rgba(239, 68, 68, 0.1) !important; }
+  .status-badge-idle { color: rgba(255,255,255,0.4) !important; border-color: rgba(255,255,255,0.1) !important; background: rgba(255,255,255,0.05) !important; }
 
   /* CLEANUP */
   #nav-bar-divider, ytmusic-player-queue-item {
