@@ -412,7 +412,7 @@ const startLiveCall = async () => {
       previousSongArtist: current.artist || "Unknown",
       nextSongTitle: callData.song ? callData.song.title : (next.title || "Next Song"),
       nextSongArtist: callData.song ? "Requested Artist" : (next.artist || "Unknown"),
-      voice: settings.voice || "Charon",
+      voice: settings.djVoice || "sadachbia",
       language: settings.language || "en",
       style: settings.djStyle || "Standard (Radio Host)",
       customPrompt: settings.customStylePrompt || "",

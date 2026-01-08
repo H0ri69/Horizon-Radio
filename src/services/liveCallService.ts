@@ -104,15 +104,35 @@ export class LiveCallService {
             }
 
             // Input Stream (Microphone) with professional processing
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true,
-                    channelCount: 1,
+            let stream: MediaStream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        channelCount: 1,
+                    }
+                });
+                this.liveStream = stream;
+            } catch (micError) {
+                console.error('[Hori-s] Microphone access denied or failed:', micError);
+                this.config.onStatusChange('MIC ACCESS DENIED');
+
+                // Clean up contexts
+                if (this.liveOutputContext) {
+                    this.liveOutputContext.close();
+                    this.liveOutputContext = null;
                 }
-            });
-            this.liveStream = stream;
+                if (this.liveInputContext) {
+                    this.liveInputContext.close();
+                    this.liveInputContext = null;
+                }
+
+                // Notify error and return
+                this.config.onUnrecoverableError();
+                return;
+            }
 
             // Silence Detection Vars
             let lastUserAudioTime = Date.now();
@@ -194,42 +214,26 @@ export class LiveCallService {
                     responseModalities: [Modality.AUDIO],
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: config.voice } } },
                     systemInstruction: `
+                    ${genderInstruction}
+                    ${styleInstruction}
+                    ${ttsPerformanceInstruction ? `\n\nVOICE PERFORMANCE:\n${ttsPerformanceInstruction}` : ""}
+                    
+                    You are ON THE AIR on Hori-s FM. ${config.callerName} just called in.
+                    Previous song: "${config.previousSongTitle}" | Next: "${config.nextSongTitle}" by "${config.nextSongArtist}"
                     ${repeatCallerNote}
                     ${dualDjNote}
                     
-                    ${genderInstruction}
-                    ${styleInstruction}
-                    ${ttsPerformanceInstruction ? `\n\nVOICE PERFORMANCE DIRECTION:\n${ttsPerformanceInstruction}` : ""}
+                    CALL FLOW:
+                    1. START IMMEDIATELY: Outro the previous song ("${config.previousSongTitle}"), then introduce the caller: "${config.callerName}, you're live!"
+                    2. ${isRepeatCaller ? "Welcome them back warmly." : (config.reason ? `Their topic: "${config.reason}"` : "Ask what's on their mind.")}
+                    3. Have a natural conversation. React authentically. Ask follow-ups. Let it breathe.
+                    4. When the caller says goodbye OR after 90 seconds, wrap up: Thank ${config.callerName}, intro "${config.nextSongTitle}", then call 'endCall'.
+                    5. If interrupted mid-sentence, stop and respond to their interruption immediately.
+                    6. Use Google Search for facts/news if asked.
+                    7. Speak in ${config.language === 'cs' ? 'Czech (čeština)' : config.language === 'ja' ? 'Japanese (日本語)' : 'English'}. Sound like you're on a quality broadcast mic—warm, clear, professional.
                     
-                    You are currently ON THE AIR on Hori-s FM. A listener named "${config.callerName}" has just called in.
-                    Song context: Ended "${config.previousSongTitle}", Next "${config.nextSongTitle}".
-                    
-                    CRITICAL INSTRUCTIONS:
-                    1. START SPEAKING IMMEDIATELY when the call connects. 
-                    2. START with a standard song transition: Briefly mention/outro the song that just ended ("${config.previousSongTitle}"). 
-                    3. THEN, smoothly transition to introducing the caller: "Wait, we've got a caller on the line! ${config.callerName}, you're live on Horis FM!"
-                    4. ${isRepeatCaller ? "WELCOME THEM BACK warmly, referencing the fact they've been on the show before." : (config.reason ? `Acknowledge their reason for calling: "${config.reason}"` : "Ask them what's on their mind.")}
-                    5. Have a REAL CONVERSATION - ask follow-up questions, react to what they say, keep it engaging. Do NOT just ask "what do you want to talk about" every time. 
-                    6. DON'T rush to end the call - let the conversation flow naturally for at least 30-60 seconds.
-                    7. Let the CALLER decide when to end - if they say goodbye or indicate they're done, THEN follow the "Goodbye Sequence":
-                       - Say a warm goodbye to "${config.callerName}".
-                       - Transition to the next song: Introduce "${config.nextSongTitle}" by "${config.nextSongArtist}" enthusiastically.
-                       - IMMEDIATELY call 'endCall' AFTER you finish speaking the next song's introduction.
-                    8. ONLY call 'endCall' yourself if:
-                       - The caller clearly says goodbye/farewell.
-                       - The conversation has gone on for 120+ seconds (safety timeout).
-                       - There's a long silence.
-                    9. Use natural vocal fillers (e.g., "Uh-huh", "Gotcha", "Oh wow", "Exactly") sparingly when the user is speaking to show you are listening.
-                    10. If the user interrupts you, stop mid-sentence and pivot immediately to react to their interruption.
-                    11. Speak as if you are wearing a high-quality broadcast headset—close to the mic, warm, intimate, and professional.
-                    13. You can occasionally chuckle or react emotionally to what the caller says.
-                    14. YOU HAVE ACCESS TO GOOGLE SEARCH. If the caller asks for facts, weather, news, or scores, USE IT to provide accurate "live" information. Interpret results naturally.
-                    
-                    HISTORY OF PREVIOUS CALLERS THIS SHIFT:
+                    PREVIOUS CALLERS THIS SHIFT:
                     ${callHistoryContext}
-                    
-                    Language: ${langInstruction}
-                    Voice style: ${voiceInstruction}
                   `,
                     tools: [{ googleSearch: {} }, { functionDeclarations: [transitionTool] }],
                     realtimeInputConfig: {
@@ -359,13 +363,18 @@ export class LiveCallService {
                                     // If no more sources are playing and session is inactive, finish cleanup
                                     if (!this.isLiveActive && this.liveSources.size === 0) {
                                         console.log("[Hori-s] All audio finished. Final cleanup.");
-                                        if (this.liveOutputContext) {
-                                            this.liveOutputContext.close();
-                                            this.liveOutputContext = null;
-                                        }
-                                        if (this.config) {
-                                            this.config.onCallEnd();
-                                        }
+
+                                        // Double-check no sources are queued before closing
+                                        setTimeout(() => {
+                                            if (this.liveSources.size === 0 && this.liveOutputContext) {
+                                                this.liveOutputContext.close();
+                                                this.liveOutputContext = null;
+
+                                                if (this.config) {
+                                                    this.config.onCallEnd();
+                                                }
+                                            }
+                                        }, 100);
                                     }
                                 });
 

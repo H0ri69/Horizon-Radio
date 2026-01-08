@@ -1,6 +1,24 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
+// Inject ping animation for status indicators
+if (typeof document !== 'undefined') {
+  const styleId = 'horis-ping-animation';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      @keyframes ping {
+        75%, 100% {
+          transform: scale(2);
+          opacity: 0;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
 interface PlayerControlsProps {
   onOpenSettings: () => void;
   onOpenCall: () => void;
@@ -100,9 +118,25 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ onOpenSettings, 
 
         {djStatus === "GENERATING" && (
           <>
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+            <span style={{ position: "relative", display: "flex", height: "8px", width: "8px" }}>
+              <span style={{
+                position: "absolute",
+                display: "inline-flex",
+                height: "100%",
+                width: "100%",
+                borderRadius: "9999px",
+                backgroundColor: "#fbbf24",
+                opacity: 0.75,
+                animation: "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite"
+              }}></span>
+              <span style={{
+                position: "relative",
+                display: "inline-flex",
+                borderRadius: "9999px",
+                height: "8px",
+                width: "8px",
+                backgroundColor: "#eab308"
+              }}></span>
             </span>
             <span style={{ color: "#fbbf24" }}>WRITING</span>
           </>
@@ -110,16 +144,39 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ onOpenSettings, 
 
         {djStatus === "READY" && (
           <>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            <span style={{
+              position: "relative",
+              display: "inline-flex",
+              borderRadius: "9999px",
+              height: "8px",
+              width: "8px",
+              backgroundColor: "#22c55e"
+            }}></span>
             <span style={{ color: "#4ade80" }}>READY</span>
           </>
         )}
 
         {djStatus === "PLAYING" && (
           <>
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            <span style={{ position: "relative", display: "flex", height: "8px", width: "8px" }}>
+              <span style={{
+                position: "absolute",
+                display: "inline-flex",
+                height: "100%",
+                width: "100%",
+                borderRadius: "9999px",
+                backgroundColor: "#ef4444",
+                opacity: 0.75,
+                animation: "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite"
+              }}></span>
+              <span style={{
+                position: "relative",
+                display: "inline-flex",
+                borderRadius: "9999px",
+                height: "8px",
+                width: "8px",
+                backgroundColor: "#ef4444"
+              }}></span>
             </span>
             <span style={{ color: "#ef4444" }}>ON AIR</span>
           </>
