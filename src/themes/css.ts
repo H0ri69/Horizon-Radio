@@ -721,6 +721,50 @@ export const appleMusicThemeCss = `
   .status-badge-playing { color: #ef4444 !important; border-color: rgba(239, 68, 68, 0.3) !important; background: rgba(239, 68, 68, 0.1) !important; }
   .status-badge-idle { color: rgba(255,255,255,0.4) !important; border-color: rgba(255,255,255,0.1) !important; background: rgba(255,255,255,0.05) !important; }
 
+  /* MODAL STYLING */
+  .modal-backdrop {
+    background: rgba(0, 0, 0, 0.3) !important;
+    backdrop-filter: blur(25px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(25px) saturate(160%) !important;
+  }
+
+  .modal-container {
+    background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 100%), rgba(20, 20, 22, 0.85) !important;
+    backdrop-filter: blur(60px) saturate(180%) brightness(0.9) !important;
+    -webkit-backdrop-filter: blur(60px) saturate(180%) brightness(0.9) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 48px 96px rgba(0, 0, 0, 0.6) !important;
+  }
+
+  .modal-header, .modal-footer {
+    background: rgba(255, 255, 255, 0.04) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .modal-section {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-color: rgba(255, 255, 255, 0.05) !important;
+  }
+
+  .modal-input {
+    background: rgba(0, 0, 0, 0.25) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .modal-input-dark {
+    background: rgba(0, 0, 0, 0.35) !important;
+  }
+
+  .modal-dropdown {
+    background: rgba(25, 25, 27, 0.8) !important;
+    backdrop-filter: blur(50px) saturate(210%) brightness(1.2) !important;
+    -webkit-backdrop-filter: blur(50px) saturate(210%) brightness(1.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.8) !important;
+  }
+
   /* CLEANUP */
   #nav-bar-divider, ytmusic-player-queue-item {
     border-bottom: none !important;
