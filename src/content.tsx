@@ -105,17 +105,19 @@ const getSongInfo = () => {
   const playerBar = document.querySelector("ytmusic-player-bar");
   if (!playerBar)
     return {
-      current: { title: "", artist: "", album: "" },
+      current: { title: "", artist: "", album: "", art: "" },
       next: { title: "", artist: "" },
       playlistContext: [],
     };
 
   const titleEl = playerBar.querySelector(".content-info-wrapper .title");
   const subtitleEl = playerBar.querySelector(".content-info-wrapper .subtitle");
+  const artEl = playerBar.querySelector(".image") as HTMLImageElement;
 
   let title = titleEl?.textContent?.trim() || "";
   let artist = "";
   let album = "";
+  let art = artEl?.src || "";
 
   if (subtitleEl && subtitleEl.textContent) {
     const parts = subtitleEl.textContent.split("•").map((s) => s.trim());
@@ -196,7 +198,7 @@ const getSongInfo = () => {
   }
 
   return {
-    current: { title: title.replace(/\bExplicit\b/gi, "").trim(), artist, album },
+    current: { title: title.replace(/\bExplicit\b/gi, "").trim(), artist, album, art },
     next: { title: nextTitle.replace(/\bExplicit\b/gi, "").trim(), artist: nextArtist },
     playlistContext,
   };
@@ -237,7 +239,6 @@ audioEl.id = "horis-fm-dj-voice";
 document.body.appendChild(audioEl);
 
 class WebAudioDucker {
-  // ... (retain existing WebAudioDucker code) ...
   public ctx: AudioContext | null = null;
   public source: MediaElementAudioSourceNode | null = null;
   public gainNode: GainNode | null = null;
@@ -418,16 +419,16 @@ const startLiveCall = async () => {
       customPrompt: settings.customStylePrompt || "",
       dualDjMode: settings.dualDjMode || false,
       secondaryPersonaName: settings.dualDjMode ? (DJ_PERSONA_NAMES[settings.secondaryDjVoice as DJVoice]?.[settings.language as AppLanguage] || "Partner") : undefined,
-      onStatusChange: (s) => console.log(`[LiveCall] ${s}`), // Could pipe to UI status
+      onStatusChange: (s) => console.log(`[Hori-s] [LiveCall] ${s}`), // Fixed from multi-replace error
       onUnrecoverableError: () => {
-        console.error("[LiveCall] Error.");
+        console.error("[Hori-s] [LiveCall] Error.");
         updateStatus("IDLE");
         ducker.unduck(1000);
         const video = getMoviePlayer();
         if (video) video.play();
       },
       onCallEnd: () => {
-        console.log("[LiveCall] Ended.");
+        console.log("[Hori-s] [LiveCall] Ended.");
         updateStatus("COOLDOWN");
         // Resume music
         const video = getMoviePlayer();
@@ -446,8 +447,6 @@ const mainLoop = setInterval(() => {
     return;
   }
 
-  // ... (retain existing mount check) ...
-
   const timeData = getScrapedTime();
   if (!timeData) return;
   const { currentTime, duration } = timeData;
@@ -455,7 +454,7 @@ const mainLoop = setInterval(() => {
   const video = getMoviePlayer();
   const isPaused = video ? video.paused : false;
 
-  // Don't run loop logic if we are in a LIVE CALL (we control pause manually)
+  // Don't run loop logic if we are in a LIVE CALL
   if (state.status === "LIVE_CALL") return;
 
   if (isPaused && state.status !== "PLAYING") return;
@@ -472,6 +471,11 @@ const mainLoop = setInterval(() => {
     state.generatedForSig = null;
     state.lastSongChangeTs = Date.now();
     if (!audioEl.paused) ducker.duck(50);
+
+    // Update album art global variable for themes
+    if (current.art) {
+      document.documentElement.style.setProperty('--horis-album-art', `url("${current.art}")`);
+    }
   }
 
   state.lastTime = currentTime;
@@ -484,19 +488,13 @@ const mainLoop = setInterval(() => {
 
   // GENERATION LOGIC
   if (state.status === "IDLE" && !alreadyGenerated) {
-    // If a call is pending, we MIGHT skip generation to save resources, 
-    // OR we generate as backup? 
-    // Let's SKIP generation if call is pending, because call takes precedence.
     if (state.pendingCall) {
-      // Just wait for end of song
-      state.generatedForSig = sig; // Mark as "handled" so we don't spam
+      state.generatedForSig = sig; // Mark as "handled"
       console.log("[Hori-s] 📞 Call pending. Skipping standard generation.");
       return;
     }
 
     if ((isPastTriggerPoint && hasEnoughTime) || forceGenerate) {
-      // ... (retain existing standard generation logic) ...
-      // (NOTE: COPY-PASTE THE EXISTING GENERATION LOGIC HERE FROM ORIGINAL FILE)
       if (forceGenerate) (state as any).forceGenerate = false;
       if (Date.now() - state.lastSongChangeTs < 5000) return;
       if (!current.title || !current.artist) return;
@@ -585,7 +583,6 @@ const mainLoop = setInterval(() => {
   }
 
   // TRIGGER LOGIC
-  // If call is pending, check time
   if (state.pendingCall) {
     const freshTime = getScrapedTime();
     if (freshTime) {

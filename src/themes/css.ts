@@ -187,18 +187,373 @@ export const base_variables = `
 `;
 
 export const appleMusicThemeCss = `
-  :root {
-    --ts-theme-apple-4-color: #2c2c2c;
-    --ts-theme-apple-2-color: #1f1f1f;
-    --ts-theme-apple-5-color: #141414;
-    --ts-theme-apple-3-color: #333333;
-    
-    --ts-navbar-color: linear-gradient(178deg, var(--ts-theme-apple-4-color) 60%, var(--ts-theme-apple-2-color) 140%);
-    --ts-sidebar-color: linear-gradient(160deg, var(--ts-theme-apple-4-color) 20%, var(--ts-theme-apple-2-color) 45%, var(--ts-theme-apple-5-color) 70%);
-    --ts-playerpage-color: radial-gradient(circle at 80% 600%, var(--ts-theme-apple-3-color) 80%, var(--ts-theme-apple-5-color) 86%, var(--ts-theme-apple-2-color) 94%, var(--ts-theme-apple-4-color) 98%);
-    --ts-playerbar-color: linear-gradient(176deg, var(--ts-theme-apple-5-color) 0%, var(--ts-theme-apple-3-color) 50%);
-    --ts-playerpageavtoggle-color: #444;
+  @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 
-    --ts-bgcolor-transition: transform 300ms ease-in-out;
+  :root {
+    --ts-theme-apple-bg: #000000;
+    --ts-theme-apple-glass: rgba(25, 25, 27, 0.45);
+    --ts-theme-apple-glass-bright: rgba(255, 255, 255, 0.12);
+    --ts-theme-apple-border: rgba(255, 255, 255, 0.12);
+    --ts-theme-apple-text-dim: rgba(255, 255, 255, 0.55);
+    --ts-theme-apple-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    
+    --ts-ruler-secondary-color: var(--ts-theme-apple-border);
+
+    /* FORCE OVERRIDE RED DEFAULTS */
+    --ts-navbar-color: transparent !important;
+    --ts-sidebar-color: var(--ts-theme-apple-glass) !important;
+    --ts-playerpage-color: transparent !important;
+    --ts-playerpageavtoggle-color: transparent !important;
+    --ts-playerbar-color: var(--ts-theme-apple-glass) !important;
+    --ts-body-color: var(--ts-theme-apple-bg) !important;
+  }
+
+  /* FORCE TRANSPARENCY ON YTM LAYOUT */
+  body, 
+  ytmusic-app,
+  ytmusic-app-layout,
+  ytmusic-browse,
+  ytmusic-browse-response,
+  ytmusic-section-list-renderer,
+  ytmusic-playlist-shelf-renderer,
+  ytmusic-grid-renderer,
+  ytmusic-item-section-renderer,
+  ytmusic-shelf-renderer,
+  ytmusic-player-page,
+  ytmusic-player-bar,
+  ytmusic-nav-bar,
+  #nav-bar,
+  #content,
+  #contents,
+  #background,
+  #nav-bar-background,
+  #player-bar-background,
+  #guide-wrapper,
+  #player-page,
+  .background-gradient,
+  #alert-banner,
+  #header.ytmusic-browse-response,
+  #alerts.ytmusic-browse-response,
+  #content-wrapper.ytmusic-browse-response {
+    background-color: transparent !important;
+    background: transparent !important;
+    background-image: none !important;
+  }
+
+  /* PLAYER PAGE REFINEMENT */
+  ytmusic-player-page {
+    /* Keep default z-index/positioning but add glass background */
+    background: transparent !important; 
+  }
+
+  ytmusic-app-layout[player-page-open] ytmusic-player-page {
+    background: rgba(0, 0, 0, 0.45) !important;
+    backdrop-filter: blur(100px) saturate(180%) brightness(1.0) !important;
+    -webkit-backdrop-filter: blur(100px) saturate(180%) brightness(1.0) !important;
+  }
+
+  /* GLASS CONTEXT MENUS & POPUPS */
+  ytmusic-menu-popup-renderer {
+    background: var(--ts-theme-apple-glass) !important;
+    backdrop-filter: blur(40px) saturate(210%) brightness(1.2) !important;
+    -webkit-backdrop-filter: blur(40px) saturate(210%) brightness(1.2) !important;
+    border: 1px solid var(--ts-theme-apple-border) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.7) !important;
+    overflow: hidden !important;
+    padding: 8px 0 !important;
+  }
+
+  /* SEARCH SUGGESTIONS */
+  ytmusic-search-suggestions-section {
+    background: rgba(25, 25, 27, 0.95) !important;
+    backdrop-filter: blur(25px) !important;
+    border: 1px solid var(--ts-theme-apple-border) !important;
+    border-radius: 12px !important;
+    margin-top: 8px !important;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.5) !important;
+  }
+
+  tp-yt-paper-listbox,
+  tp-yt-iron-dropdown {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  ytmusic-menu-navigation-item-renderer,
+  ytmusic-menu-service-item-renderer {
+    border-radius: 6px !important;
+  }
+
+  ytmusic-menu-navigation-item-renderer:hover,
+  ytmusic-menu-service-item-renderer:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  /* NOISE TEXTURE OVERLAY */
+  html::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.04;
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* DYNAMIC VIBRANT BACKGROUND */
+  html::before {
+    content: "";
+    position: fixed;
+    top: -25%;
+    left: -25%;
+    width: 150%;
+    height: 150%;
+    background-image: var(--horis-album-art);
+    background-size: cover;
+    background-position: center;
+    filter: blur(120px) saturate(2.8) brightness(0.6);
+    z-index: -10;
+    transition: background-image 2.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* DEPTH VIGNETTE */
+  html {
+    background-color: #000 !important;
+    font-family: var(--ts-theme-apple-font) !important;
+  }
+  
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at center, transparent 70%, rgba(0,0,0,0.3) 160%); /* Ultra soft vignette */
+    pointer-events: none;
+    z-index: -5;
+  }
+
+  /* MACHINED GLASS PANELS (Glassmorphism 2.0) */
+  /* Applied to standard elements without changing their position/size */
+  #nav-bar-background, 
+  #player-bar-background,
+  #guide-wrapper,
+  ytmusic-player-bar {
+    background: transparent !important; /* Force transparent base to remove dark/red tint */
+    background-image: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 100%) !important;
+    backdrop-filter: blur(80px) saturate(240%) brightness(1.2) !important;
+    -webkit-backdrop-filter: blur(80px) saturate(240%) brightness(1.2) !important;
+    border-bottom: 1px solid var(--ts-theme-apple-border) !important;
+    box-shadow: inset 0 -1px 1px rgba(0,0,0,0.2) !important;
+    transition: none !important;
+  }
+  
+  /* Ensure the nav bar specifically doesn't have extra layers */
+  #nav-bar-background {
+    background-color: transparent !important;
+    opacity: 1 !important; /* Keep it visible for the blur, just remove the color */
+  }
+
+  /* Remove Floating Styles from Player Bar */
+  ytmusic-player-bar {
+    border-radius: 0 !important; /* Full width means no corners usually, or only top corners */
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  
+  /* SEARCH BOX - Keep appearance but reset position */
+  ytmusic-search-box {
+    --ytmusic-search-background: rgba(40, 40, 42, 0.5) !important;
+    border-radius: 8px !important;
+    background: rgba(40, 40, 42, 0.5) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+  }
+  
+  ytmusic-search-box[opened] {
+    border-radius: 8px 8px 0 0 !important;
+    border-bottom: none !important;
+  }
+  
+  /* TOP LEFT NAV SECTION (Logo & Menu) */
+  /* Ensure this matches the sidebar theme as requested */
+  #left-content.ytmusic-nav-bar {
+    background: transparent !important; /* Ensure global glass shows through */
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  /* Style the Guide (Hamburger) Button to match sidebar items */
+  #guide-button.ytmusic-nav-bar {
+    border-radius: 6px !important;
+    margin-right: 8px !important;
+    width: 40px !important;
+    height: 40px !important;
+    padding: 8px !important;
+  }
+  
+  #guide-button.ytmusic-nav-bar:hover {
+    background: rgba(255,255,255,0.1) !important;
+  }
+  
+  /* Logo adjustment */
+  ytmusic-logo.ytmusic-nav-bar {
+    margin-left: 4px !important;
+  }
+
+  /* HIDE FULLBLEED IMAGE HARDEGES */
+  ytmusic-fullbleed-thumbnail-renderer,
+  ytmusic-fullbleed-thumbnail-renderer img {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+
+  /* SIDEBAR - Keep glass but reset floating layout */
+  #guide-wrapper {
+    margin: 0 !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    width: 240px !important; /* Default width approx */
+    background: transparent !important;
+  }
+  
+  /* FORCE REMOVE SCROLL OVERLAY ON SIDEBAR */
+  #mini-guide-background {
+    opacity: 0 !important;
+    display: none !important;
+  }
+  
+  ytmusic-guide-renderer {
+    background: var(--ts-theme-apple-glass) !important;
+    backdrop-filter: blur(80px) saturate(240%) brightness(1.2) !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Guide Entries */
+  ytmusic-guide-entry-renderer {
+    border-radius: 6px !important;
+    margin: 0 8px !important;
+  }
+
+  ytmusic-guide-entry-renderer:hover {
+    background: rgba(255,255,255,0.1) !important;
+  }
+
+  ytmusic-guide-entry-renderer[active] {
+    background: rgba(255,255,255,0.15) !important;
+  }
+
+  /* CONTENT AREA - Reset Padding */
+  #content, ytmusic-browse-response {
+    /* Reset mostly, just ensure background visibility */
+    background: transparent !important;
+  }
+
+  /* HIGH-DYNAMIC PLAYER ART - Keep this as it's nice */
+  ytmusic-player {
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5) !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    background: transparent !important;
+  }
+
+  #song-image {
+    border-radius: 12px !important;
+  }
+
+  /* THIN PROGRESS BARS */
+  #progress-bar.ytmusic-player-bar, 
+  #volume-slider.ytmusic-player-bar {
+    --paper-slider-height: 4px !important;
+    --paper-slider-active-color: #ffffff !important;
+    --paper-slider-secondary-color: rgba(255,255,255,0.2) !important;
+    --paper-slider-container-color: rgba(255,255,255,0.15) !important;
+    --paper-slider-knob-color: #ffffff !important;
+    --paper-slider-knob-start-color: #ffffff !important;
+    --paper-slider-knob-start-border-color: #ffffff !important;
+  }
+
+  /* FORCE WHITE PROGRESS (YTM overrides) */
+  #progress-bar.ytmusic-player-bar {
+    --paper-slider-active-color: #fff !important;
+  }
+  
+  #progress-bar.ytmusic-player-bar #sliderKnob,
+  #volume-slider.ytmusic-player-bar #sliderKnob,
+  #progress-bar.ytmusic-player-bar .slider-knob,
+  #volume-slider.ytmusic-player-bar .slider-knob {
+    display: none !important;
+    opacity: 0 !important;
+  }
+  
+  tp-yt-paper-slider:hover #sliderKnob,
+  tp-yt-paper-slider:hover .slider-knob {
+    display: block !important;
+    opacity: 1 !important;
+    transform: scale(0.8) !important;
+  }
+
+  /* PREMIUM SELECTION PILLS */
+  ytmusic-player-queue-item[selected] {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-radius: 12px !important;
+    backdrop-filter: brightness(1.4) contrast(1.1);
+  }
+
+  /* TYPOGRAPHY */
+  .title.ytmusic-player-bar {
+    font-size: 16px !important; /* Slightly larger than default but not huge */
+    font-weight: 600 !important;
+    color: #fff !important;
+    font-family: var(--ts-theme-apple-font) !important;
+  }
+
+  .subtitle.ytmusic-player-bar {
+    color: var(--ts-theme-apple-text-dim) !important;
+    font-family: var(--ts-theme-apple-font) !important;
+  }
+
+  /* CLEAN UP DEV UI */
+  .time-info.ytmusic-player-bar {
+    font-weight: 500 !important;
+    font-variant-numeric: tabular-nums !important;
+  }
+
+  /* HIDE DEV ELEMENTS */
+  .hp-status-text, 
+  .hp-dev-icon,
+  #status-indicator,
+  .status-text,
+  ytmusic-player-bar [class*="dev-"],
+  ytmusic-player-bar [id*="dev-"] {
+    display: none !important;
+  }
+
+  /* BUTTON HOVER EFFECTS */
+  tp-yt-paper-icon-button:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 50% !important;
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar {
+    width: 8px !important;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-radius: 4px !important;
+  }
+
+  /* CLEANUP */
+  #nav-bar-divider, ytmusic-player-queue-item {
+    border-bottom: none !important;
+    border-top: none !important;
   }
 `;
+
+
+
