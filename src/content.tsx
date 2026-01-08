@@ -449,10 +449,12 @@ const startLiveCall = async () => {
       onStatusChange: (s) => console.log(`[Hori-s] [LiveCall] ${s}`), // Fixed from multi-replace error
       onUnrecoverableError: () => {
         console.error("[Hori-s] [LiveCall] Error.");
-        updateStatus("IDLE");
-        ducker.unduck(TIMING.SONG_CHECK_INTERVAL);
+        // Bug #5 fix: Use same status transition as onCallEnd for UI consistency
+        updateStatus("COOLDOWN");
+        ducker.unduck(TIMING.DUCK_DURATION);
         const video = getMoviePlayer();
         if (video) video.play();
+        setTimeout(() => updateStatus("IDLE"), TIMING.COOLDOWN_PERIOD);
       },
       onCallEnd: () => {
         console.log("[Hori-s] [LiveCall] Ended.");
