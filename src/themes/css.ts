@@ -87,7 +87,8 @@ export const backgrounds = /*css*/ `
   /* if an alpha color is specified, this will let the "hue" lights on the homepage show through */
   --ts-body-alpha-gradient-color: var(--ts-body-color);
 
-  --ts-bgcolor-transition: background 0.3s linear;
+  /* PERF: avoid animating large surfaces via CSS variables; this caused constant repaints when palette vars update */
+  --ts-bgcolor-transition: none;
   --yt-spec-inverted-background: var(--ts-body-color);
 }
 
@@ -105,7 +106,6 @@ export const backgrounds = /*css*/ `
 
 body {
   background: var(--ts-body-color);
-  transition: var(--ts-bgcolor-transition) !important;
 }
 
 ytmusic-browse-response[has-background]:not([disable-gradient]) .background-gradient.ytmusic-browse-response {
@@ -114,7 +114,6 @@ ytmusic-browse-response[has-background]:not([disable-gradient]) .background-grad
     var(--ts-body-alpha-gradient-color),
     var(--ts-body-color) 40%
   );
-  transition: var(--ts-bgcolor-transition) !important;
   background-size: 100vw 100vh;
 }
 
@@ -129,7 +128,8 @@ ytmusic-browse-response[has-background]:not([disable-gradient])[page-type=MUSIC_
 ytmusic-player-page,
 #player-page {
   background: var(--ts-playerpage-color) !important;
-  transition: transform 300ms cubic-bezier(0.2,0,0.6,1), var(--ts-bgcolor-transition);
+  /* PERF: keep the open/close transform animation, drop background transitions */
+  transition: transform 300ms cubic-bezier(0.2,0,0.6,1);
 }
 
 #main-panel {
@@ -138,33 +138,30 @@ ytmusic-player-page,
 
 #song-image {
   background: var(--ts-playerpage-color) !important;
-  transition: transform 300ms cubic-bezier(0.2,0,0.6,1), var(--ts-bgcolor-transition);
+  /* PERF: keep transform only */
+  transition: transform 300ms cubic-bezier(0.2,0,0.6,1);
 }
 
 #nav-bar-background {
   background: var(--ts-navbar-color) !important;
-  transition: opacity 0.2s, var(--ts-bgcolor-transition) !important;
+  transition: opacity 0.2s !important;
 }
 
 #player-bar-background {
   background: var(--ts-playerbar-color) !important;
-  transition: var(--ts-bgcolor-transition) !important;
 }
 
 /* sidebar */
 #guide-wrapper {
   background: var(--ts-sidebar-color) !important;
-  transition: var(--ts-bgcolor-transition) !important;
 }
 
 #mini-guide-background {
   background: var(--ts-sidebar-color) !important;
-  transition: var(--ts-bgcolor-transition) !important;
 }
 
 ytmusic-player-bar {
   --ytmusic-player-bar-background: var(--ts-playerbar-color) !important;
-  transition: var(--ts-bgcolor-transition) !important;
 }
 
 ytmusic-app-layout[player-fullscreened] > [slot=player-bar] {
@@ -277,9 +274,9 @@ ytmusic-notification-text-renderer[toast-style=TOAST_STYLE_GRADIENT] #toast.ytmu
   background-color: var(--ts-base-10-color);
 }
 
-/* image filters */
+/* PERF: filters on large images are expensive during scroll and palette updates */
 .immersive-background ytmusic-fullbleed-thumbnail-renderer {
-  filter: saturate(2) var(--ts-image-filter-brightness, brightness(1));
+  filter: none !important;
 }
 
 /* pick artists you like footer */
@@ -302,17 +299,23 @@ ytmusic-player-page[is-mweb-modernization-enabled][player-page-ui-state=TABS_VIE
 }
 
 ytmusic-player-page[is-mweb-modernization-enabled] .background-thumbnail.ytmusic-player-page {
-  filter: blur(80px) brightness(2) saturate(2);
+  /* PERF: remove huge blur (very costly on large layers). Keep subtle ambience via opacity only. */
+  filter: none !important;
+  opacity: 0.25;
 }
 
 /* playlist layout */
 ytmusic-browse-response[has-background][page-type=MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE] .immersive-background.ytmusic-browse-response ytmusic-fullbleed-thumbnail-renderer.ytmusic-browse-response, ytmusic-browse-response[has-background][page-type=MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE] .immersive-background.ytmusic-browse-response ytmusic-fullbleed-thumbnail-renderer.ytmusic-browse-response, ytmusic-browse-response[has-background][is-bauhaus-web-playlist-detail-page-redesign-enabled] .immersive-background.ytmusic-browse-response ytmusic-fullbleed-thumbnail-renderer.ytmusic-browse-response, ytmusic-browse-response[has-background][is-bauhaus-web-album-detail-page-redesign-enabled] .immersive-background.ytmusic-browse-response ytmusic-fullbleed-thumbnail-renderer.ytmusic-browse-response {
-  filter: blur(80px) saturate(3);
+  /* PERF: remove blur/saturate filter work from scrolling lists */
+  filter: none !important;
+  opacity: 0.25;
 }
 
 /* when searching for something */
 html[light] .immersive-background.ytmusic-card-shelf-renderer ytmusic-fullbleed-thumbnail-renderer.ytmusic-card-shelf-renderer {
-  filter: blur(60px) brightness(3) saturate(2);
+  /* PERF: remove expensive blur/brightness */
+  filter: none !important;
+  opacity: 0.25;
 }
 
 ytmusic-network-status-banner[current-state=OFFLINE] {
@@ -650,7 +653,8 @@ ytmusic-responsive-header-renderer {
 export const coloredPlayerBg = /*css*/ `
   ytmusic-player {
     background-color: var(--ts-playerpage-color);
-    transition: var(--ts-bgcolor-transition);
+    /* PERF: avoid background transitions on large surfaces */
+    transition: none !important;
   }
 `;
 
@@ -690,75 +694,30 @@ export const playBarTextAndIconsColor = /*css*/ `
 
 /* June 2023. Album image on player page is directly touching the player bar. */
 export const fixNoMarginBottomOnNowPlayingAlbumImage = /*css*/ `
-  #player-page:not([video-mode]) {
-    container-type: inline-size;
-    container-name: player-page;
-  }
-
-  ytmusic-player-page:not([video-mode]):not([player-fullscreened]) #player.ytmusic-player-page {
-    max-width: 900px;
-  }
+  /*
+    PERF: Container queries force additional style resolution work and this block had many breakpoints.
+    Replace with a small set of media queries + clamp() to keep layout stable with far fewer rules.
+  */
 
   .av.ytmusic-player-page {
-    padding-bottom: 5px !important;
+    padding-bottom: 12px !important;
   }
 
-  @container player-page (max-width: 839px) {
+  @media (max-width: 839px) {
     .av.ytmusic-player-page {
-      padding-bottom: 15px !important;
+      padding-bottom: 16px !important;
     }
   }
 
-  @container player-page (min-width: 840px) and (max-width: 999px) {
-    #main-panel {
-      padding: 0 calc(39% - 45vh) !important;
-    }
-
-    ytmusic-player-page:not([video-mode]):not([player-fullscreened]) #player.ytmusic-player-page {
-      max-width: 500px;
-    }
+  /* Keep player reasonably sized on typical viewports */
+  ytmusic-player-page:not([video-mode]):not([player-fullscreened]) #player.ytmusic-player-page {
+    max-width: min(900px, 92vw);
   }
 
-  @container player-page (min-width: 1000px) and (max-width: 1199px) {
-    #main-panel {
-      padding: 0 calc(38% - 42vh) !important;
-    }
-  }
-
-  @container player-page (min-width: 1200px) and (max-width: 1399px) {
-    #main-panel {
-      padding: 0 calc(37% - 42vh) !important;
-    }
-  }
-
-  @container player-page (min-width: 1400px) and (max-width: 1599px) {
-    #main-panel {
-      padding: 0 calc(36% - 42vh) !important;
-    }
-  }
-
-  @container player-page (min-width: 1600px) and (max-width: 1799px) {
-    #main-panel {
-      padding: 0 calc(35% - 42vh) !important;
-    }
-  }
-
-  @container player-page (min-width: 1800px) and (max-width: 1999px) {
-    #main-panel {
-      padding: 0 calc(34% - 42vh) !important;
-    }
-  }
-
-  @container player-page (min-width: 2000px) and (max-width: 2199px) {
-    #main-panel {
-      padding: 0 calc(34% - 42vh) !important;
-    }
-  }
-
-  @container player-page (min-width: 2200px) and (max-width: 2400px) {
-    #main-panel {
-      padding: 0 calc(34% - 42vh) !important;
-    }
+  /* Smooth, responsive padding without a cascade of breakpoints */
+  #main-panel {
+    padding-left: clamp(0px, 3vw, 64px) !important;
+    padding-right: clamp(0px, 3vw, 64px) !important;
   }
 `;
 
@@ -813,7 +772,8 @@ export const popupStyling = /*css*/ `
 /* on playerpage, when collapsing and un-collapsing sidebar, 
 a scrollbar track shows up on the right. */
 export const playerPageScrollbarShowsWhenSidebar = /*css*/ `
-  html[os="windows"]:has(#layout[player-ui-state="PLAYER_PAGE_OPEN"]) {
+  /* PERF: Avoid using the :has() relational selector. Use the existing state class instead. */
+  html[os="windows"].ts-player-page-open {
     scrollbar-width: none;
     margin-right: 17px;
   }
@@ -1077,42 +1037,26 @@ ytmusic-responsive-list-item-renderer[play-button-state=paused] yt-icon {
 `;
 
 export const frosted_glass = /*css*/ `
-:root {
-  --ts-frosted-glass-blur: blur(8px);
-}
+/*
+  PERF:
+  - backdrop-filter is one of the most expensive CSS effects in Chrome.
+  - The previous implementation applied blur to sticky headers/nav/search and caused continuous
+    repaint/compositing during scroll.
+  - We keep this module but make it a cheap “frosted” look with NO blur.
+*/
 
-#nav-bar-background {
-  backdrop-filter: var(--ts-frosted-glass-blur);
-}
-
-#player-bar-background {
-  backdrop-filter: var(--ts-frosted-glass-blur);
-}
-
-ytmusic-item-section-renderer.stuck #header.ytmusic-item-section-renderer {
-  backdrop-filter: var(--ts-frosted-glass-blur);
-}
-
-ytmusic-tabs.stuck {
-  backdrop-filter: var(--ts-frosted-glass-blur);
-  box-shadow: none !important;
-}
-
-tp-yt-iron-dropdown {
-  backdrop-filter: var(--ts-frosted-glass-blur);
-}
-
+#nav-bar-background,
+#player-bar-background,
+ytmusic-item-section-renderer.stuck #header.ytmusic-item-section-renderer,
+ytmusic-tabs.stuck,
 ytmusic-search-box {
-  backdrop-filter: var(--ts-frosted-glass-blur);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-tp-yt-paper-dialog {
-  backdrop-filter: var(--ts-frosted-glass-blur);
-}
-
-/* sidebar */
-#guide-wrapper {
-  backdrop-filter: var(--ts-frosted-glass-blur);
+/* Dropdowns should remain lightweight */
+tp-yt-iron-dropdown {
+  background: var(--ts-playerbar-color) !important;
 }
 `;
 
@@ -1679,6 +1623,13 @@ export const texts = /*css*/ `
   --ts-primary-text-alpha-color: var(--ts-base-100-alpha-07-color);
   --ts-secondary-text-alpha-color: var(--ts-base-100-alpha-03-color);
   --yt-spec-static-overlay-text-secondary: var(--ts-base-100-alpha-07-color);
+
+  /* PERF: prefer updating a small set of platform tokens instead of painting over many element selectors */
+  --yt-spec-text-primary: var(--ts-primary-text-color) !important;
+  --yt-spec-text-secondary: var(--ts-secondary-text-color) !important;
+  --yt-spec-text-disabled: var(--ts-tertiary-text-color) !important;
+  --ytmusic-text-primary: var(--ts-primary-text-color) !important;
+  --ytmusic-text-secondary: var(--ts-secondary-text-color) !important;
 }
 
 :root {
@@ -1700,40 +1651,6 @@ button.ytmusic-sort-filter-button-renderer {
 /* getting the rest of the texts like when clicking on user avatar menu */
 :root {
   --ytmusic-text-primary: var(--ts-primary-text-color, tomato) !important;
-}
-
-/* getting the rest of texts */
-yt-formatted-string {
-  color: var(--ts-primary-text-color);
-}
-
-/* random texts like on the right click menu and some pills and buttons */
-.text {
-  color: var(--ts-primary-text-color, #947a41)!important;
-}
-
-.title {
-  color: var(--ts-primary-text-color, green) !important;
-  --yt-endpoint-color: var(--ts-primary-text-color, red) !important;
-  --yt-endpoint-hover-color: var(--ts-primary-text-color, rebeccapurple) !important;;
-  --yt-endpoint-visited-color: var(--ts-primary-text-color, purple) !important;;
-}
-
-.subtitle {
-  color: var(--ts-secondary-text-color, orange) !important;
-  --yt-endpoint-color: var(--ts-secondary-text-color, teal) !important;
-  --yt-endpoint-hover-color: var(--ts-secondary-text-color, darkred) !important;;
-  --yt-endpoint-visited-color: var(--ts-secondary-text-color, darksalmon) !important;;
-}
-
-/* some random secondary titles */
-.strapline {
-  color: var(--ts-secondary-text-color, dodgerblue) !important;
-}
-
-/* lyrics and description */
-.description {
-  color: var(--ts-primary-text-color, deeppink) !important;
 }
 
 /* large navbar texts (Home, Explore etc) */
@@ -2057,14 +1974,9 @@ export const appleMusicThemeCss = /*css*/ `
     --ts-theme-apple-5-color: oklch(35% calc(var(--ts-palette-darkvibrant-c) * 0.35) var(--ts-palette-darkvibrant-h, var(--ts-main-hue)));
     --ts-theme-apple-3-color: oklch(32% calc(var(--ts-palette-muted-c) * 0.3) var(--ts-palette-muted-h, var(--ts-main-hue)));
     
-    --ts-bgcolor-transition: background 1.2s cubic-bezier(0.2, 0, 0.6, 1), 
-                             --ts-theme-apple-2-color 1.2s cubic-bezier(0.2, 0, 0.6, 1),
-                             --ts-theme-apple-3-color 1.2s cubic-bezier(0.2, 0, 0.6, 1),
-                             --ts-theme-apple-4-color 1.2s cubic-bezier(0.2, 0, 0.6, 1),
-                             --ts-theme-apple-5-color 1.2s cubic-bezier(0.2, 0, 0.6, 1),
-                             --ts-body-color 1.2s cubic-bezier(0.2, 0, 0.6, 1),
-                             transform 300ms ease-in-out;
-    transition: var(--ts-bgcolor-transition) !important;
+    /* PERF: avoid transitions on palette-driven variables and large surfaces */
+    --ts-bgcolor-transition: none;
+    transition: none !important;
   }
 
 
@@ -2098,14 +2010,13 @@ export const appleMusicThemeCss = /*css*/ `
   ytmusic-app-layout[player-page-open],
   ytmusic-app-layout[player-fullscreened] {
     --ts-body-color: var(--ts-theme-apple-5-color) !important;
-    --ts-navbar-color: linear-gradient(178deg, var(--ts-theme-apple-4-color) 60%, var(--ts-theme-apple-2-color) 140%);
-    --ts-sidebar-color: linear-gradient(160deg, var(--ts-theme-apple-4-color) 20%, var(--ts-theme-apple-2-color) 45%, var(--ts-theme-apple-5-color) 70%);
-    --ts-playerpage-color: radial-gradient(circle at 80% 600%, var(--ts-theme-apple-3-color) 80%, var(--ts-theme-apple-5-color) 86%, var(--ts-theme-apple-2-color) 94%, var(--ts-theme-apple-4-color) 98%);
-    --ts-playerbar-color: linear-gradient(176deg, var(--ts-theme-apple-5-color) 0%, var(--ts-theme-apple-3-color) 50%);
+    --ts-navbar-color: linear-gradient(178deg, var(--ts-theme-apple-4-color) 0%, var(--ts-theme-apple-5-color) 100%);
+    --ts-sidebar-color: linear-gradient(180deg, var(--ts-theme-apple-4-color) 0%, var(--ts-theme-apple-5-color) 100%);
+    --ts-playerpage-color: linear-gradient(135deg, var(--ts-theme-apple-4-color) 0%, var(--ts-theme-apple-3-color) 40%, var(--ts-theme-apple-5-color) 100%);
+    --ts-playerbar-color: linear-gradient(180deg, var(--ts-theme-apple-5-color) 0%, var(--ts-theme-apple-3-color) 100%);
     --ts-playerpageavtoggle-color: var(--ts-theme-apple-2-color);
     
     /* Re-map YTM internals when player is open to ensure no black gaps */
-
     --ytmusic-general-background-c: var(--ts-theme-apple-5-color) !important;
     --ytmusic-player-page-background: var(--ts-playerpage-color) !important;
   }
@@ -2149,7 +2060,7 @@ export const appleMusicThemeCss = /*css*/ `
   ytmusic-player-page,
   #player-page {
     background: var(--ts-playerpage-color) !important;
-    transition: var(--ts-bgcolor-transition);
+    transition: none !important;
   }
 
   /* Force AV Toggle to use dynamic color when player is open */
@@ -2163,7 +2074,7 @@ export const appleMusicThemeCss = /*css*/ `
 
   ytmusic-player[player-ui-state=PLAYER_PAGE_OPEN] {
     background: transparent !important;
-    transition: var(--ts-bgcolor-transition);
+    transition: none !important;
   }
 
   /* Global Browse Mode Overrides */
@@ -2192,7 +2103,8 @@ export const appleMusicThemeCss = /*css*/ `
     border-radius: 0;
   }
 
-  a:has(> ytmusic-thumbnail-renderer[thumbnail-crop="MUSIC_THUMBNAIL_CROP_UNSPECIFIED"]) {
+  /* PERF: remove :has(); apply shadow directly to the thumbnail */
+  ytmusic-thumbnail-renderer[thumbnail-crop="MUSIC_THUMBNAIL_CROP_UNSPECIFIED"] {
     box-shadow: 0 4px 8px rgb(0 0 0 / 0.2);
   }
 
@@ -2236,7 +2148,7 @@ export const appleMusicThemeCss = /*css*/ `
   /* Player page open state - make sure it uses the global variable */
   ytmusic-player[player-ui-state=PLAYER_PAGE_OPEN] {
     background: transparent !important;
-    transition: var(--ts-bgcolor-transition);
+    transition: none !important;
   }
 
   /* Apple Music Theme Accent Color */
@@ -2252,8 +2164,7 @@ export const appleMusicThemeCss = /*css*/ `
 export const modalStyles = /*css*/ `
   .modal-backdrop {
     background-color: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(12px) saturate(180%);
-    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    /* PERF: backdrop-filter removed */
   }
 
   .modal-container {
@@ -2269,14 +2180,14 @@ export const modalStyles = /*css*/ `
   .modal-section {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    transition: all 0.3s ease;
+    transition: background 0.3s ease, border-color 0.3s ease;
   }
 
   .modal-input {
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: white;
-    transition: all 0.3s ease;
+    transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   }
 
   .modal-input:focus {
@@ -2292,7 +2203,7 @@ export const modalStyles = /*css*/ `
 
   .modal-dropdown {
     background: var(--ts-playerbar-color);
-    backdrop-filter: blur(16px) saturate(180%);
+    /* PERF: backdrop-filter removed */
     border: 1px solid var(--ts-base-100-alpha-01-color);
     box-shadow: 10px 10px 20px rgba(0,0,0,0.5);
   }
