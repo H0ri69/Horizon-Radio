@@ -28,7 +28,7 @@ export const SettingsToggle: React.FC<SettingsToggleProps> = ({ label, descripti
           </div>
           <div>
             <div className="font-bold text-xl text-white">{label}</div>
-            <div className="text-base text-white/60 mt-1 font-medium">{description}</div>
+            <div className="text-lg text-white/60 mt-1 font-medium">{description}</div>
           </div>
         </div>
         <div className={`w-14 h-8 rounded-full p-1 transition-colors ${enabled ? "bg-indigo-500" : "bg-white/10"}`}>
@@ -77,7 +77,7 @@ export const SettingsSlider: React.FC<SettingsSliderProps> = ({
       <div className="flex justify-between items-center mb-10">
         <div>
           <div className="text-white font-bold text-lg mb-1">{label}</div>
-          <div className="text-white/60 text-sm">{description}</div>
+          <div className="text-white/60 text-base">{description}</div>
         </div>
         <div className="font-mono text-indigo-400 bg-indigo-500/10 px-4 py-2 rounded-xl border border-indigo-500/20 text-lg font-bold">
           {formatValue ? formatValue(value) : `${Math.round(percentage)}%`}
