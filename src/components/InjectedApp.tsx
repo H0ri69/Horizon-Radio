@@ -3,6 +3,7 @@ import { PlayerControls } from "./PlayerControls";
 import { SettingsModal } from "./SettingsModal";
 import { CallModal } from "./CallModal"; // Import CallModal
 import { ThemeManager } from "../themes/ThemeManager";
+import { PaletteExtractor } from "../themes/PaletteExtractor";
 
 interface InjectedAppProps {
   ducker: any; // Type as WebAudioDucker if exported
@@ -47,6 +48,7 @@ export const InjectedApp: React.FC<InjectedAppProps> = ({ ducker }) => {
 
   return (
     <>
+      {visualTheme === "Apple Music" && <PaletteExtractor />}
       <ThemeManager theme={visualTheme} />
       <PlayerControls
         onOpenSettings={() => setIsSettingsOpen(true)}
