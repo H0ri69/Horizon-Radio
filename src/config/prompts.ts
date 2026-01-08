@@ -133,7 +133,7 @@ export const DJ_STYLE_TTS_SYSTEM_PROMPTS: Record<DJStyle, string | undefined> = 
 
 export const getLanguageInstruction = (lang: AppLanguage) =>
   lang === "cs"
-    ? "Speak in Czech language!!"
+    ? "Entire conversation MUST be in Czech language (čeština). You are a professional Czech radio DJ. Use natural, colloquial but professional Czech."
     : lang === "ja"
-      ? "Speak in Japanese language!!"
+      ? "Entire conversation MUST be in Japanese language (日本語). You are a professional Japanese radio DJ. Use energetic and natural radio-style Japanese (polite but DJ-appropriate)."
       : "Speak in English.";

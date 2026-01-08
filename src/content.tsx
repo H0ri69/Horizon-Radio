@@ -2,7 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { InjectedApp } from "./components/InjectedApp";
 import { Song, DJVoice, AppLanguage } from "./types";
-import { DJStyle } from "./config";
+import { DJStyle, DJ_PERSONA_NAMES } from "./config";
 import "./index.css"; // Inject Tailwind Styles
 
 // Prevent running in iframes
@@ -263,7 +263,7 @@ class WebAudioDucker {
     }
   }
 
-  public async duck(duration: number = 2000) {
+  public async duck(duration: number = 2000, targetGain: number = 0.2) {
     const video = document.querySelector("video");
     if (!video) return;
     this.init(video);
@@ -271,7 +271,7 @@ class WebAudioDucker {
     const now = this.ctx.currentTime;
     this.gainNode.gain.cancelScheduledValues(now);
     this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
-    this.gainNode.gain.linearRampToValueAtTime(0.2, now + duration / 1000);
+    this.gainNode.gain.linearRampToValueAtTime(targetGain, now + duration / 1000);
   }
 
   public async unduck(duration: number = 3000) {
@@ -414,6 +414,10 @@ const startLiveCall = async () => {
       nextSongArtist: callData.song ? "Requested Artist" : (next.artist || "Unknown"),
       voice: settings.voice || "Charon",
       language: settings.language || "en",
+      style: settings.djStyle || "Standard (Radio Host)",
+      customPrompt: settings.customStylePrompt || "",
+      dualDjMode: settings.dualDjMode || false,
+      secondaryPersonaName: settings.dualDjMode ? (DJ_PERSONA_NAMES[settings.secondaryDjVoice as DJVoice]?.[settings.language as AppLanguage] || "Partner") : undefined,
       onStatusChange: (s) => console.log(`[LiveCall] ${s}`), // Could pipe to UI status
       onUnrecoverableError: () => {
         console.error("[LiveCall] Error.");

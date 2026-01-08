@@ -13,6 +13,7 @@ import {
   getMarkupTagGuidance,
   lowestSafetySettings,
   MODEL_MAPPING,
+  VOICE_PROFILES,
 } from "../config";
 import { GeminiModelTier } from "../types";
 
@@ -325,8 +326,13 @@ export const generateDJIntro = async (
 
     let prompt = "";
     let selectedThemeIndex: number | null = null;
-    const host1Name = DJ_PERSONA_NAMES[voice]?.[language] || "DJ 1";
-    const host2Name = DJ_PERSONA_NAMES[secondaryVoice]?.[language] || "DJ 2";
+    const host1Profile = VOICE_PROFILES.find(p => p.id === voice);
+    const host2Profile = secondaryVoice ? VOICE_PROFILES.find(p => p.id === secondaryVoice) : null;
+
+    const host1Name = host1Profile?.personaNames[language] || "DJ 1";
+    const host2Name = host2Profile?.personaNames[language] || "DJ 2";
+    const host1Gender = host1Profile?.gender || "Male";
+    const host2Gender = host2Profile?.gender || "Male";
 
     if (dualDjMode) {
       let longMessageTheme = "";
@@ -335,7 +341,7 @@ export const generateDJIntro = async (
         selectedThemeIndex = themeSelection.index;
         longMessageTheme = themeSelection.theme.replace("${location}", userTimezone);
       }
-      prompt = `TWO Radio DJs covering Hori-s FM shift. HOST 1: ${host1Name}, HOST 2: ${host2Name}. Ending: ${currentSong.title}, Starting: ${nextSong?.title}. Tone: ${styleInstruction}. ${isLongMessage ? `Theme: ${longMessageTheme}` : SHORT_MESSAGE_INSTRUCTION}. ${historyBlock} ${playlistBlock} ${dynamicMarkupGuidance} Write banter script. Prefix lines with "${host1Name}: " or "${host2Name}: ". Output ONLY dialogue. ${LENGTH_CONSTRAINT} ${langInstruction}`;
+      prompt = `TWO Radio DJs covering Hori-s FM shift. HOST 1: ${host1Name} (${host1Gender}), HOST 2: ${host2Name} (${host2Gender}). Ending: ${currentSong.title}, Starting: ${nextSong?.title}. Tone: ${styleInstruction}. ${isLongMessage ? `Theme: ${longMessageTheme}` : SHORT_MESSAGE_INSTRUCTION}. ${historyBlock} ${playlistBlock} ${dynamicMarkupGuidance} Write banter script using correct gendered grammar. Prefix lines with "${host1Name}: " or "${host2Name}: ". Output ONLY dialogue. ${LENGTH_CONSTRAINT} ${langInstruction}`;
       const script = await generateScript(prompt, textModel);
       if (!script) return { audio: null, themeIndex: null };
 
@@ -347,7 +353,7 @@ export const generateDJIntro = async (
     }
 
     if (nextSong?.requestedBy) {
-      prompt = `DJ on Hori-s FM. Listener ${nextSong.requestedBy} requested ${nextSong.title}. Message: ${nextSong.requestMessage}. Shout out listener. ${LENGTH_CONSTRAINT} ${dynamicMarkupGuidance} ${langInstruction}`;
+      prompt = `DJ ${host1Name} (${host1Gender}) on Hori-s FM. Listener ${nextSong.requestedBy} requested ${nextSong.title}. Message: ${nextSong.requestMessage}. Shout out listener. Use correct gendered grammar. ${LENGTH_CONSTRAINT} ${dynamicMarkupGuidance} ${langInstruction}`;
     } else {
       let longMessageTheme = "";
       if (isLongMessage) {
@@ -355,7 +361,7 @@ export const generateDJIntro = async (
         selectedThemeIndex = themeSelection.index;
         longMessageTheme = themeSelection.theme.replace("${location}", userTimezone);
       }
-      prompt = `DJ on Hori-s FM. Ending: ${currentSong.title}, Starting: ${nextSong?.title}. Tone: ${styleInstruction}. ${isLongMessage ? `Theme: ${longMessageTheme}` : SHORT_MESSAGE_INSTRUCTION}. ${historyBlock} ${playlistBlock} ${dynamicMarkupGuidance} Output ONLY spoken words. ${LENGTH_CONSTRAINT} ${langInstruction}`;
+      prompt = `DJ ${host1Name} (${host1Gender}) on Hori-s FM. Ending: ${currentSong.title}, Starting: ${nextSong?.title}. Tone: ${styleInstruction}. ${isLongMessage ? `Theme: ${longMessageTheme}` : SHORT_MESSAGE_INSTRUCTION}. ${historyBlock} ${playlistBlock} ${dynamicMarkupGuidance} Write using correct gendered grammar. Output ONLY spoken words. ${LENGTH_CONSTRAINT} ${langInstruction}`;
     }
 
     const script = await generateScript(prompt, textModel);
