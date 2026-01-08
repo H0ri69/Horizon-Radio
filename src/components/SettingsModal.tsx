@@ -377,7 +377,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                   >
                     <div className="relative z-10">
                       <div className="font-bold text-xl mb-1">{theme}</div>
-                      <div className="text-sm opacity-50">Studio Color Palette</div>
+                      <div className="text-base opacity-50">Studio Color Palette</div>
                     </div>
                   </button>
                 ))}
@@ -478,7 +478,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                       </div>
                       <div>
                         <div className="text-white font-bold text-xl">Silent Scripting</div>
-                        <div className="text-base text-white/60 mt-1 font-medium">Bypass voice generation for text-only debugging</div>
+                        <div className="text-lg text-white/60 mt-1 font-medium">Bypass voice generation for text-only debugging</div>
                       </div>
                     </div>
                     <button

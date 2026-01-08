@@ -26,7 +26,7 @@ export const SettingsCard: React.FC<SettingsCardProps> = ({ selected, onClick, l
       <div className="flex justify-between items-start w-full">
         <div className="relative z-10 leading-tight w-full">
           <div className={cn("font-bold text-[14px] mb-1", labelClassName)}>{label}</div>
-          {subLabel && <div className="text-xs opacity-50 font-mono uppercase tracking-widest">{subLabel}</div>}
+          {subLabel && <div className="text-sm opacity-50 font-mono uppercase tracking-widest">{subLabel}</div>}
         </div>
         {icon && <span className="text-2xl group-hover:scale-110 transition-transform">{icon}</span>}
       </div>
