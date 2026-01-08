@@ -252,6 +252,18 @@ export const appleMusicThemeCss = `
     -webkit-backdrop-filter: blur(100px) saturate(180%) brightness(1.0) !important;
   }
 
+  /* FIX CLICKABILITY IN PLAYER PAGE QUEUE */
+  ytmusic-player-page * {
+    pointer-events: auto !important;
+  }
+
+  ytmusic-player-queue-item,
+  ytmusic-player-queue-item *,
+  ytmusic-play-button-renderer,
+  ytmusic-menu-renderer {
+    pointer-events: auto !important;
+  }
+
   /* GLASS CONTEXT MENUS & POPUPS */
   ytmusic-menu-popup-renderer {
     background: var(--ts-theme-apple-glass) !important;
@@ -532,7 +544,8 @@ export const appleMusicThemeCss = `
   }
 
   /* CONTENT AREA - Reset Padding */
-  #content {
+  /* IMPORTANT: Use specific selector to avoid affecting #content inside ytmusic-item-thumbnail-overlay-renderer */
+  ytmusic-app-layout > #content {
     /* Reset mostly, just ensure background visibility */
     background: transparent !important;
     margin-left: 80px !important; /* Fix overlap with fixed mini-guide */
