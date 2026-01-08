@@ -222,6 +222,9 @@ export const appleMusicThemeCss = `
   ytmusic-player-page,
   ytmusic-player-bar,
   ytmusic-nav-bar,
+  ytmusic-tabs,
+  #tabs.ytmusic-tabs,
+  .tab-container.ytmusic-tabs,
   #nav-bar,
   #content,
   #contents,
@@ -422,11 +425,30 @@ export const appleMusicThemeCss = `
     border-radius: 8px !important;
     background: rgba(40, 40, 42, 0.5) !important;
     border: 1px solid rgba(255,255,255,0.1) !important;
+    width: 720px !important;
+    max-width: 60% !important;
   }
   
   ytmusic-search-box[opened] {
     border-radius: 8px 8px 0 0 !important;
     border-bottom: none !important;
+  }
+
+  #center-content.ytmusic-nav-bar {
+    display: flex !important;
+    justify-content: center !important;
+    flex-grow: 1 !important;
+    margin: 0 24px !important;
+  }
+  
+  /* NAV BAR LAYERing */
+  ytmusic-nav-bar,
+  #nav-bar,
+  #nav-bar-background {
+    z-index: 100 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
   }
   
   /* TOP LEFT NAV SECTION (Logo & Menu) */
@@ -609,6 +631,48 @@ export const appleMusicThemeCss = `
 
   #song-image {
     border-radius: 12px !important;
+  }
+
+  /* AV TOGGLE (Song/Video) THEME */
+  ytmusic-av-toggle {
+    margin-top: 48px !important;
+    background: var(--ts-theme-apple-glass) !important;
+    backdrop-filter: blur(20px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+    border: 1px solid var(--ts-theme-apple-border) !important;
+    border-radius: 100px !important;
+    padding: 2px !important;
+    width: auto !important;
+    display: inline-flex !important;
+    overflow: hidden !important;
+  }
+
+  ytmusic-av-toggle .song-button,
+  ytmusic-av-toggle .video-button {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 100px !important;
+    color: var(--ts-theme-apple-text-dim) !important;
+    font-family: var(--ts-theme-apple-font) !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
+    padding: 10px 24px !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  ytmusic-av-toggle .song-button[aria-pressed="true"],
+  ytmusic-av-toggle .video-button[aria-pressed="true"] {
+    background: rgba(255, 255, 255, 0.12) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+  }
+
+  ytmusic-av-toggle .song-button:hover:not([aria-pressed="true"]),
+  ytmusic-av-toggle .video-button:hover:not([aria-pressed="true"]) {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #fff !important;
   }
 
   /* THIN PROGRESS BARS */
