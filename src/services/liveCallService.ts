@@ -2,8 +2,19 @@
 import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type, StartSensitivity, EndSensitivity } from "@google/genai";
 import { decodeAudio, decodeAudioData, createPcmBlob, downsampleTo16k } from './liveAudioUtils';
 import { DJVoice, AppLanguage } from '../types';
-import { MODEL_MAPPING } from "@/config";
+import { MODEL_MAPPING, VOICE_PROFILES, DJStyle } from "@/config";
 
+// TTS Performance Prompts (defined inline to avoid circular dependency)
+// These control HOW the AI speaks (voice performance, delivery, pacing)
+const TTS_PERFORMANCE_PROMPTS: Record<string, string | undefined> = {
+    [DJStyle.STANDARD]: "SCENE: Professional radio studio. Keep a slight 'smile' in the voice. Performance: Use [excited] for high-tempo song intros and [professional] for station IDs. Speak with high-end condenser mic proximity.",
+    [DJStyle.CHILL]: "SCENE: Late-night candlelit booth. Performance: Soft, rhythmic delivery. Use a [warm], intimate voice with [nostalgic] or [empathetic] undertones. Lean into the mic.",
+    [DJStyle.TECHNICAL]: "SCENE: High-tech podcasting setup. Performance: Rapid, knowledgeable fire. Sound [cheerful] or [amazed] when sharing fun facts. Be very [professional] with technical specs.",
+    [DJStyle.MINIMAL]: "Neutral, clean, and robotic station voice ID.",
+    [DJStyle.ASMR]: "SCENE: Binaural microphone setup. Performance: Maximum proximity, ultra-soft whispering. Minimal vocal intensity.",
+    [DJStyle.DRUNK]: "SCENE: Talking to a friend in a dark living room. Performance: Tipsy and slightly [sarcastic] or [laughing]. Pacing should be erratic with frequent [uhm] and [short pause].",
+    [DJStyle.CUSTOM]: undefined,
+};
 interface LiveCallConfig {
     apiKey: string;
     callerName: string;
@@ -14,6 +25,10 @@ interface LiveCallConfig {
     nextSongArtist: string;
     voice: DJVoice;
     language: AppLanguage;
+    style: DJStyle;
+    customPrompt?: string;
+    dualDjMode: boolean;
+    secondaryPersonaName?: string;
     onStatusChange: (status: string) => void;
     onUnrecoverableError: () => void;
     onCallEnd: () => void;
@@ -48,6 +63,27 @@ export class LiveCallService {
 
         try {
             console.log(`[Hori-s] Creating AI client for session #${sessionId}`);
+
+            // Get Call History for context
+            const historyResult = await chrome.storage.local.get(["horisCallHistory"]);
+            const history: any[] = Array.isArray(historyResult.horisCallHistory) ? historyResult.horisCallHistory : [];
+
+            // Check if this specific person has called before
+            const isRepeatCaller = history.some(h => h.name.toLowerCase() === config.callerName.toLowerCase());
+            const repeatCallerNote = isRepeatCaller
+                ? `NOTE: ${config.callerName} is a REPEAT CALLER. Welcome them back to the show!`
+                : "";
+
+            const callHistoryContext = history.length > 0
+                ? history.map((h: any) => `- ${h.name} (Topic: ${h.reason || 'None'})`).join("\n")
+                : "No previous callers recorded.";
+
+            // Save this caller to history (limit to last 5)
+            // We filter out previous entries of the same name to keep it clean
+            const filteredHistory = history.filter(h => h.name.toLowerCase() !== config.callerName.toLowerCase());
+            const updatedHistory = [{ name: config.callerName, reason: config.reason, timestamp: Date.now() }, ...filteredHistory].slice(0, 5);
+            chrome.storage.local.set({ horisCallHistory: updatedHistory });
+
             const ai = new GoogleGenAI({ apiKey: config.apiKey });
             const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
 
@@ -67,8 +103,15 @@ export class LiveCallService {
                 console.log(`[Hori-s] Output context resumed. New state: ${this.liveOutputContext.state}`);
             }
 
-            // Input Stream (Microphone)
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Input Stream (Microphone) with professional processing
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    channelCount: 1,
+                }
+            });
             this.liveStream = stream;
 
             // Silence Detection Vars
@@ -98,10 +141,52 @@ export class LiveCallService {
             };
 
             // Session Configuration
-            const langInstruction = config.language === 'cs' ? "Speak in Czech!!!! Konverzace se bude vést v češtině!" : config.language === 'ja' ? "Speak in Japanese." : "Speak in English.";
+            const langInstruction = config.language === 'cs'
+                ? "Entire conversation MUST be in Czech (čeština). Use natural, colloquial Czech grammar."
+                : config.language === 'ja'
+                    ? "Entire conversation MUST be in Japanese (日本語). Use natural, conversational Japanese."
+                    : "Speak in English.";
+
+            // Build Persona/Style Instruction
+            // Map DJStyle to a punchy live instruction
+            const stylePrompts: Record<string, string> = {
+                [DJStyle.STANDARD]: "ACTING: You are a high-energy, confident morning-show DJ. Keep things moving, stay upbeat, and sound extremely polished and professional.",
+                [DJStyle.CHILL]: "ACTING: You are a deep, soothing late-night radio host. Speak slowly, intimately, and softly. Breathe between sentences. Total 'Chill' vibes.",
+                [DJStyle.TECHNICAL]: "ACTING: You are a music historian and audio nerd. Use technical terms, mention bitrates or production history, and stay genuinely excited about metadata.",
+                [DJStyle.MINIMAL]: "ACTING: You are a neutral automated voice. Extremely efficient. No small talk. Just facts and standard radio etiquette.",
+                [DJStyle.ASMR]: "ACTING: You are an ASMR host. WHISPER EVERYTHING. Every word must be a gentle whisper. Focus on being soothing and quiet. NEVER RAISE YOUR VOICE.",
+                [DJStyle.DRUNK]: "ACTING: You are tipsy (3-4 drinks in). Ramble a bit, trail off mid-sentence, chuckle at yourself, and get easily distracted by small things. Not total slurring, just 'pleasantly buzzed' energy.",
+            };
+
+            const styleInstruction = config.style === DJStyle.CUSTOM
+                ? `ACTING: Roleplay this CUSTOM Persona defined by the user: ${config.customPrompt || "Professional DJ"}`
+                : stylePrompts[config.style] || stylePrompts[DJStyle.STANDARD];
+
             const voiceInstruction = config.voice.toLowerCase().includes('charon')
                 ? "Speak deeply, calmly, and professionally like a podcast host."
                 : "Speak naturally and clearly. Do not hype."; // Default fallback
+
+            const dualDjNote = config.dualDjMode && config.secondaryPersonaName
+                ? `NARRATIVE NOTE: You are currently on a shift with your co-host ${config.secondaryPersonaName}, but they are BUSY (e.g., grabbing coffee, fixing a cable, or at the mixing board). You are handling this listener call SOLO. Briefly mention their absence to the caller.`
+                : "";
+
+            const voiceProfile = VOICE_PROFILES.find(p => p.id === config.voice);
+            const gender = voiceProfile?.gender || "Male";
+            const genderInstruction = gender === "Female"
+                ? "IDENTITY: You are a FEMALE speaker. Use female self-references and female gendered grammar."
+                : gender === "Robot"
+                    ? "IDENTITY: You are a ROBOT. Use neutral, artificial tone."
+                    : "IDENTITY: You are a MALE speaker. Use male self-references and male gendered grammar.";
+
+            // Get TTS Performance Instruction (controls HOW to speak)
+            const ttsPerformanceInstruction = config.style === DJStyle.CUSTOM
+                ? `Performance Direction: Embody the persona "${config.customPrompt || "Professional DJ"}" through your voice delivery, pacing, and tone. Let the character influence HOW you speak, not just WHAT you say.`
+                : TTS_PERFORMANCE_PROMPTS[config.style] || "";
+
+            console.log(`[Hori-s] 🎙️ Live Call Style: ${config.style}${config.style === DJStyle.CUSTOM && config.customPrompt ? ` (Custom: "${config.customPrompt}")` : ""}`);
+            if (ttsPerformanceInstruction) {
+                console.log(`[Hori-s] 🎭 TTS Performance: ${ttsPerformanceInstruction.substring(0, 100)}...`);
+            }
 
             const sessionConfig = {
                 model: MODEL_MAPPING.LIVE.PRO, // Use latest appropriate model
@@ -109,16 +194,21 @@ export class LiveCallService {
                     responseModalities: [Modality.AUDIO],
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: config.voice } } },
                     systemInstruction: `
-                    You are DJ "Horis" on a live radio show. A listener named "${config.callerName}" has just called in.
-                    The song that just finished was: "${config.previousSongTitle}" by "${config.previousSongArtist}".
-                    The next song you'll play AFTER the call is: "${config.nextSongTitle}" by "${config.nextSongArtist}".
-                    ${config.reason ? `The caller's stated reason/message: "${config.reason}"` : ''}
+                    ${repeatCallerNote}
+                    ${dualDjNote}
+                    
+                    ${genderInstruction}
+                    ${styleInstruction}
+                    ${ttsPerformanceInstruction ? `\n\nVOICE PERFORMANCE DIRECTION:\n${ttsPerformanceInstruction}` : ""}
+                    
+                    You are currently ON THE AIR on Hori-s FM. A listener named "${config.callerName}" has just called in.
+                    Song context: Ended "${config.previousSongTitle}", Next "${config.nextSongTitle}".
                     
                     CRITICAL INSTRUCTIONS:
                     1. START SPEAKING IMMEDIATELY when the call connects. 
                     2. START with a standard song transition: Briefly mention/outro the song that just ended ("${config.previousSongTitle}"). 
                     3. THEN, smoothly transition to introducing the caller: "Wait, we've got a caller on the line! ${config.callerName}, you're live on Horis FM!"
-                    4. ${config.reason ? `Acknowledge their message: "${config.reason}"` : 'Ask them what\'s on their mind or how they\'re doing.'}
+                    4. ${isRepeatCaller ? "WELCOME THEM BACK warmly, referencing the fact they've been on the show before." : (config.reason ? `Acknowledge their reason for calling: "${config.reason}"` : "Ask them what's on their mind.")}
                     5. Have a REAL CONVERSATION - ask follow-up questions, react to what they say, keep it engaging. Do NOT just ask "what do you want to talk about" every time. 
                     6. DON'T rush to end the call - let the conversation flow naturally for at least 30-60 seconds.
                     7. Let the CALLER decide when to end - if they say goodbye or indicate they're done, THEN follow the "Goodbye Sequence":
@@ -129,16 +219,23 @@ export class LiveCallService {
                        - The caller clearly says goodbye/farewell.
                        - The conversation has gone on for 120+ seconds (safety timeout).
                        - There's a long silence.
-                    9. Be cool, witty, and high-energy. You are a professional radio DJ.
+                    9. Use natural vocal fillers (e.g., "Uh-huh", "Gotcha", "Oh wow", "Exactly") sparingly when the user is speaking to show you are listening.
+                    10. If the user interrupts you, stop mid-sentence and pivot immediately to react to their interruption.
+                    11. Speak as if you are wearing a high-quality broadcast headset—close to the mic, warm, intimate, and professional.
+                    13. You can occasionally chuckle or react emotionally to what the caller says.
+                    14. YOU HAVE ACCESS TO GOOGLE SEARCH. If the caller asks for facts, weather, news, or scores, USE IT to provide accurate "live" information. Interpret results naturally.
+                    
+                    HISTORY OF PREVIOUS CALLERS THIS SHIFT:
+                    ${callHistoryContext}
                     
                     Language: ${langInstruction}
                     Voice style: ${voiceInstruction}
                   `,
-                    tools: [{ functionDeclarations: [transitionTool] }],
+                    tools: [{ googleSearch: {} }, { functionDeclarations: [transitionTool] }],
                     realtimeInputConfig: {
                         automaticActivityDetection: {
                             disabled: false,
-                            silenceDurationMs: 200,
+                            silenceDurationMs: 500,
                             startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
                             endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
                         }
@@ -159,18 +256,6 @@ export class LiveCallService {
                         }
 
                         console.log(`[Hori-s] Setting up audio input for session #${sessionId}`);
-
-                        // Trigger the first response immediately
-                        sessionPromise.then((session) => {
-                            console.log(`[Hori-s] Sending initial trigger to kickstart DJ for session #${sessionId}`);
-                            session.sendClientContent({
-                                turns: [{
-                                    role: 'user',
-                                    parts: [{ text: "SYSTEM_NOTE: The call has just connected. Start your introduction immediately as per your instructions." }]
-                                }],
-                                turnComplete: true
-                            });
-                        });
 
                         const source = this.liveInputContext.createMediaStreamSource(this.liveStream);
                         const scriptProcessor = this.liveInputContext.createScriptProcessor(4096, 1, 1);
@@ -200,7 +285,17 @@ export class LiveCallService {
                     },
                     onmessage: async (msg: LiveServerMessage) => {
                         if (msg.setupComplete) {
-                            console.log(`[Hori-s] Setup complete for session #${sessionId}`);
+                            console.log(`[Hori-s] Setup complete for session #${sessionId}. Triggering intro.`);
+                            // Trigger the first response immediately after setup
+                            sessionPromise.then((session) => {
+                                session.sendClientContent({
+                                    turns: [{
+                                        role: 'user',
+                                        parts: [{ text: "SYSTEM_NOTE: The call has just connected. Start your introduction immediately as per your instructions." }]
+                                    }],
+                                    turnComplete: true
+                                });
+                            });
                         }
 
                         if (msg.serverContent) {
@@ -215,7 +310,7 @@ export class LiveCallService {
                                 this.liveNextStartTime = this.liveOutputContext?.currentTime || 0;
                             }
                             if (modelTurn) {
-                                console.log(`[Hori-s] 📥 Received model turn content in session #${sessionId}${turnComplete ? ' (Turn Complete)' : ''}`);
+                                // Noisy log removed
                             }
                         }
 
@@ -253,7 +348,6 @@ export class LiveCallService {
 
                                 // Track when this source finishes
                                 source.addEventListener('ended', () => {
-                                    console.log(`[Hori-s] Audio chunk finished (${audioBuffer.duration.toFixed(2)}s) [Session #${sessionId}]`);
                                     this.liveSources.delete(source);
 
                                     // Only trigger cleanup if this is still the active session
@@ -276,10 +370,8 @@ export class LiveCallService {
                                 });
 
                                 source.start(this.liveNextStartTime);
-                                console.log(`[Hori-s] Audio chunk started playing at ${this.liveNextStartTime.toFixed(2)}s`);
                                 this.liveNextStartTime += audioBuffer.duration;
                                 this.liveSources.add(source);
-                                console.log(`[Hori-s] Queued audio chunk: ${audioBuffer.duration.toFixed(2)}s (${this.liveSources.size} active) - will play at ${this.liveNextStartTime.toFixed(2)}s`);
                             } catch (e) {
                                 console.error("Audio decode error", e);
                             }
