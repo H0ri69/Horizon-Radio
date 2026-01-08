@@ -199,7 +199,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 modal-backdrop backdrop-blur-sm bg-black/40"
+        className="absolute inset-0 modal-backdrop bg-black/60"
         onClick={onClose}
       />
 
