@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { DJStyle } from "../config";
-import { VOICE_PROFILES } from "../config";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  X, Settings, Radio, Globe, Mic,
+  Palette, Zap, Cpu, Key, AlertTriangle,
+  ChevronDown, CheckCircle2, Sliders
+} from "lucide-react";
+import { DJStyle, VOICE_PROFILES } from "../config";
 import type { AppLanguage } from "../types";
 
 interface Settings {
@@ -26,6 +31,20 @@ interface Settings {
   textModel: "FLASH" | "PRO";
   ttsModel: "FLASH" | "PRO";
 }
+
+const containerVariants = {
+  hidden: { opacity: 0, scale: 0.95, y: 20 },
+  visible: {
+    opacity: 1, scale: 1, y: 0,
+    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1], staggerChildren: 0.05 }
+  },
+  exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }
+} as any;
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0 }
+};
 
 export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [settings, setSettings] = useState<Settings>({
@@ -58,7 +77,14 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         setSettings((prev) => ({ ...prev, ...(result.horisFmSettings as Settings) }));
       }
     });
-  }, []);
+
+    // Handle ESC key
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
 
   const saveSettings = (newSettings: Settings) => {
     setSettings(newSettings);
@@ -69,127 +95,121 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
   };
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-6 font-sans"
-      onClick={onClose}
-    >
-      <div
-        className="bg-background w-full max-w-[900px] max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 shadow-2xl relative flex flex-col"
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 font-sans">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/60 backdrop-blur-md"
+        onClick={onClose}
+      />
+
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+        className="glass-effect w-full max-w-[900px] max-h-[90vh] overflow-hidden rounded-3xl relative flex flex-col"
         onClick={(e) => e.stopPropagation()}
-        style={{ backgroundColor: "#09090b", color: "#FAFAFA" }} // Fallback/Force dark theme
       >
-        {/* Close Button UI */}
-        <button
-          onClick={onClose}
-          className="absolute top-8 right-8 p-3 rounded-full hover:bg-white/10 transition-colors z-10"
-        >
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="opacity-70"
-          >
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-
-        <div className="p-10 md:p-14 space-y-12">
-          {/* Header with Enable/Disable Toggle */}
-          <header className="flex justify-between items-center pb-8 border-b border-white/5">
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight text-white mb-2">Settings</h1>
-              <p className="text-lg text-secondary text-white/50">
-                Configure your Hori-s.FM AI Host experience
-              </p>
+        {/* Header - Fixed */}
+        <div className="p-8 md:p-10 border-b border-white/5 flex justify-between items-center bg-[#09090b]/40 backdrop-blur-md z-20">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
+              <Settings className="w-8 h-8 text-indigo-400" />
             </div>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-white mb-1">System Settings</h1>
+              <p className="text-base text-white/40">Configure your Hori-s.FM workspace</p>
+            </div>
+          </div>
 
+          <div className="flex items-center gap-4">
             <button
               onClick={() => saveSettings({ ...settings, enabled: !settings.enabled })}
-              className={`flex items-center gap-4 px-8 py-4 mr-20 rounded-full border transition-all duration-300 ${settings.enabled
-                ? "bg-green-500/10 border-green-500/50 text-green-400 hover:bg-green-500/20"
-                : "bg-red-500/10 border-red-500/50 text-red-400 hover:bg-red-500/20"
+              className={`shimmer flex items-center gap-3 px-6 py-3 rounded-2xl border transition-all duration-300 ${settings.enabled
+                ? "bg-green-500/10 border-green-500/30 text-green-400"
+                : "bg-red-500/10 border-red-500/30 text-red-400"
                 }`}
             >
-              <div
-                className={`w-3 h-3 rounded-full ${settings.enabled
-                  ? "bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.6)]"
-                  : "bg-red-500"
-                  }`}
-              ></div>
-              <span className="text-base font-bold tracking-wide">
-                {settings.enabled ? "SYSTEM ACTIVE" : "SYSTEM DISABLED"}
+              <div className={`w-2 h-2 rounded-full ${settings.enabled ? "bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.6)]" : "bg-red-500"}`} />
+              <span className="text-sm font-bold tracking-wider mr-2">
+                {settings.enabled ? "ACTIVE" : "STANDBY"}
               </span>
             </button>
-          </header>
 
-          <main className="space-y-12 text-white">
+            <button
+              onClick={onClose}
+              className="p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all group"
+            >
+              <X className="w-6 h-6 text-white/40 group-hover:text-white transition-colors" />
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable Content */}
+        <div className="overflow-y-auto custom-scrollbar flex-1">
+          <div className="p-10 md:p-14 space-y-16">
+
             {/* 00 LANGUAGE */}
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
-                <span className="text-indigo-400 font-mono text-base opacity-80">00</span> Language
+            <motion.section variants={itemVariants}>
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/30 mb-8 flex items-center gap-3">
+                <Globe className="w-4 h-4 text-indigo-400" /> Language & Region
               </h2>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-5">
                 {[
-                  { code: "en", label: "English 🇺🇸" },
-                  { code: "cs", label: "Czech 🇨🇿" },
-                  { code: "ja", label: "Japanese 🇯🇵" },
+                  { code: "en", label: "English", sub: "US/UK", icon: "🇺🇸" },
+                  { code: "cs", label: "Czech", sub: "Čeština", icon: "🇨🇿" },
+                  { code: "ja", label: "Japanese", sub: "日本語", icon: "🇯🇵" },
                 ].map((lang) => (
                   <button
                     key={lang.code}
                     onClick={() => saveSettings({ ...settings, language: lang.code as any })}
-                    className={`p-6 rounded-2xl text-center border transition-all duration-200 group
+                    className={`relative p-6 rounded-2xl border transition-all duration-300 group
                                             ${(settings as any).language === lang.code
-                        ? "bg-white/10 border-indigo-500/50 text-white ring-1 ring-indigo-500/50"
-                        : "bg-white/5 border-white/5 text-white/60 hover:border-white/10 hover:bg-white/10 hover:text-white"
+                        ? "bg-indigo-500/10 border-indigo-500/50 text-white ring-1 ring-indigo-500/50"
+                        : "bg-white/5 border-white/5 text-white/40 hover:border-white/10 hover:bg-white/10"
                       }`}
                   >
-                    <div className="font-medium text-xl group-active:scale-95 transition-transform">
-                      {lang.label}
+                    <div className="flex justify-between items-start">
+                      <div className="text-left leading-tight">
+                        <div className="font-bold text-lg mb-1">{lang.label}</div>
+                        <div className="text-xs opacity-50 font-mono uppercase tracking-widest">{lang.sub}</div>
+                      </div>
+                      <span className="text-2xl group-hover:scale-110 transition-transform">{lang.icon}</span>
                     </div>
                   </button>
                 ))}
               </div>
-            </section>
+            </motion.section>
 
             {/* 01 VOICE MODEL */}
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
-                <span className="text-indigo-400 font-mono text-base opacity-80">01</span> Voice
-                Model
+            <motion.section variants={itemVariants}>
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/30 mb-8 flex items-center gap-3">
+                <Mic className="w-4 h-4 text-indigo-400" /> Primary Host Profile
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {VOICE_PROFILES.map((profile) => (
                   <button
                     key={profile.id}
                     onClick={() => saveSettings({ ...settings, voice: profile.id })}
-                    className={`relative p-6 rounded-2xl text-left transition-all duration-200 border group
+                    className={`relative p-6 rounded-2xl text-left transition-all duration-300 border overflow-hidden group
                                             ${settings.voice === profile.id
-                        ? "bg-white/10 border-indigo-500/50 ring-1 ring-indigo-500/50"
+                        ? "bg-indigo-500/10 border-indigo-500/50 ring-1 ring-indigo-500/50"
                         : "bg-white/5 border-white/5 hover:border-white/10 hover:bg-white/10"
                       }`}
                   >
-                    <div className="flex justify-between items-start mb-4">
-                      <span
-                        className={`text-xl font-medium ${settings.voice === profile.id
-                          ? "text-white"
-                          : "text-white/70 group-hover:text-white"
-                          }`}
-                      >
+                    <div className="flex justify-between items-center mb-4">
+                      <span className={`text-xl font-bold ${settings.voice === profile.id ? "text-white" : "text-white/60 group-hover:text-white"}`}>
                         {profile.personaNames[settings.language as AppLanguage]}
                       </span>
                       {settings.voice === profile.id && (
-                        <div className="w-3 h-3 rounded-full bg-indigo-400 shadow-[0_0_12px_rgba(129,140,248,0.8)]"></div>
+                        <CheckCircle2 className="w-5 h-5 text-indigo-400 drop-shadow-[0_0_8px_rgba(129,140,248,0.5)]" />
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-white/40">
+                    <div className="flex flex-wrap gap-2">
                       {profile.tags.map((tag) => (
-                        <span key={tag} className="bg-white/5 px-3 py-1 rounded-md border border-white/5">
+                        <span key={tag} className="bg-black/40 px-3 py-1 rounded-lg border border-white/5 text-[10px] uppercase font-bold tracking-widest text-white/40">
                           {tag}
                         </span>
                       ))}
@@ -197,205 +217,194 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                   </button>
                 ))}
               </div>
-            </section>
+            </motion.section>
 
             {/* 02 BROADCAST STYLE */}
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
-                <span className="text-indigo-400 font-mono text-base opacity-80">02</span> Broadcast
-                Style
+            <motion.section variants={itemVariants}>
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/30 mb-8 flex items-center gap-3">
+                <Radio className="w-4 h-4 text-indigo-400" /> Broadcast Character
               </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pb-6">
                 {Object.values(DJStyle).map((styleLabel: any) => (
                   <button
                     key={styleLabel}
                     onClick={() => saveSettings({ ...settings, style: styleLabel })}
-                    className={`py-4 px-6 rounded-2xl text-base font-medium transition-all text-center border
+                    className={`py-4 px-6 rounded-2xl text-sm font-bold transition-all border
                                             ${settings.style === styleLabel
-                        ? "bg-white text-black border-white shadow-lg shadow-white/10"
-                        : "bg-white/5 border-white/5 text-white/60 hover:text-white hover:border-white/10 hover:bg-white/10"
-                      }
-                                        `}
+                        ? "bg-indigo-500/20 border-indigo-500/50 text-white ring-1 ring-indigo-500/50 shadow-lg shadow-indigo-500/10"
+                        : "bg-white/5 border-white/5 text-white/40 hover:text-white hover:border-white/10 hover:bg-white/10"
+                      }`}
                   >
                     {styleLabel}
                   </button>
                 ))}
               </div>
 
-              {/* Custom Prompt Input */}
-              <div
-                className={`transition-all duration-500 ease-in-out overflow-hidden ${settings.style === DJStyle.CUSTOM ? "max-h-64 opacity-100" : "max-h-0 opacity-0"
-                  }`}
-              >
-                <div className="bg-white/5 rounded-3xl p-6 border border-white/5 mt-2">
-                  <textarea
-                    value={settings.customPrompt || ""}
-                    onChange={(e) => saveSettings({ ...settings, customPrompt: e.target.value })}
-                    placeholder="Enter custom persona instructions (e.g., 'Be a sarcastic robot from the year 3000')..."
-                    className="w-full h-32 bg-black/40 border border-white/10 rounded-xl p-4 text-white text-base focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder-white/20 resize-none"
-                  />
-                </div>
-              </div>
-            </section>
+              <AnimatePresence>
+                {settings.style === DJStyle.CUSTOM && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
+                      <textarea
+                        value={settings.customPrompt || ""}
+                        onChange={(e) => saveSettings({ ...settings, customPrompt: e.target.value })}
+                        placeholder="Define personality (e.g., 'Sarcastic AI from the 80s')..."
+                        className="w-full h-32 bg-black/40 border border-white/10 rounded-xl p-4 text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none"
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.section>
 
             {/* 02b BROADCAST VARIETY */}
-            <section className="mt-8 pt-8 border-t border-white/5">
-              <h3 className="text-lg font-medium text-white/80 mb-4">Message Variety</h3>
-              <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
-                <div className="flex justify-between items-center mb-6">
+            <motion.section variants={itemVariants}>
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/30 mb-8 flex items-center gap-3">
+                <Sliders className="w-4 h-4 text-indigo-400" /> Content Density
+              </h2>
+              <div className="bg-white/5 rounded-3xl p-8 border border-white/5">
+                <div className="flex justify-between items-center mb-10">
                   <div>
-                    <div className="text-white font-medium">Long vs Short Messages</div>
-                    <div className="text-white/50 text-sm mt-1">
-                      Higher values mean more detailed stories, trivia, and jokes.
-                    </div>
+                    <div className="text-white font-bold text-lg mb-1">Message Duration</div>
+                    <div className="text-white/40 text-sm">Balanced between short intros and long trivia bits.</div>
                   </div>
-                  <div className="font-mono text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-lg">
-                    {Math.round((settings.longMessageProbability ?? 0.5) * 100)}% Long
+                  <div className="font-mono text-indigo-400 bg-indigo-500/10 px-4 py-2 rounded-xl border border-indigo-500/20 text-lg font-bold">
+                    {Math.round((settings.longMessageProbability ?? 0.5) * 100)}%
                   </div>
                 </div>
 
-                <div className="relative h-12 flex items-center">
-                  {/* Track */}
-                  <div className="absolute w-full h-2 bg-black/40 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-indigo-500 transition-all duration-300"
-                      style={{ width: `${(settings.longMessageProbability ?? 0.5) * 100}%` }}
+                <div className="relative group p-2">
+                  <div className="absolute inset-x-0 h-1.5 bg-black/40 rounded-full overflow-hidden">
+                    <motion.div
+                      layout
+                      className="h-full bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]"
+                      initial={false}
+                      animate={{ width: `${(settings.longMessageProbability ?? 0.5) * 100}%` }}
                     />
                   </div>
-                  {/* Slider Input */}
                   <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
+                    type="range" min="0" max="1" step="0.1"
                     value={settings.longMessageProbability ?? 0.5}
                     onChange={(e) => saveSettings({ ...settings, longMessageProbability: parseFloat(e.target.value) })}
-                    className="absolute w-full h-full opacity-0 cursor-pointer z-10"
+                    className="absolute inset-0 w-full opacity-0 cursor-pointer z-10"
                   />
-                  {/* Thumb (Visual Only) */}
-                  <div
-                    className="absolute h-6 w-6 bg-white rounded-full shadow-lg pointer-events-none transition-all duration-300 transform -translate-x-1/2"
-                    style={{ left: `${(settings.longMessageProbability ?? 0.5) * 100}%` }}
+                  <motion.div
+                    layout
+                    className="absolute top-1/2 h-6 w-6 bg-white rounded-full shadow-2xl pointer-events-none -translate-y-1/2"
+                    initial={false}
+                    animate={{ left: `${(settings.longMessageProbability ?? 0.5) * 100}%` }}
+                    style={{ marginLeft: "-12px" }}
                   />
-                </div>
-
-                <div className="flex justify-between text-xs text-white/30 mt-1 font-medium">
-                  <span>Mostly Short (Transitions)</span>
-                  <span>Balanced</span>
-                  <span>Mostly Long (Stories/Trivia)</span>
                 </div>
               </div>
-            </section>
+            </motion.section>
 
-
-            <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-
-            {/* 03 DUAL DJ MODE (Unique to Embedded) */}
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
-                <span className="text-teal-400 font-mono text-base opacity-80">03</span> Dual DJ
-                Mode
+            {/* 03 DUAL DJ MODE */}
+            <motion.section variants={itemVariants}>
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/30 mb-8 flex items-center gap-3">
+                <Zap className="w-4 h-4 text-indigo-400" /> Interactive Systems
               </h2>
-
-              <div
-                className={`rounded-3xl border transition-all duration-200 overflow-hidden ${settings.dualDjMode
-                  ? "bg-white/10 border-teal-500/30 ring-1 ring-teal-500/20"
-                  : "bg-white/5 border-white/5"
-                  }`}
-              >
+              <div className={`rounded-3xl border transition-all duration-300 overflow-hidden ${settings.dualDjMode ? "bg-indigo-500/5 border-indigo-500/20" : "bg-white/5 border-white/5"}`}>
                 <div
-                  className="p-6 flex items-center justify-between cursor-pointer"
+                  className="p-8 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
                   onClick={() => saveSettings({ ...settings, dualDjMode: !settings.dualDjMode })}
                 >
-                  <div>
-                    <div className="font-medium text-xl text-white">Enable Co-Host</div>
-                    <div className="text-base text-white/50 mt-1">
-                      Two DJs will banter during transitions
+                  <div className="flex items-center gap-6">
+                    <div className={`p-4 rounded-2xl border transition-colors ${settings.dualDjMode ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400" : "bg-black/20 border-white/5 text-white/20"}`}>
+                      <Radio className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-xl text-white">Enable Co-Host (Dual DJ)</div>
+                      <div className="text-base text-white/40 mt-1 font-medium">Banter and conversations between two voices</div>
                     </div>
                   </div>
-                  <div
-                    className={`w-16 h-8 rounded-full p-1 transition-colors ${settings.dualDjMode ? "bg-teal-500" : "bg-white/10"
-                      }`}
-                  >
-                    <div
-                      className={`w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${settings.dualDjMode ? "translate-x-8" : "translate-x-0"
-                        }`}
-                    />
+                  <div className={`w-14 h-8 rounded-full p-1 transition-colors ${settings.dualDjMode ? "bg-indigo-500" : "bg-white/10"}`}>
+                    <motion.div layout className="w-6 h-6 rounded-full bg-white shadow-lg" transition={{ type: "spring", stiffness: 500, damping: 30 }} />
                   </div>
                 </div>
 
-                {settings.dualDjMode && (
-                  <div className="px-6 pb-6 pt-0 border-t border-white/5 mt-2">
-                    <h3 className="text-sm font-bold text-white/40 uppercase tracking-wider mb-4 mt-6">
-                      Select Co-Host Voice
-                    </h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      {VOICE_PROFILES.filter((p) => p.id !== settings.voice).map((profile) => (
-                        <button
-                          key={profile.id}
-                          onClick={() =>
-                            saveSettings({ ...settings, secondaryDjVoice: profile.id })
-                          }
-                          className={`p-4 rounded-xl text-left border transition-all flex items-center justify-between group
-                                                        ${settings.secondaryDjVoice === profile.id
-                              ? "bg-teal-500/20 border-teal-500/50 text-white"
-                              : "bg-black/20 border-white/5 text-white/50 hover:bg-white/5 hover:text-white"
-                            }`}
-                        >
-                          <span className="font-medium text-base">{profile.personaNames[settings.language as AppLanguage]}</span>
-                          {settings.secondaryDjVoice === profile.id && (
-                            <div className="w-2 h-2 rounded-full bg-teal-400"></div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <AnimatePresence>
+                  {settings.dualDjMode && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="px-8 pb-8 pt-4 border-t border-white/5"
+                    >
+                      <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-6">Select Co-Host Persona</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        {VOICE_PROFILES.filter((p) => p.id !== settings.voice).map((profile) => (
+                          <button
+                            key={profile.id}
+                            onClick={() => saveSettings({ ...settings, secondaryDjVoice: profile.id })}
+                            className={`p-5 rounded-2xl text-left border transition-all flex items-center justify-between group
+                                                          ${settings.secondaryDjVoice === profile.id
+                                ? "bg-indigo-500/10 border-indigo-500/50 text-white ring-1 ring-indigo-500/50"
+                                : "bg-black/20 border-white/5 text-white/40 hover:bg-white/10 hover:text-white"
+                              }`}
+                          >
+                            <span className="font-bold text-base">{profile.personaNames[settings.language as AppLanguage]}</span>
+                            {settings.secondaryDjVoice === profile.id && <div className="w-2.5 h-2.5 rounded-full bg-indigo-400" />}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-            </section>
+            </motion.section>
 
-            {/* 04 VISUALS (Unique to Embedded) */}
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
-                <span className="text-pink-400 font-mono text-base opacity-80">04</span> Visuals
+            {/* 04 VISUALS */}
+            <motion.section variants={itemVariants}>
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/30 mb-8 flex items-center gap-3">
+                <Palette className="w-4 h-4 text-indigo-400" /> Visual Atmosphere
               </h2>
               <div className="grid grid-cols-2 gap-5">
                 {["Standard", "Apple Music"].map((theme) => (
                   <button
                     key={theme}
                     onClick={() => saveSettings({ ...settings, visualTheme: theme })}
-                    className={`p-6 rounded-2xl text-left border transition-all ${(settings as any).visualTheme === theme
-                      ? "bg-gradient-to-br from-pink-500/20 to-purple-500/20 border-pink-500/30 text-white shadow-inner"
-                      : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                    className={`relative p-8 rounded-3xl border transition-all duration-300 group overflow-hidden
+                                            ${(settings as any).visualTheme === theme
+                        ? (theme === "Apple Music"
+                          ? "bg-gradient-to-br from-pink-500/20 to-purple-500/20 border-pink-500/50 text-white shadow-xl"
+                          : "bg-indigo-500/10 border-indigo-500/50 text-white ring-1 ring-indigo-500/50 shadow-xl")
+                        : "bg-white/5 border-white/5 text-white/40 hover:border-white/10 hover:bg-white/10"
                       }`}
                   >
-                    <div className="font-medium text-lg">{theme}</div>
-                    <div className="text-sm text-white/30 mt-1">Theme Variant</div>
+                    <div className="relative z-10">
+                      <div className="font-bold text-xl mb-1">{theme}</div>
+                      <div className="text-sm opacity-50">Studio Color Palette</div>
+                    </div>
                   </button>
                 ))}
               </div>
-            </section>
+            </motion.section>
 
             {/* 05 MODEL SELECTION */}
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
-                <span className="text-cyan-400 font-mono text-base opacity-80">05</span> High-Fidelity Engines
+            <motion.section variants={itemVariants}>
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/30 mb-8 flex items-center gap-3">
+                <Cpu className="w-4 h-4 text-indigo-400" /> AI Computation Engines
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Text Engine */}
                 <div className="space-y-4">
-                  <label className="text-sm font-bold text-white/40 uppercase tracking-widest block">Text Generation</label>
-                  <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] block ml-1">Logic Generation</label>
+                  <div className="flex bg-black/40 p-1.5 rounded-2xl border border-white/10">
                     {["FLASH", "PRO"].map((tier) => (
                       <button
                         key={tier}
                         onClick={() => saveSettings({ ...settings, textModel: tier as any })}
-                        className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${settings.textModel === tier
-                          ? "bg-white text-black shadow-lg"
-                          : "text-white/40 hover:text-white/70"
+                        className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all ${settings.textModel === tier
+                          ? "bg-indigo-500 border border-indigo-400/50 text-white shadow-lg"
+                          : "text-white/30 hover:text-white/50"
                           }`}
                       >
-                        {tier === "FLASH" ? "Flash (Speed)" : "Pro (Intelligence)"}
+                        {tier === "FLASH" ? "FLASH-V2" : "PRO-AXON"}
                       </button>
                     ))}
                   </div>
@@ -403,210 +412,153 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
                 {/* TTS Engine */}
                 <div className="space-y-4">
-                  <label className="text-sm font-bold text-white/40 uppercase tracking-widest block">Voice Synthesis (TTS)</label>
-                  <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] block ml-1">Vocal Synthesis</label>
+                  <div className="flex bg-black/40 p-1.5 rounded-2xl border border-white/10">
                     {["FLASH", "PRO"].map((tier) => (
                       <button
                         key={tier}
                         onClick={() => saveSettings({ ...settings, ttsModel: tier as any })}
-                        className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${settings.ttsModel === tier
-                          ? "bg-white text-black shadow-lg"
-                          : "text-white/40 hover:text-white/70"
+                        className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all ${settings.ttsModel === tier
+                          ? "bg-indigo-500 border border-indigo-400/50 text-white shadow-lg"
+                          : "text-white/30 hover:text-white/50"
                           }`}
                       >
-                        {tier === "FLASH" ? "Flash (Fast)" : "Pro (Expressive)"}
+                        {tier === "FLASH" ? "LITE-RES" : "HD-VOICE"}
                       </button>
                     ))}
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-white/30 mt-4 leading-relaxed">
-                <span className="text-indigo-400 font-bold">Pro Models</span> unlock advanced emotional range, sarcasm, and professional radio delivery, but may be slightly slower to generate.
-              </p>
-            </section>
+              <div className="flex gap-3 mt-6 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
+                <Zap className="w-5 h-5 text-indigo-400 shrink-0" />
+                <p className="text-xs text-white/40 leading-relaxed font-medium">
+                  <span className="text-white">HD/Pro Architectures</span> leverage massive parameter counts for human-like sarcasm and emotional subtext, but may introduce slight latency.
+                </p>
+              </div>
+            </motion.section>
 
             {/* 06 API CONFIGURATION */}
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
-                <span className="text-amber-400 font-mono text-base opacity-80">06</span> API Configuration
+            <motion.section variants={itemVariants}>
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/30 mb-8 flex items-center gap-3">
+                <Key className="w-4 h-4 text-indigo-400" /> Secure Keys
               </h2>
-              <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-white/70 mb-2">
-                    Google Gemini API Key
+              <div className="bg-white/5 rounded-3xl p-8 border border-white/5">
+                <div className="mb-2">
+                  <label className="block text-sm font-bold text-white/60 mb-4 ml-1">
+                    Google Gemini API Credential
                   </label>
-                  <input
-                    type="password"
-                    value={settings.apiKey || ""}
-                    onChange={(e) => saveSettings({ ...settings, apiKey: e.target.value })}
-                    placeholder="Enter your API Key..."
-                    className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-base focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all placeholder-white/20"
-                  />
-                  <p className="text-xs text-white/30 mt-3">
-                    Your API key is stored locally in your browser and used only to communicate with the AI service.
-                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-amber-400 hover:underline ml-1">
-                      Get an API Key here
-                    </a>.
-                  </p>
+                  <div className="relative group">
+                    <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-indigo-400 transition-colors" />
+                    <input
+                      type="password"
+                      value={settings.apiKey || ""}
+                      onChange={(e) => saveSettings({ ...settings, apiKey: e.target.value })}
+                      placeholder="••••••••••••••••••••••••••••"
+                      className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder-white/10 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                    />
+                  </div>
+                  <div className="flex justify-between items-center mt-6">
+                    <div className="flex items-center gap-2 text-[10px] text-white/30 font-bold uppercase tracking-wider">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500/50" /> Fully Encrypted Locally
+                    </div>
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-indigo-400 hover:text-indigo-300 text-xs font-bold transition-colors">
+                      Acquire New API Key →
+                    </a>
+                  </div>
                 </div>
               </div>
-            </section>
+            </motion.section>
 
-            {/* 07 DEBUG SETTINGS (Collapsible) */}
-            <section className="pt-8 border-t border-white/10">
+            {/* 07 DEBUG SETTINGS */}
+            <motion.section variants={itemVariants} className="pt-12 border-t border-white/5">
               <details className="group">
-                <summary className="text-xl font-semibold text-white/40 cursor-pointer list-none flex items-center gap-3 hover:text-white transition-colors">
-                  <span className="text-red-400 font-mono text-base opacity-80">99</span> Debug Settings
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="ml-auto transform group-open:rotate-180 transition-transform"
-                  >
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
+                <summary className="text-sm font-black text-white/20 uppercase tracking-[0.3em] cursor-pointer list-none flex items-center justify-between group-open:text-red-400/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="w-4 h-4" /> Laboratory Settings
+                  </div>
+                  <ChevronDown className="w-5 h-5 transition-transform group-open:rotate-180" />
                 </summary>
 
-                <div className="mt-8 space-y-10 animate-in fade-in slide-in-from-top-4 duration-300">
+                <div className="mt-12 space-y-12 animate-in fade-in slide-in-from-top-4 duration-500">
                   {/* Skip TTS */}
-                  <div className="flex items-center justify-between p-6 bg-red-500/5 border border-red-500/20 rounded-2xl">
-                    <div>
-                      <div className="text-white font-medium">Text-Only Mode (Skip TTS)</div>
-                      <div className="text-xs text-white/40 mt-1">Prevents audio generation to save API credits. Logs only text to console.</div>
+                  <div className="flex items-center justify-between p-8 bg-red-500/5 border border-red-500/20 rounded-3xl">
+                    <div className="flex items-center gap-6">
+                      <div className="p-4 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-400">
+                        <Cpu className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="text-white font-bold text-xl">Silent Scripting</div>
+                        <div className="text-base text-white/40 mt-1 font-medium">Bypass voice generation for text-only debugging</div>
+                      </div>
                     </div>
                     <button
-                      onClick={() => saveSettings({
-                        ...settings,
-                        debug: { ...settings.debug!, skipTTS: !settings.debug?.skipTTS }
-                      })}
-                      className={`w-14 h-7 rounded-full p-1 transition-colors ${settings.debug?.skipTTS ? "bg-red-500" : "bg-white/10"}`}
+                      onClick={() => saveSettings({ ...settings, debug: { ...settings.debug!, skipTTS: !settings.debug?.skipTTS } })}
+                      className={`w-14 h-8 rounded-full p-1 transition-colors ${settings.debug?.skipTTS ? "bg-red-500" : "bg-white/10"}`}
                     >
-                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${settings.debug?.skipTTS ? "translate-x-7" : "translate-x-0"}`} />
+                      <motion.div layout className="w-6 h-6 rounded-full bg-white transition-transform" />
                     </button>
                   </div>
 
                   {/* Manual Trigger */}
-                  <div className="flex items-center justify-between p-6 bg-blue-500/5 border border-blue-500/20 rounded-2xl">
-                    <div>
-                      <div className="text-white font-medium">Manual Trigger</div>
-                      <div className="text-xs text-white/40 mt-1">Force an AI generation right now (ignores trigger points).</div>
-                    </div>
-                    <button
-                      onClick={() => window.dispatchEvent(new CustomEvent("HORIS_MANUAL_TRIGGER"))}
-                      className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-full transition-all active:scale-95"
-                    >
-                      TRIGGER NOW
-                    </button>
-                  </div>
-
-                  {/* Trigger Point Slider */}
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <div className="text-sm font-bold text-white/40 uppercase tracking-widest">Trigger Point</div>
-                      <div className="font-mono text-red-400 text-sm">
-                        {Math.round((settings.debug?.triggerPoint || 0.25) * 100)}% of track
+                  <section className="space-y-6">
+                    <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] ml-1">Force Execution</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <button
+                        onClick={() => window.dispatchEvent(new CustomEvent("HORIS_MANUAL_TRIGGER"))}
+                        className="flex items-center justify-between p-6 bg-indigo-500 text-white rounded-3xl font-black text-lg transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-indigo-500/20 group"
+                      >
+                        RUN MANIFEST NOW
+                        <Zap className="w-6 h-6 group-hover:scale-125 transition-transform" />
+                      </button>
+                      <div className="p-6 bg-white/5 border border-white/5 rounded-3xl flex flex-col justify-center">
+                        <div className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Trigger Schedule</div>
+                        <div className="flex justify-between items-center">
+                          <div className="text-2xl font-black text-white">
+                            {Math.round((settings.debug?.triggerPoint || 0.25) * 100)}%
+                          </div>
+                          <input
+                            type="range" min="0.1" max="0.9" step="0.05"
+                            value={settings.debug?.triggerPoint || 0.25}
+                            onChange={(e) => saveSettings({ ...settings, debug: { ...settings.debug!, triggerPoint: parseFloat(e.target.value) } })}
+                            className="w-32 accent-indigo-500"
+                          />
+                        </div>
                       </div>
                     </div>
-                    <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-red-500/40"
-                        style={{ width: `${(settings.debug?.triggerPoint || 0.25) * 100}%` }}
-                      />
-                      <input
-                        type="range"
-                        min="0.1"
-                        max="0.9"
-                        step="0.05"
-                        value={settings.debug?.triggerPoint || 0.25}
-                        onChange={(e) => saveSettings({
-                          ...settings,
-                          debug: { ...settings.debug!, triggerPoint: parseFloat(e.target.value) }
-                        })}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Theme Toggles */}
-                  <div className="space-y-4">
-                    <div className="text-sm font-bold text-white/40 uppercase tracking-widest">Enabled Themes</div>
-                    <div className="grid grid-cols-2 gap-3">
-                      {["Joke", "Trivia", "Preview", "Story", "Weather", "News"].map((name, i) => (
-                        <button
-                          key={name}
-                          onClick={() => {
-                            const newEnabled = [...(settings.debug?.enabledThemes || [true, true, true, true, true, true])];
-                            newEnabled[i] = !newEnabled[i];
-                            saveSettings({
-                              ...settings,
-                              debug: { ...settings.debug!, enabledThemes: newEnabled }
-                            });
-                          }}
-                          className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${settings.debug?.enabledThemes?.[i]
-                            ? "bg-white/10 border-white/20 text-white"
-                            : "bg-black/40 border-white/5 text-white/20"
-                            }`}
-                        >
-                          <div className={`w-2 h-2 rounded-full ${settings.debug?.enabledThemes?.[i] ? "bg-green-400" : "bg-red-500/50"}`} />
-                          <span className="text-sm font-medium">{name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Force Theme */}
-                  <div className="space-y-4">
-                    <div className="text-sm font-bold text-white/40 uppercase tracking-widest">Force Specific Theme</div>
-                    <select
-                      value={settings.debug?.forceTheme ?? "random"}
-                      onChange={(e) => saveSettings({
-                        ...settings,
-                        debug: { ...settings.debug!, forceTheme: e.target.value === "random" ? null : parseInt(e.target.value) }
-                      })}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white text-sm focus:outline-none focus:border-red-500/50"
-                    >
-                      <option value="random">Random Selection (Standard)</option>
-                      {["Joke", "Trivia", "Preview", "Story", "Weather", "News"].map((name, i) => (
-                        <option key={name} value={i} className="bg-zinc-900 text-white">{name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Verbose Logging */}
-                  <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
-                    <div className="text-sm text-white/70">Verbose Console Logging</div>
-                    <button
-                      onClick={() => saveSettings({
-                        ...settings,
-                        debug: { ...settings.debug!, verboseLogging: !settings.debug?.verboseLogging }
-                      })}
-                      className={`w-10 h-5 rounded-full p-1 transition-colors ${settings.debug?.verboseLogging ? "bg-indigo-500" : "bg-white/10"}`}
-                    >
-                      <div className={`w-3 h-3 rounded-full bg-white transition-transform ${settings.debug?.verboseLogging ? "translate-x-5" : "translate-x-0"}`} />
-                    </button>
-                  </div>
+                  </section>
                 </div>
               </details>
-            </section>
-          </main>
+            </motion.section>
+          </div>
+        </div>
 
-          <footer className="pt-8 border-t border-white/5 flex justify-between items-center text-sm text-white/30">
-            <div className="font-mono">HORI-S.FM SYSTEM v1.0</div>
-            <div
-              className={`transition-all duration-300 font-medium ${status ? "opacity-100 text-green-400" : "opacity-0"
-                }`}
-            >
-              SETTINGS SAVED
+        {/* Footer */}
+        <div className="p-8 md:p-10 border-t border-white/5 bg-[#09090b]/40 backdrop-blur-md flex justify-between items-center z-20">
+          <div className="flex items-center gap-6">
+            <div className="font-mono text-[10px] font-black tracking-[0.4em] text-white/20 uppercase">Core-v1.0.4-Stable</div>
+            <div className="h-4 w-px bg-white/10" />
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Network Protocol Active</span>
             </div>
-          </footer>
-        </div >
-      </div >
-    </div >,
+          </div>
+
+          <AnimatePresence>
+            {status && (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 px-4 py-2 rounded-xl"
+              >
+                <CheckCircle2 className="w-4 h-4 text-green-400" />
+                <span className="text-xs font-black text-green-400 uppercase tracking-widest">Saved</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.div>
+    </div>,
     document.body
   );
 };
