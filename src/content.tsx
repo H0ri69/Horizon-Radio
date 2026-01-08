@@ -481,6 +481,134 @@ const startLiveCall = async () => {
 };
 
 
+/*
+  Player state ↔ theme sync
+  ------------------------
+  We sync player open/fullscreen state to <html> classes.
+
+  Goals:
+  - Keep the Apple Music theme visually synced with the player open/close animation.
+  - Avoid polling faster than the existing 1s main loop.
+  - Avoid allocating observers/timers every tick (perf + leak risk).
+
+  Strategy:
+  - Observe ytmusic-app-layout for the coarse state (player-page-open / player-fullscreened).
+  - ALSO observe ytmusic-player[player-ui-state] because it often changes *after* the click,
+    closer to when the slide-down animation completes.
+  - Use a tiny grace on removal to prevent flicker; use a longer fallback grace if we can't
+    read a reliable player-ui-state.
+*/
+const ensurePlayerStateObserver = (() => {
+  let appLayoutObserved = false;
+  let playerObserved = false;
+
+  let appLayoutObserver: MutationObserver | null = null;
+  let playerObserver: MutationObserver | null = null;
+
+  let removeOpenTimer: number | null = null;
+  let removeFsTimer: number | null = null;
+
+  const RELIABLE_UI_GRACE_MS = 140;
+  const FALLBACK_GRACE_MS = 900;
+
+  const getUiState = () => {
+    const player = document.querySelector("ytmusic-player");
+    const ui = player?.getAttribute("player-ui-state") || "";
+    // Known states we care about across YTM versions.
+    const isKnown = ui === "FULLSCREEN" || ui === "PLAYER_PAGE_OPEN" || ui === "MINIPLAYER";
+    return { player, ui, isKnown };
+  };
+
+  const compute = (appLayout: Element) => {
+    const isOpenAttr = appLayout.hasAttribute("player-page-open");
+    const isFsAttr = appLayout.hasAttribute("player-fullscreened");
+
+    const { ui, isKnown } = getUiState();
+    const isOpenUi = ui === "PLAYER_PAGE_OPEN" || ui === "FULLSCREEN";
+    const isFsUi = ui === "FULLSCREEN";
+
+    // If ui-state is known, trust it to avoid early attribute flips on close.
+    const isPlayerOpen = isKnown ? isOpenUi : isOpenAttr;
+    const isFullscreen = isKnown ? isFsUi : isFsAttr;
+    const graceMs = isKnown ? RELIABLE_UI_GRACE_MS : FALLBACK_GRACE_MS;
+
+    return { isPlayerOpen, isFullscreen, graceMs };
+  };
+
+  const apply = (appLayout: Element) => {
+    const { isPlayerOpen, isFullscreen, graceMs } = compute(appLayout);
+
+    if (isPlayerOpen) {
+      if (removeOpenTimer != null) {
+        window.clearTimeout(removeOpenTimer);
+        removeOpenTimer = null;
+      }
+      document.documentElement.classList.add("ts-player-page-open");
+    } else {
+      if (removeOpenTimer != null) window.clearTimeout(removeOpenTimer);
+      removeOpenTimer = window.setTimeout(() => {
+        document.documentElement.classList.remove("ts-player-page-open");
+        removeOpenTimer = null;
+      }, graceMs);
+    }
+
+    if (isFullscreen) {
+      if (removeFsTimer != null) {
+        window.clearTimeout(removeFsTimer);
+        removeFsTimer = null;
+      }
+      document.documentElement.classList.add("ts-player-fullscreened");
+    } else {
+      if (removeFsTimer != null) window.clearTimeout(removeFsTimer);
+      removeFsTimer = window.setTimeout(() => {
+        document.documentElement.classList.remove("ts-player-fullscreened");
+        removeFsTimer = null;
+      }, graceMs);
+    }
+  };
+
+  const attachAppLayoutObserver = () => {
+    if (appLayoutObserved) return true;
+    const appLayout = document.querySelector("ytmusic-app-layout");
+    if (!appLayout) return false;
+
+    apply(appLayout);
+
+    appLayoutObserver = new MutationObserver(() => apply(appLayout));
+    appLayoutObserver.observe(appLayout, {
+      attributes: true,
+      attributeFilter: ["player-page-open", "player-fullscreened"],
+    });
+
+    appLayoutObserved = true;
+    return true;
+  };
+
+  const attachPlayerObserver = () => {
+    if (playerObserved) return true;
+    const { player } = getUiState();
+    const appLayout = document.querySelector("ytmusic-app-layout");
+    if (!player || !appLayout) return false;
+
+    // ui-state updates are what we really want for close sync.
+    playerObserver = new MutationObserver(() => apply(appLayout));
+    playerObserver.observe(player, {
+      attributes: true,
+      attributeFilter: ["player-ui-state"],
+    });
+
+    playerObserved = true;
+    return true;
+  };
+
+  return () => {
+    const ok = attachAppLayoutObserver();
+    // Player may appear after app layout; attempt to attach whenever called.
+    attachPlayerObserver();
+    return ok;
+  };
+})();
+
 const mainLoop = setInterval(() => {
   if (!chrome.runtime?.id) {
     clearInterval(mainLoop);
@@ -514,16 +642,20 @@ const mainLoop = setInterval(() => {
   }
 
   // 2.1 Update Theme Classes (Perf optimization to avoid :root:has)
-  const appLayout = document.querySelector("ytmusic-app-layout");
-  if (appLayout) {
-    const isPlayerOpen = appLayout.hasAttribute("player-page-open");
-    const isFullscreen = appLayout.hasAttribute("player-fullscreened");
+  // Prefer MutationObserver-based sync (instant + close-animation grace). Fallback below.
+  const observerAttached = ensurePlayerStateObserver();
+  if (!observerAttached) {
+    const appLayout = document.querySelector("ytmusic-app-layout");
+    if (appLayout) {
+      const isPlayerOpen = appLayout.hasAttribute("player-page-open");
+      const isFullscreen = appLayout.hasAttribute("player-fullscreened");
 
-    if (isPlayerOpen) document.documentElement.classList.add("ts-player-page-open");
-    else document.documentElement.classList.remove("ts-player-page-open");
+      if (isPlayerOpen) document.documentElement.classList.add("ts-player-page-open");
+      else document.documentElement.classList.remove("ts-player-page-open");
 
-    if (isFullscreen) document.documentElement.classList.add("ts-player-fullscreened");
-    else document.documentElement.classList.remove("ts-player-fullscreened");
+      if (isFullscreen) document.documentElement.classList.add("ts-player-fullscreened");
+      else document.documentElement.classList.remove("ts-player-fullscreened");
+    }
   }
 
   // 3. Status Checks

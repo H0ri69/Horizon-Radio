@@ -1974,9 +1974,10 @@ export const appleMusicThemeCss = /*css*/ `
     --ts-theme-apple-5-color: oklch(35% calc(var(--ts-palette-darkvibrant-c) * 0.35) var(--ts-palette-darkvibrant-h, var(--ts-main-hue)));
     --ts-theme-apple-3-color: oklch(32% calc(var(--ts-palette-muted-c) * 0.3) var(--ts-palette-muted-h, var(--ts-main-hue)));
     
-    /* PERF: avoid transitions on palette-driven variables and large surfaces */
+    /* PERF: avoid transitions on palette-driven variables and large surfaces.
+       NOTE: don't globally disable transition; it kills small UI micro-interactions and can
+       make YTM's own transform animations feel “snappy/janky”. */
     --ts-bgcolor-transition: none;
-    transition: none !important;
   }
 
 
@@ -1989,16 +1990,23 @@ export const appleMusicThemeCss = /*css*/ `
     --ts-overlay-color: rgb(0 0 0 / 0.6);
     --ts-nowplaying-background-color: var(--applemusic-color);
     --ts-texts-selection-color: #1665b5;
-    --ts-songimg-box-shadow: 0 10px 50px rgb(0 0 0 / 0.6);
-    --ts-ruler-secondary-color: var(--ts-base-100-alpha-01-color);
+
+    /* PERF: large blurred shadows on a transforming 700px album art can stutter.
+       Keep a tighter shadow; fullscreen already removes it. */
+    --ts-songimg-box-shadow: 0 8px 28px rgb(0 0 0 / 0.55);
+
+    /* Separators (keep visible, but cheap) */
+    --ts-ruler-secondary-color: rgb(255 255 255 / 0.08);
+    --ts-ruler-primary-color: rgb(255 255 255 / 0.22);
   }
 
   /* --- STATE: BROWSE MODE (Default) --- */
   :root {
     --ts-navbar-color: linear-gradient(180deg, hsl(0 0% 14%) 0%, hsl(0 0% 14% / 0.95) 100%);
-    --ts-playerbar-color: hsl(0 0% 15% / 0.85);
+    --ts-playerbar-color: hsl(0 0% 14% / 0.9);
     --ts-playerpage-color: hsl(0 0% 10%);
-    --ts-sidebar-color: hsl(0 0% 13% / 0.5);
+    /* Make sidebar a distinct “surface” so it doesn't merge into the background */
+    --ts-sidebar-color: hsl(0 0% 12% / 0.92);
     --ts-secondary-icon-color: var(--applemusic-color);
     --ts-primary-icon-color: rgb(240 240 240);
     --ts-pill-color: var(--ts-base-100-alpha-005-color);
@@ -2027,14 +2035,28 @@ export const appleMusicThemeCss = /*css*/ `
   }
 
   /* Navigation elements when player is active */
-  ytmusic-app-layout[player-page-open] #nav-bar-background,
-  ytmusic-app-layout[player-fullscreened] #nav-bar-background {
+  /*
+    Keep navbar/sidebars visually in-sync with the player close animation.
+    YTM removes [player-page-open] early on close, while the sheet keeps sliding.
+    We therefore also key these element overrides off our html state classes.
+  */
+  html.ts-player-page-open #nav-bar-background.ytmusic-app-layout,
+  html.ts-player-fullscreened #nav-bar-background.ytmusic-app-layout,
+  ytmusic-app-layout[player-page-open] #nav-bar-background.ytmusic-app-layout,
+  ytmusic-app-layout[player-fullscreened] #nav-bar-background.ytmusic-app-layout {
     background: var(--ts-navbar-color) !important;
+    /* Prevent YTM opacity changes from hiding the bar before the slide-down completes */
+    opacity: 1 !important;
   }
 
+  html.ts-player-page-open #guide-wrapper,
+  html.ts-player-fullscreened #guide-wrapper,
+  html.ts-player-page-open #mini-guide-background,
+  html.ts-player-fullscreened #mini-guide-background,
   ytmusic-app-layout[player-page-open] #guide-wrapper,
   ytmusic-app-layout[player-fullscreened] #guide-wrapper,
-  ytmusic-app-layout[player-page-open] #mini-guide-background {
+  ytmusic-app-layout[player-page-open] #mini-guide-background,
+  ytmusic-app-layout[player-fullscreened] #mini-guide-background {
     background: var(--ts-sidebar-color) !important;
   }
 
@@ -2060,7 +2082,8 @@ export const appleMusicThemeCss = /*css*/ `
   ytmusic-player-page,
   #player-page {
     background: var(--ts-playerpage-color) !important;
-    transition: none !important;
+    /* PERF: keep to transform-only; this is cheap and prevents “snap” on exit */
+    transition: transform 320ms cubic-bezier(0.2, 0, 0.2, 1) !important;
   }
 
   /* Force AV Toggle to use dynamic color when player is open */
@@ -2077,10 +2100,77 @@ export const appleMusicThemeCss = /*css*/ `
     transition: none !important;
   }
 
+  /*
+    Smooth exit/enter of player page (exit fullscreen / collapse back to mini-player)
+    by ensuring the transforming surfaces are composited.
+
+    PERF NOTE:
+    - apply will-change only while the player is open/fullscreen to avoid keeping huge layers
+      on the GPU during normal browsing.
+  */
+  html.ts-player-page-open ytmusic-player-page,
+  html.ts-player-page-open #player-page,
+  html.ts-player-fullscreened ytmusic-player-page,
+  html.ts-player-fullscreened #player-page {
+    will-change: transform;
+    transform: translateZ(0);
+  }
+
+  html.ts-player-page-open #song-image,
+  html.ts-player-fullscreened #song-image,
+  html.ts-player-page-open ytmusic-player,
+  html.ts-player-fullscreened ytmusic-player {
+    will-change: transform;
+    transform: translateZ(0);
+  }
+
   /* Global Browse Mode Overrides */
   ytmusic-tabs.stuck {
     border-top: 1px solid #454545;
     border-bottom: 1px solid #454545;
+  }
+
+  /* --- Sidebar + Panels: separation & polish (cheap borders, no blur) --- */
+
+  /* Left sidebar border (rulers_borders disables it for bauhaus; re-enable here) */
+  ytmusic-app[is-bauhaus-sidenav-enabled] #guide-wrapper.ytmusic-app,
+  #guide-wrapper {
+    border-right: 1px solid var(--ts-ruler-secondary-color) !important;
+  }
+
+  /* Collapsed sidebar border */
+  ytmusic-app-layout[is-bauhaus-sidenav-enabled] #mini-guide-background.ytmusic-app-layout,
+  #mini-guide-background {
+    border-right: 1px solid var(--ts-ruler-secondary-color) !important;
+  }
+
+  /* Player page right-side panel (Up next / Lyrics / Related) separation */
+  #side-panel.ytmusic-player-page {
+    border-left: 1px solid var(--ts-ruler-secondary-color) !important;
+    background: rgb(0 0 0 / 0.08);
+  }
+
+  /* Sidebar interactions: keep subtle and GPU-cheap */
+  tp-yt-paper-item.ytmusic-guide-entry-renderer {
+    transition: background-color 140ms ease;
+  }
+
+  /* Active item: add a slim accent rail like Apple Music */
+  ytmusic-guide-entry-renderer[active] tp-yt-paper-item.ytmusic-guide-entry-renderer {
+    position: relative;
+    background-color: rgb(250 35 59 / 0.12) !important;
+  }
+
+  ytmusic-guide-entry-renderer[active] tp-yt-paper-item.ytmusic-guide-entry-renderer::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 999px;
+    background: var(--applemusic-color);
+    opacity: 0.95;
   }
 
   #button-shape-like button {
