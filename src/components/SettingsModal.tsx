@@ -199,7 +199,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 modal-backdrop"
+        className="absolute inset-0 modal-backdrop backdrop-blur-sm bg-black/40"
         onClick={onClose}
       />
 
@@ -208,7 +208,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="glass-effect modal-container w-full max-w-[900px] max-h-[90vh] overflow-hidden rounded-3xl relative flex flex-col"
+        className="glass-effect modal-container w-full max-w-[1100px] max-h-[90vh] overflow-hidden rounded-3xl relative flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header - Fixed */}

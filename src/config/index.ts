@@ -51,7 +51,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 export const VOICE_PROFILES: VoiceProfile[] = [
   {
     id: "sadachbia",
-    personaNames: { en: "Sam", cs: "Samuel", ja: "サム" },
+    personaNames: { en: "Petr Hudec", cs: "Petr Hudec", ja: "サム" },
     gender: "Male",
     geminiVoiceName: "sadachbia",
     tags: ["Calm", "Composed", "sadachbia"],
