@@ -37,7 +37,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         voice as DJVoice,
         language,
         customPrompt,
-        [],
         playlistContext || [],
         history,
         dualDjMode,
