@@ -32,6 +32,7 @@ export interface VoiceProfile {
     ja: string;
   };
   gender: "Male" | "Female" | "Robot";
+  geminiVoiceName: string;
   tags: string[];
 }
 
