@@ -255,9 +255,14 @@ const findIdleBackground = (): string | null => {
   return null;
 };
 
-const audioEl = document.createElement("audio");
-audioEl.id = "horis-fm-dj-voice";
-document.body.appendChild(audioEl);
+
+let audioEl = document.getElementById("horis-fm-dj-voice") as HTMLAudioElement;
+if (!audioEl) {
+  audioEl = document.createElement("audio");
+  audioEl.id = "horis-fm-dj-voice";
+  document.body.appendChild(audioEl);
+}
+
 
 class WebAudioDucker {
   public ctx: AudioContext | null = null;

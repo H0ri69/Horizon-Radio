@@ -2,7 +2,7 @@
 import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type, StartSensitivity, EndSensitivity } from "@google/genai";
 import { decodeAudio, decodeAudioData, createPcmBlob, downsampleTo16k } from './liveAudioUtils';
 import { DJVoice, AppLanguage } from '../types';
-import { MODEL_MAPPING, VOICE_PROFILES, DJStyle, DJ_STYLE_TTS_SYSTEM_PROMPTS, AUDIO, LIVE_DJ_STYLE_PROMPTS, getGenderInstruction, getLanguageInstruction, DEFAULT_VOICE_INSTRUCTION } from "@/config";
+import { MODEL_MAPPING, VOICE_PROFILES, DJStyle, AUDIO, generateLiveSystemInstruction } from "@/config";
 
 interface LiveCallConfig {
     apiKey: string;
@@ -60,9 +60,6 @@ export class LiveCallService {
 
             // Check if this specific person has called before
             const isRepeatCaller = history.some(h => h.name.toLowerCase() === config.callerName.toLowerCase());
-            const repeatCallerNote = isRepeatCaller
-                ? `NOTE: ${config.callerName} is a REPEAT CALLER. Welcome them back to the show!`
-                : "";
 
             const callHistoryContext = history.length > 0
                 ? history.map((h: any) => `- ${h.name} (Topic: ${h.reason || 'None'})`).join("\n")
@@ -78,6 +75,17 @@ export class LiveCallService {
             const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
 
             console.log(`[Hori-s] Creating audio contexts for session #${sessionId}`);
+            
+             // CLEANUP: Close existing contexts if they were left open
+            if (this.liveInputContext) {
+                try { await this.liveInputContext.close(); } catch(e) {}
+                this.liveInputContext = null;
+            }
+            if (this.liveOutputContext) {
+                try { await this.liveOutputContext.close(); } catch(e) {}
+                this.liveOutputContext = null;
+            }
+
             this.liveInputContext = new AudioCtx();
             this.liveOutputContext = new AudioCtx();
             console.log(`[Hori-s] Input context state: ${this.liveInputContext.state}, Output context state: ${this.liveOutputContext.state}`);
@@ -136,64 +144,34 @@ export class LiveCallService {
             };
 
             // Session Configuration
-            const langInstruction = getLanguageInstruction(config.language);
-
-            // Build Persona/Style Instruction
-            const styleInstruction = config.style === DJStyle.CUSTOM
-                ? (LIVE_DJ_STYLE_PROMPTS[DJStyle.CUSTOM] as (p: string) => string)(config.customPrompt || "Professional DJ")
-                : (LIVE_DJ_STYLE_PROMPTS[config.style] as string) || (LIVE_DJ_STYLE_PROMPTS[DJStyle.STANDARD] as string);
-
             const voiceProfile = VOICE_PROFILES.find(p => p.id === config.voice);
-
-            const voiceInstruction = DEFAULT_VOICE_INSTRUCTION;
-
-            const dualDjNote = config.dualDjMode && config.secondaryPersonaName
-                ? `NARRATIVE NOTE: You are currently on a shift with your co-host ${config.secondaryPersonaName}, but they are BUSY (e.g., grabbing coffee, fixing a cable, or at the mixing board). You are handling this listener call SOLO. Briefly mention their absence to the caller.`
-                : "";
-
-            const gender = voiceProfile?.gender || "Male";
-            const genderInstruction = getGenderInstruction(gender);
-
-            // Get TTS Performance Instruction (controls HOW to speak)
-            const ttsPerformanceInstruction = config.style === DJStyle.CUSTOM
-                ? `Performance Direction: Embody the persona "${config.customPrompt || "Professional DJ"}" through your voice delivery, pacing, and tone. Let the character influence HOW you speak, not just WHAT you say.`
-                : DJ_STYLE_TTS_SYSTEM_PROMPTS[config.style] || "";
+            const systemInstruction = generateLiveSystemInstruction(
+                config.personaName,
+                config.callerName,
+                config.previousSongTitle,
+                config.nextSongTitle,
+                config.nextSongArtist,
+                config.reason,
+                isRepeatCaller,
+                config.dualDjMode,
+                config.secondaryPersonaName,
+                config.style,
+                config.customPrompt,
+                config.voice,
+                config.language,
+                callHistoryContext,
+                voiceProfile
+            );
 
             console.log(`[Hori-s] 🎙️ Live Call Style: ${config.style}${config.style === DJStyle.CUSTOM && config.customPrompt ? ` (Custom: "${config.customPrompt}")` : ""}`);
-            if (ttsPerformanceInstruction) {
-                console.log(`[Hori-s] 🎭 TTS Performance: ${ttsPerformanceInstruction.substring(0, 100)}...`);
-            }
+
 
             const sessionConfig = {
                 model: MODEL_MAPPING.LIVE.PRO, // Use latest appropriate model
                 config: {
                     responseModalities: [Modality.AUDIO],
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceProfile?.geminiVoiceName || config.voice } } },
-                    systemInstruction: `
-                    ${genderInstruction}
-                    ${styleInstruction}
-                    ${ttsPerformanceInstruction ? `\n\nVOICE PERFORMANCE:\n${ttsPerformanceInstruction}` : ""}
-                    ${voiceInstruction}
-                    
-                    IDENTITY: Your name is ${config.personaName}. You are the host of Hori-s FM.
-                    
-                    You are ON THE AIR on Hori-s FM. ${config.callerName} just called in.
-                    Previous song: "${config.previousSongTitle}" | Next: "${config.nextSongTitle}" by "${config.nextSongArtist}"
-                    ${repeatCallerNote}
-                    ${dualDjNote}
-                    
-                    CALL FLOW:
-                    1. START IMMEDIATELY: Outro the previous song ("${config.previousSongTitle}"), then introduce the caller: "${config.callerName}, you're live!"
-                    2. ${isRepeatCaller ? "Welcome them back warmly." : (config.reason ? `Their topic: "${config.reason}"` : "Ask what's on their mind.")}
-                    3. Have a natural conversation. React authentically. Ask follow-ups. Let it breathe.
-                    4. When the caller says goodbye OR after 90 seconds, wrap up: Thank ${config.callerName}, intro "${config.nextSongTitle}", then call 'endCall'.
-                    5. If interrupted mid-sentence, stop and respond to their interruption immediately.
-                    6. Use Google Search for facts/news if asked.
-                    7. ${langInstruction} Sound like you're on a quality broadcast mic—warm, clear, professional.
-                    
-                    PREVIOUS CALLERS THIS SHIFT:
-                    ${callHistoryContext}
-                  `,
+                    systemInstruction,
                     tools: [{ googleSearch: {} }, { functionDeclarations: [transitionTool] }],
                     realtimeInputConfig: {
                         automaticActivityDetection: {
