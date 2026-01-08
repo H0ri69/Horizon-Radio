@@ -376,10 +376,18 @@ const startLiveCall = async () => {
   updateStatus("LIVE_CALL");
 
   ducker.duck(1000);
+
+  const freshTime = getScrapedTime();
+  let musicPauseDelay = 2000;
+  if (freshTime) {
+    const remaining = freshTime.duration - freshTime.currentTime;
+    musicPauseDelay = Math.max(0, (remaining - 2) * 1000);
+  }
+
   setTimeout(() => {
     const video = getMoviePlayer();
     if (video) video.pause();
-  }, 1000);
+  }, musicPauseDelay);
 
   const { current, next } = getSongInfo(); // Re-fetch info
 
@@ -400,7 +408,10 @@ const startLiveCall = async () => {
       apiKey,
       callerName: callData.name,
       reason: callData.message,
+      previousSongTitle: current.title || "Unknown",
+      previousSongArtist: current.artist || "Unknown",
       nextSongTitle: callData.song ? callData.song.title : (next.title || "Next Song"),
+      nextSongArtist: callData.song ? "Requested Artist" : (next.artist || "Unknown"),
       voice: settings.voice || "Charon",
       language: settings.language || "en",
       onStatusChange: (s) => console.log(`[LiveCall] ${s}`), // Could pipe to UI status
@@ -575,7 +586,7 @@ const mainLoop = setInterval(() => {
     const freshTime = getScrapedTime();
     if (freshTime) {
       const freshLeft = freshTime.duration - freshTime.currentTime;
-      if (freshLeft < 12 && freshLeft > 1) { // Same trigger window
+      if (freshLeft < 10 && freshLeft > 1) { // 10s trigger
         startLiveCall();
       }
     }

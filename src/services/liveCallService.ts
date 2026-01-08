@@ -7,7 +7,10 @@ interface LiveCallConfig {
     apiKey: string;
     callerName: string;
     reason: string;
+    previousSongTitle: string;
+    previousSongArtist: string;
     nextSongTitle: string;
+    nextSongArtist: string;
     voice: DJVoice;
     language: AppLanguage;
     onStatusChange: (status: string) => void;
@@ -106,21 +109,26 @@ export class LiveCallService {
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: config.voice } } },
                     systemInstruction: `
                     You are DJ "Horis" on a live radio show. A listener named "${config.callerName}" has just called in.
-                    ${config.reason ? `Their message: "${config.reason}"` : ''}
-                    The next song you're about to play is: "${config.nextSongTitle}".
+                    The song that just finished was: "${config.previousSongTitle}" by "${config.previousSongArtist}".
+                    The next song you'll play AFTER the call is: "${config.nextSongTitle}" by "${config.nextSongArtist}".
+                    ${config.reason ? `The caller's stated reason/message: "${config.reason}"` : ''}
                     
                     CRITICAL INSTRUCTIONS:
-                    1. START SPEAKING IMMEDIATELY when the call connects. Greet them enthusiastically: "Hey ${config.callerName}! You're live on Horis FM!"
-                    2. ${config.reason ? `Acknowledge their message: "${config.reason}"` : 'Ask them what they want to talk about'}
-                    3. Have a REAL CONVERSATION - ask follow-up questions, react to what they say, keep it engaging
-                    4. DON'T rush to end the call - let the conversation flow naturally for at least 30-60 seconds
-                    5. Let the CALLER decide when to end - if they say goodbye, farewell, or indicate they're done, THEN call 'endCall'
-                    6. ONLY call 'endCall' yourself if:
-                       - The caller clearly says goodbye/farewell/thanks/etc
-                       - The conversation has gone on for 90+ seconds (you're the safety timeout)
-                       - There's an awkward silence and you've tried to re-engage
-                    7. Be cool, witty, high-energy, and genuinely interested in what they have to say
-                    8. DO NOT end the call after just one exchange - have multiple back-and-forth exchanges
+                    1. START SPEAKING IMMEDIATELY when the call connects. 
+                    2. START with a standard song transition: Briefly mention/outro the song that just ended ("${config.previousSongTitle}"). 
+                    3. THEN, smoothly transition to introducing the caller: "Wait, we've got a caller on the line! ${config.callerName}, you're live on Horis FM!"
+                    4. ${config.reason ? `Acknowledge their message: "${config.reason}"` : 'Ask them what\'s on their mind or how they\'re doing.'}
+                    5. Have a REAL CONVERSATION - ask follow-up questions, react to what they say, keep it engaging. Do NOT just ask "what do you want to talk about" every time. 
+                    6. DON'T rush to end the call - let the conversation flow naturally for at least 30-60 seconds.
+                    7. Let the CALLER decide when to end - if they say goodbye or indicate they're done, THEN follow the "Goodbye Sequence":
+                       - Say a warm goodbye to "${config.callerName}".
+                       - Transition to the next song: Introduce "${config.nextSongTitle}" by "${config.nextSongArtist}" enthusiastically.
+                       - IMMEDIATELY call 'endCall' AFTER you finish speaking the next song's introduction.
+                    8. ONLY call 'endCall' yourself if:
+                       - The caller clearly says goodbye/farewell.
+                       - The conversation has gone on for 120+ seconds (safety timeout).
+                       - There's a long silence.
+                    9. Be cool, witty, and high-energy. You are a professional radio DJ.
                     
                     Language: ${langInstruction}
                     Voice style: ${voiceInstruction}
@@ -142,6 +150,18 @@ export class LiveCallService {
                         }
 
                         console.log(`[Hori-s] Setting up audio input for session #${sessionId}`);
+
+                        // Trigger the first response immediately
+                        sessionPromise.then((session) => {
+                            console.log(`[Hori-s] Sending initial trigger to kickstart DJ for session #${sessionId}`);
+                            session.sendClientContent({
+                                turns: [{
+                                    role: 'user',
+                                    parts: [{ text: "SYSTEM_NOTE: The call has just connected. Start your introduction immediately as per your instructions." }]
+                                }],
+                                turnComplete: true
+                            });
+                        });
 
                         const source = this.liveInputContext.createMediaStreamSource(this.liveStream);
                         const scriptProcessor = this.liveInputContext.createScriptProcessor(4096, 1, 1);
