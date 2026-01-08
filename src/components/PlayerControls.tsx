@@ -63,37 +63,37 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ onOpenSettings, 
     switch (djStatus) {
       case "GENERATING":
         return (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 group animate-pulse">
+          <div className="flex items-center gap-2 px-4 py-[13px] rounded-2xl horis-glass-pill status-badge-generating animate-pulse">
             <Sparkles className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Writing</span>
+            <span>Writing</span>
           </div>
         );
       case "READY":
         return (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400">
+          <div className="flex items-center gap-2 px-4 py-[13px] rounded-2xl horis-glass-pill status-badge-ready">
             <Zap className="w-3.5 h-3.5 fill-current" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Ready</span>
+            <span>Ready</span>
           </div>
         );
       case "PLAYING":
         return (
-          <div className="shimmer flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+          <div className="shimmer flex items-center gap-2 px-4 py-[13px] rounded-2xl horis-glass-pill status-badge-playing">
             <Mic2 className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-black uppercase tracking-widest">On Air</span>
+            <span>On Air</span>
           </div>
         );
       case "COOLDOWN":
         return (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 text-white/30">
+          <div className="flex items-center gap-2 px-4 py-[13px] rounded-2xl horis-glass-pill status-badge-idle opacity-60">
             <Hourglass className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Resting</span>
+            <span>Resting</span>
           </div>
         );
       default:
         return (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 text-white/20">
+          <div className="flex items-center gap-2 px-4 py-[13px] rounded-2xl horis-glass-pill status-badge-idle opacity-40">
             <Radio className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Idle</span>
+            <span>Idle</span>
           </div>
         );
     }
@@ -106,25 +106,25 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ onOpenSettings, 
         {getStatusBadge()}
       </div>
 
-      <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/5 backdrop-blur-md">
+      <div className="flex items-center gap-0.5 p-0.5 rounded-2xl horis-glass-pill">
         {/* Call Button */}
         <button
           onClick={onOpenCall}
-          className="p-2.5 rounded-xl hover:bg-white/5 text-white/40 hover:text-indigo-400 transition-all active:scale-90"
+          className="p-2.5 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-all active:scale-95"
           title="Voice Message to Studio"
         >
-          <PhoneForwarded className="w-5 h-5" />
+          <PhoneForwarded className="w-4.5 h-4.5" />
         </button>
 
         {/* Settings Button */}
         <button
           onClick={onOpenSettings}
-          className="relative p-2.5 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all active:scale-90 group"
+          className="relative p-2.5 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-all active:scale-95 group"
           title={hasApiKey ? "Studio Configuration" : "API KEY REQUIRED"}
         >
-          <Settings2 className="w-5 h-5 group-hover:rotate-45 transition-transform duration-500" />
+          <Settings2 className="w-4.5 h-4.5 group-hover:rotate-45 transition-transform duration-500" />
           {!hasApiKey && (
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
+            <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
           )}
         </button>
       </div>
