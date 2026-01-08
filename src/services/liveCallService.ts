@@ -2,7 +2,7 @@
 import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type, StartSensitivity, EndSensitivity } from "@google/genai";
 import { decodeAudio, decodeAudioData, createPcmBlob, downsampleTo16k } from './liveAudioUtils';
 import { DJVoice, AppLanguage } from '../types';
-import { MODEL_MAPPING, VOICE_PROFILES, DJStyle, DJ_STYLE_TTS_SYSTEM_PROMPTS, AUDIO } from "@/config";
+import { MODEL_MAPPING, VOICE_PROFILES, DJStyle, DJ_STYLE_TTS_SYSTEM_PROMPTS, AUDIO, LIVE_DJ_STYLE_PROMPTS, getGenderInstruction, getLanguageInstruction, DEFAULT_VOICE_INSTRUCTION } from "@/config";
 
 interface LiveCallConfig {
     apiKey: string;
@@ -136,43 +136,23 @@ export class LiveCallService {
             };
 
             // Session Configuration
-            const langInstruction = config.language === 'cs'
-                ? "Entire conversation MUST be in Czech (čeština). Use natural, colloquial Czech grammar."
-                : config.language === 'ja'
-                    ? "Entire conversation MUST be in Japanese (日本語). Use natural, conversational Japanese."
-                    : "Speak in English.";
+            const langInstruction = getLanguageInstruction(config.language);
 
             // Build Persona/Style Instruction
-            // Map DJStyle to a punchy live instruction
-            const stylePrompts: Record<string, string> = {
-                [DJStyle.STANDARD]: "ACTING: You are a high-energy, confident morning-show DJ. Keep things moving, stay upbeat, and sound extremely polished and professional.",
-                [DJStyle.CHILL]: "ACTING: You are a deep, soothing late-night radio host. Speak slowly, intimately, and softly. Breathe between sentences. Total 'Chill' vibes.",
-                [DJStyle.TECHNICAL]: "ACTING: You are a music historian and audio nerd. Use technical terms, mention bitrates or production history, and stay genuinely excited about metadata.",
-                [DJStyle.MINIMAL]: "ACTING: You are a neutral automated voice. Extremely efficient. No small talk. Just facts and standard radio etiquette.",
-                [DJStyle.ASMR]: "ACTING: You are an ASMR host. WHISPER EVERYTHING. Every word must be a gentle whisper. Focus on being soothing and quiet. NEVER RAISE YOUR VOICE.",
-                [DJStyle.DRUNK]: "ACTING: You are tipsy (3-4 drinks in). Ramble a bit, trail off mid-sentence, chuckle at yourself, and get easily distracted by small things. Not total slurring, just 'pleasantly buzzed' energy.",
-            };
-
             const styleInstruction = config.style === DJStyle.CUSTOM
-                ? `ACTING: Roleplay this CUSTOM Persona defined by the user: ${config.customPrompt || "Professional DJ"}`
-                : stylePrompts[config.style] || stylePrompts[DJStyle.STANDARD];
+                ? (LIVE_DJ_STYLE_PROMPTS[DJStyle.CUSTOM] as (p: string) => string)(config.customPrompt || "Professional DJ")
+                : (LIVE_DJ_STYLE_PROMPTS[config.style] as string) || (LIVE_DJ_STYLE_PROMPTS[DJStyle.STANDARD] as string);
 
             const voiceProfile = VOICE_PROFILES.find(p => p.id === config.voice);
 
-            const voiceInstruction = (voiceProfile?.geminiVoiceName || "").toLowerCase().includes('charon')
-                ? "Speak deeply, calmly, and professionally like a podcast host."
-                : "Speak naturally and clearly. Do not hype."; // Default fallback
+            const voiceInstruction = DEFAULT_VOICE_INSTRUCTION;
 
             const dualDjNote = config.dualDjMode && config.secondaryPersonaName
                 ? `NARRATIVE NOTE: You are currently on a shift with your co-host ${config.secondaryPersonaName}, but they are BUSY (e.g., grabbing coffee, fixing a cable, or at the mixing board). You are handling this listener call SOLO. Briefly mention their absence to the caller.`
                 : "";
 
             const gender = voiceProfile?.gender || "Male";
-            const genderInstruction = gender === "Female"
-                ? "IDENTITY: You are a FEMALE speaker. Use female self-references and female gendered grammar."
-                : gender === "Robot"
-                    ? "IDENTITY: You are a ROBOT. Use neutral, artificial tone."
-                    : "IDENTITY: You are a MALE speaker. Use male self-references and male gendered grammar.";
+            const genderInstruction = getGenderInstruction(gender);
 
             // Get TTS Performance Instruction (controls HOW to speak)
             const ttsPerformanceInstruction = config.style === DJStyle.CUSTOM
@@ -209,7 +189,7 @@ export class LiveCallService {
                     4. When the caller says goodbye OR after 90 seconds, wrap up: Thank ${config.callerName}, intro "${config.nextSongTitle}", then call 'endCall'.
                     5. If interrupted mid-sentence, stop and respond to their interruption immediately.
                     6. Use Google Search for facts/news if asked.
-                    7. Speak in ${config.language === 'cs' ? 'Czech (čeština)' : config.language === 'ja' ? 'Japanese (日本語)' : 'English'}. Sound like you're on a quality broadcast mic—warm, clear, professional.
+                    7. ${langInstruction} Sound like you're on a quality broadcast mic—warm, clear, professional.
                     
                     PREVIOUS CALLERS THIS SHIFT:
                     ${callHistoryContext}

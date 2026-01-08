@@ -16,22 +16,16 @@ import {
   TIMING,
   AUDIO,
   VOICE_PROFILES,
+  LONG_MESSAGE_THEMES,
+  SHORT_MESSAGE_INSTRUCTION,
 } from "../config";
 import { GeminiModelTier } from "../types";
 
 const DEFAULT_TEXT_MODEL = MODEL_MAPPING.TEXT.FLASH;
 const DEFAULT_TTS_MODEL = MODEL_MAPPING.TTS.FLASH;
 
-const LONG_MESSAGE_THEMES = [
-  "Tell a short, music-related Joke",
-  "Share a Trivium or Fun Fact about the artist or song",
-  "Preview upcoming songs in the queue. Mention the titles and artists of the next 2-3 specific songs using ONLY the playlist context provided ([UP NEXT +1], [UP NEXT +2], etc). Do NOT invent song titles or be vague.",
-  "Spotlight a story about the Artist",
-  "Briefly mention current Weather for your listeners, referencing the local country of ${location}. USE GOOGLE SEARCH to get actual conditions. Interpret the timezone as a country, not a specific city. Deliver it naturally as a DJ update (e.g., 'A bit chilly here in the UK tonight...'). Use Celsius for temperatures unless location is in USA/Canada, then use Fahrenheit.",
-  "Briefly mention a local News headline relevant to the country where ${location} is located. USE GOOGLE SEARCH. Interpret the timezone as a country, not a specific city. Deliver it as a casual radio update, not a robotic headline read.",
-];
-
-const SHORT_MESSAGE_INSTRUCTION = "Keep it extremely concise. Maximum 2 sentences. Focus strictly on the transition (Song A to Song B).";
+// LONG_MESSAGE_THEMES moved to src/config/prompts.ts
+// SHORT_MESSAGE_INSTRUCTION moved to src/config/prompts.ts
 
 interface GeminiErrorResponse {
   status?: number;
