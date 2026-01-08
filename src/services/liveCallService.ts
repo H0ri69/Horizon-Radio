@@ -1,7 +1,8 @@
 
-import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type } from "@google/genai";
+import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type, StartSensitivity, EndSensitivity } from "@google/genai";
 import { decodeAudio, decodeAudioData, createPcmBlob, downsampleTo16k } from './liveAudioUtils';
 import { DJVoice, AppLanguage } from '../types';
+import { MODEL_MAPPING } from "@/config";
 
 interface LiveCallConfig {
     apiKey: string;
@@ -97,13 +98,13 @@ export class LiveCallService {
             };
 
             // Session Configuration
-            const langInstruction = config.language === 'cs' ? "Speak in Czech." : config.language === 'ja' ? "Speak in Japanese." : "Speak in English.";
+            const langInstruction = config.language === 'cs' ? "Speak in Czech!!!! Konverzace se bude vést v češtině!" : config.language === 'ja' ? "Speak in Japanese." : "Speak in English.";
             const voiceInstruction = config.voice.toLowerCase().includes('charon')
                 ? "Speak deeply, calmly, and professionally like a podcast host."
                 : "Speak naturally and clearly. Do not hype."; // Default fallback
 
             const sessionConfig = {
-                model: 'gemini-2.0-flash-exp', // Use latest appropriate model
+                model: MODEL_MAPPING.LIVE.PRO, // Use latest appropriate model
                 config: {
                     responseModalities: [Modality.AUDIO],
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: config.voice } } },
@@ -134,6 +135,14 @@ export class LiveCallService {
                     Voice style: ${voiceInstruction}
                   `,
                     tools: [{ functionDeclarations: [transitionTool] }],
+                    realtimeInputConfig: {
+                        automaticActivityDetection: {
+                            disabled: false,
+                            silenceDurationMs: 200,
+                            startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
+                            endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
+                        }
+                    }
                 },
             };
 
@@ -190,7 +199,29 @@ export class LiveCallService {
                         scriptProcessor.connect(this.liveInputContext.destination);
                     },
                     onmessage: async (msg: LiveServerMessage) => {
-                        console.log(`[Hori-s] Received message for session #${sessionId}:`, msg.serverContent ? 'audio/text' : msg.toolCall ? 'tool call' : 'unknown');
+                        if (msg.setupComplete) {
+                            console.log(`[Hori-s] Setup complete for session #${sessionId}`);
+                        }
+
+                        if (msg.serverContent) {
+                            const { modelTurn, interrupted, turnComplete } = msg.serverContent;
+                            if (interrupted) {
+                                console.log(`[Hori-s] 🛑 Model interrupted by user in session #${sessionId}`);
+                                // Stop all currently playing/queued audio chunks from the model
+                                this.liveSources.forEach(s => {
+                                    try { s.stop(); } catch (e) { }
+                                });
+                                this.liveSources.clear();
+                                this.liveNextStartTime = this.liveOutputContext?.currentTime || 0;
+                            }
+                            if (modelTurn) {
+                                console.log(`[Hori-s] 📥 Received model turn content in session #${sessionId}${turnComplete ? ' (Turn Complete)' : ''}`);
+                            }
+                        }
+
+                        if (msg.toolCall) {
+                            console.log(`[Hori-s] 🛠️ Tool call received in session #${sessionId}:`, msg.toolCall);
+                        }
 
                         // Handle Tool Calls (Hangup)
                         if (msg.toolCall) {
@@ -254,9 +285,9 @@ export class LiveCallService {
                             }
                         }
                     },
-                    onclose: () => {
+                    onclose: (event?: any) => {
                         if (this.isLiveActive) {
-                            console.log("[Hori-s] Connection closed. Waiting for audio to finish...");
+                            console.log(`[Hori-s] WebSocket connection closed for session #${sessionId}. Event:`, event);
                             const ctx = this.liveOutputContext;
                             if (ctx) {
                                 // Wait for all queued audio to finish playing
