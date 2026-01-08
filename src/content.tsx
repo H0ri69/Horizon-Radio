@@ -234,6 +234,27 @@ const getScrapedTime = (): { currentTime: number; duration: number } | null => {
   return null;
 };
 
+// HELPER: Find a suitable background image when no song is playing
+const findIdleBackground = (): string | null => {
+  // 1. Hero / Immersive Header (Home Screen, Channel, etc.)
+  const immersive = document.querySelector('ytmusic-immersive-header-renderer .image img');
+  if (immersive && (immersive as HTMLImageElement).src) return (immersive as HTMLImageElement).src;
+
+  // 2. Playlist/Album Header
+  const header = document.querySelector('ytmusic-detail-header-renderer .image img');
+  if (header && (header as HTMLImageElement).src) return (header as HTMLImageElement).src;
+
+  // 3. Artist/Channel Header
+  const channelHeader = document.querySelector('ytmusic-c4-tabbed-header-renderer .image img');
+  if (channelHeader && (channelHeader as HTMLImageElement).src) return (channelHeader as HTMLImageElement).src;
+
+  // 4. First item in the grid (Home screen recommendations) - Fallback
+  const firstItem = document.querySelector('ytmusic-two-row-item-renderer .image img');
+  if (firstItem && (firstItem as HTMLImageElement).src) return (firstItem as HTMLImageElement).src;
+
+  return null;
+};
+
 const audioEl = document.createElement("audio");
 audioEl.id = "horis-fm-dj-voice";
 document.body.appendChild(audioEl);
@@ -451,15 +472,33 @@ const mainLoop = setInterval(() => {
   if (!timeData) return;
   const { currentTime, duration } = timeData;
 
+  // 1. Gather Info
   const video = getMoviePlayer();
   const isPaused = video ? video.paused : false;
+  const { current, next, playlistContext } = getSongInfo();
 
-  // Don't run loop logic if we are in a LIVE CALL
+  // 2. Continuous Background Update (Context Aware)
+  // If music is paused, prioritizes hero/page content. If playing, prioritizes song art.
+  const pageHero = findIdleBackground();
+  let activeArt = current.art;
+
+  if (isPaused || !current.art) {
+    if (pageHero) activeArt = pageHero;
+  }
+
+  if (activeArt) {
+    const newVal = `url("${activeArt}")`;
+    const oldVal = document.documentElement.style.getPropertyValue('--horis-album-art');
+    if (oldVal !== newVal) {
+      document.documentElement.style.setProperty('--horis-album-art', newVal);
+    }
+  }
+
+  // 3. Status Checks
   if (state.status === "LIVE_CALL") return;
-
   if (isPaused && state.status !== "PLAYING") return;
 
-  const { current, next, playlistContext } = getSongInfo();
+  // 4. Song Change Detection
   const sig = `${current.title}|${current.artist}`;
   const timeLeft = duration - currentTime;
 
@@ -471,11 +510,6 @@ const mainLoop = setInterval(() => {
     state.generatedForSig = null;
     state.lastSongChangeTs = Date.now();
     if (!audioEl.paused) ducker.duck(50);
-
-    // Update album art global variable for themes
-    if (current.art) {
-      document.documentElement.style.setProperty('--horis-album-art', `url("${current.art}")`);
-    }
   }
 
   state.lastTime = currentTime;
@@ -486,10 +520,10 @@ const mainLoop = setInterval(() => {
   const hasEnoughTime = timeLeft > 20;
   const forceGenerate = (state as any).forceGenerate === true;
 
-  // GENERATION LOGIC
+  // 5. Generation Logic
   if (state.status === "IDLE" && !alreadyGenerated) {
     if (state.pendingCall) {
-      state.generatedForSig = sig; // Mark as "handled"
+      state.generatedForSig = sig;
       console.log("[Hori-s] 📞 Call pending. Skipping standard generation.");
       return;
     }
@@ -505,8 +539,7 @@ const mainLoop = setInterval(() => {
       chrome.storage.local.get(["horisFmSettings"], (result) => {
         const settings = (result as any).horisFmSettings || { enabled: true, voice: "sadachbia" };
         console.log(`[Hori-s] ✨ Generation started (Text: ${settings.textModel || "FLASH"}, TTS: ${settings.ttsModel || "FLASH"})`);
-        console.log(`[Hori-s] Current: ${current.title}`);
-        console.log(`[Hori-s] Next: ${next.title || "Unknown Track"}`);
+
         if (settings.debug?.triggerPoint) (state as any).debugTriggerPoint = settings.debug.triggerPoint;
         if (!settings.enabled) {
           updateStatus("COOLDOWN");
