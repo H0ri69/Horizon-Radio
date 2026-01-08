@@ -340,19 +340,12 @@ export const appleMusicThemeCss = `
   #player-bar-background,
   #guide-wrapper,
   ytmusic-player-bar {
-    background: transparent !important; /* Force transparent base to remove dark/red tint */
-    background-image: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 100%) !important;
+    background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 100%), var(--ts-theme-apple-glass) !important;
     backdrop-filter: blur(80px) saturate(240%) brightness(1.2) !important;
     -webkit-backdrop-filter: blur(80px) saturate(240%) brightness(1.2) !important;
     border-bottom: 1px solid var(--ts-theme-apple-border) !important;
     box-shadow: inset 0 -1px 1px rgba(0,0,0,0.2) !important;
     transition: none !important;
-  }
-  
-  /* Ensure the nav bar specifically doesn't have extra layers */
-  #nav-bar-background {
-    background-color: transparent !important;
-    opacity: 1 !important; /* Keep it visible for the blur, just remove the color */
   }
 
   /* Remove Floating Styles from Player Bar */
@@ -382,6 +375,13 @@ export const appleMusicThemeCss = `
     display: flex !important;
     align-items: center !important;
   }
+  
+  /* FIX THE DARK BOX IN TOP LEFT CORNER */
+  /* The spacer was keeping the old background color */
+  #guide-spacer.ytmusic-app {
+    background: transparent !important;
+    display: none !important; /* Often just takes up space we don't need with this layout */
+  }
 
   /* Style the Guide (Hamburger) Button to match sidebar items */
   #guide-button.ytmusic-nav-bar {
@@ -399,6 +399,11 @@ export const appleMusicThemeCss = `
   /* Logo adjustment */
   ytmusic-logo.ytmusic-nav-bar {
     margin-left: 4px !important;
+  }
+
+  /* Hide logo when sidebar is collapsed (Mini Guide Mode) */
+  ytmusic-app-layout:not([guide-persistent-and-visible]) ytmusic-logo.ytmusic-nav-bar {
+    display: none !important;
   }
 
   /* HIDE FULLBLEED IMAGE HARDEGES */
@@ -424,19 +429,87 @@ export const appleMusicThemeCss = `
     display: none !important;
   }
   
+  /* MINI GUIDE (Collapsed) FIXES */
+  #mini-guide-renderer.ytmusic-app {
+    background: var(--ts-theme-apple-glass) !important;
+    backdrop-filter: blur(80px) saturate(240%) brightness(1.2) !important;
+    height: 100% !important; /* Reach top */
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    padding: 64px 0 90px 0 !important; /* Header + Bottom clearance */
+    box-sizing: border-box !important;
+    border-right: 1px solid var(--ts-theme-apple-border) !important;
+    width: 72px !important; /* Made wider as requested */
+    overflow-x: hidden !important; /* No side scroll */
+    z-index: 99 !important; /* Below header */
+  }
+
+  /* Remove separate background from mini guide sections */
+  #mini-guide-renderer #items,
+  #mini-guide-renderer #sections,
+  #mini-guide-renderer .style-scope.ytmusic-guide-renderer,
+  ytmusic-guide-section-renderer[is-collapsed] {
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* CENTER ICONS IN MINI GUIDE */
+  ytmusic-guide-entry-renderer[is-collapsed] {
+    margin: 0 !important;
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+
+  ytmusic-guide-entry-renderer[is-collapsed] tp-yt-paper-item {
+     padding: 12px 0 !important;
+     justify-content: center !important;
+     width: 100% !important;
+     --paper-item-min-height: auto !important;
+  }
+  
+  ytmusic-guide-entry-renderer[is-collapsed] .guide-icon {
+     margin-right: 0 !important;
+  }
+
+  /* MAIN GUIDE RENDERER */
   ytmusic-guide-renderer {
     background: var(--ts-theme-apple-glass) !important;
     backdrop-filter: blur(80px) saturate(240%) brightness(1.2) !important;
     width: 100% !important;
     height: 100% !important;
-    padding: 0 !important;
+    padding: 64px 0 96px 0 !important; /* Top + Bottom clearance */
     box-sizing: border-box !important;
+    overflow-x: hidden !important; 
+  }
+  
+  /* HIDE SCROLLBARS IN SIDEBAR */
+  ytmusic-guide-renderer #items {
+    overflow-x: hidden !important;
+  }
+
+  ytmusic-guide-renderer #items::-webkit-scrollbar {
+    display: none !important;
   }
   
   /* Guide Entries */
   ytmusic-guide-entry-renderer {
     border-radius: 6px !important;
     margin: 0 8px !important;
+  }
+  
+  /* Mini guide entries usually have different class/tag, ensuring they are covered */
+  ytmusic-mini-guide-entry-renderer {
+    margin: 4px 0 !important;
+    background: transparent !important;
+    border-radius: 6px !important;
+  }
+  
+  ytmusic-mini-guide-entry-renderer:hover {
+    background-color: rgba(255,255,255,0.1) !important;
   }
 
   ytmusic-guide-entry-renderer:hover {
@@ -448,8 +521,14 @@ export const appleMusicThemeCss = `
   }
 
   /* CONTENT AREA - Reset Padding */
-  #content, ytmusic-browse-response {
+  #content {
     /* Reset mostly, just ensure background visibility */
+    background: transparent !important;
+    margin-left: 80px !important; /* Fix overlap with fixed mini-guide */
+    width: auto !important;
+  }
+    
+  ytmusic-browse-response {
     background: transparent !important;
   }
 
