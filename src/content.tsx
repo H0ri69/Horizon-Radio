@@ -435,6 +435,7 @@ const startLiveCall = async () => {
       nextSongTitle: callData.song ? callData.song.title : (next.title || "Next Song"),
       nextSongArtist: callData.song ? "Requested Artist" : (next.artist || "Unknown"),
       voice: settings.djVoice || "sadachbia",
+      personaName: DJ_PERSONA_NAMES[settings.djVoice as DJVoice]?.[settings.language as AppLanguage] || "Host",
       language: settings.language || "en",
       style: settings.djStyle || "Standard (Radio Host)",
       customPrompt: settings.customStylePrompt || "",
@@ -537,7 +538,7 @@ const mainLoop = setInterval(() => {
       state.generatedForSig = sig;
 
       chrome.storage.local.get(["horisFmSettings"], (result) => {
-        const settings = (result as any).horisFmSettings || { enabled: true, voice: "sadachbia" };
+        const settings = (result as any).horisFmSettings || { enabled: true, djVoice: "sadachbia" };
         console.log(`[Hori-s] ✨ Generation started (Text: ${settings.textModel || "FLASH"}, TTS: ${settings.ttsModel || "FLASH"})`);
 
         if (settings.debug?.triggerPoint) (state as any).debugTriggerPoint = settings.debug.triggerPoint;
@@ -561,10 +562,10 @@ const mainLoop = setInterval(() => {
                   id: "ytm-next",
                 },
                 playlistContext,
-                style: settings.style || "STANDARD",
-                voice: settings.voice,
+                style: settings.djStyle || "STANDARD",
+                voice: settings.djVoice,
                 language: settings.language || "en",
-                customPrompt: settings.customPrompt,
+                customPrompt: settings.customStylePrompt,
                 dualDjMode: settings.dualDjMode,
                 secondaryVoice: settings.secondaryDjVoice,
                 isLongMessage: isLong,

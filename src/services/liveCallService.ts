@@ -24,6 +24,7 @@ interface LiveCallConfig {
     nextSongTitle: string;
     nextSongArtist: string;
     voice: DJVoice;
+    personaName: string;
     language: AppLanguage;
     style: DJStyle;
     customPrompt?: string;
@@ -182,7 +183,9 @@ export class LiveCallService {
                 ? `ACTING: Roleplay this CUSTOM Persona defined by the user: ${config.customPrompt || "Professional DJ"}`
                 : stylePrompts[config.style] || stylePrompts[DJStyle.STANDARD];
 
-            const voiceInstruction = config.voice.toLowerCase().includes('charon')
+            const voiceProfile = VOICE_PROFILES.find(p => p.id === config.voice);
+
+            const voiceInstruction = (voiceProfile?.geminiVoiceName || "").toLowerCase().includes('charon')
                 ? "Speak deeply, calmly, and professionally like a podcast host."
                 : "Speak naturally and clearly. Do not hype."; // Default fallback
 
@@ -190,7 +193,6 @@ export class LiveCallService {
                 ? `NARRATIVE NOTE: You are currently on a shift with your co-host ${config.secondaryPersonaName}, but they are BUSY (e.g., grabbing coffee, fixing a cable, or at the mixing board). You are handling this listener call SOLO. Briefly mention their absence to the caller.`
                 : "";
 
-            const voiceProfile = VOICE_PROFILES.find(p => p.id === config.voice);
             const gender = voiceProfile?.gender || "Male";
             const genderInstruction = gender === "Female"
                 ? "IDENTITY: You are a FEMALE speaker. Use female self-references and female gendered grammar."
@@ -212,11 +214,14 @@ export class LiveCallService {
                 model: MODEL_MAPPING.LIVE.PRO, // Use latest appropriate model
                 config: {
                     responseModalities: [Modality.AUDIO],
-                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: config.voice } } },
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceProfile?.geminiVoiceName || config.voice } } },
                     systemInstruction: `
                     ${genderInstruction}
                     ${styleInstruction}
                     ${ttsPerformanceInstruction ? `\n\nVOICE PERFORMANCE:\n${ttsPerformanceInstruction}` : ""}
+                    ${voiceInstruction}
+                    
+                    IDENTITY: Your name is ${config.personaName}. You are the host of Hori-s FM.
                     
                     You are ON THE AIR on Hori-s FM. ${config.callerName} just called in.
                     Previous song: "${config.previousSongTitle}" | Next: "${config.nextSongTitle}" by "${config.nextSongArtist}"
