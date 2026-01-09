@@ -1,6 +1,6 @@
 const { WebSocketServer, WebSocket } = require('ws');
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8765;
 const wss = new WebSocketServer({ port: PORT });
 
 // Store active Hosts (Extension instances)
@@ -95,6 +95,37 @@ function handleMessage(ws, msg) {
                 type: 'GUEST_CONNECTED', 
                 callerName: msg.callerName || 'Unknown Caller' 
             }));
+            break;
+
+        case 'CALL_REQUEST':
+             // Guest -> Host (Request to join queue)
+             const targetHost = guests.get(ws)?.hostId;
+             if (targetHost) {
+                 const hWs = hosts.get(targetHost);
+                 if (hWs && hWs.readyState === WebSocket.OPEN) {
+                     console.log(`[Relay] Forwarding CALL_REQUEST from Guest to Host: ${targetHost}`);
+                     hWs.send(JSON.stringify({
+                         type: 'CALL_REQUEST',
+                         name: msg.name,
+                         message: msg.message
+                     }));
+                 } else {
+                     console.warn(`[Relay] Failed to forward CALL_REQUEST: Host ${targetHost} not found or offline.`);
+                 }
+             }
+             break;
+
+        case 'GO_LIVE':
+            // Host -> Guest (Signal to start speaking/recording)
+            console.log(`[Relay] Broadcasting GO_LIVE for Host: ${ws.hostId}`);
+            let recipientCount = 0;
+            for (const [guestWs, info] of guests.entries()) {
+                if (info.hostId === ws.hostId && guestWs.readyState === WebSocket.OPEN) {
+                    guestWs.send(JSON.stringify({ type: 'GO_LIVE' }));
+                    recipientCount++;
+                }
+            }
+            console.log(`[Relay] Sent GO_LIVE to ${recipientCount} guests.`);
             break;
 
         default:

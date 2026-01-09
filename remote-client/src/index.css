@@ -1,6 +1,19 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --color-background: #0a0a0a;
+  --color-surface: #121212;
+  --color-surfaceHighlight: #1E1E1E;
+  --color-primary: #b0fb5d;
+  --color-primaryDim: rgba(176, 251, 93, 0.1);
+  --color-secondary: #ffffff;
+  --color-accent: #b0fb5d;
+
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
 
 :root {
   color-scheme: dark;
