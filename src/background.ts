@@ -166,7 +166,7 @@ chrome.runtime.onConnect.addListener((port) => {
     console.log('[Background] 🔌 Remote Socket Proxy connected');
 
     let ws: WebSocket | null = null;
-    const RELAY_URL = "ws://127.0.0.1:8765"; // Prod: "wss://relay.horis.fm" ?
+    const RELAY_URL = import.meta.env.VITE_RELAY_URL || "ws://127.0.0.1:8765";
 
     try {
         ws = new WebSocket(RELAY_URL);
