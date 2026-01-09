@@ -91,6 +91,8 @@ export class RemoteSocketSource implements ILiveInputSource {
                 } else if (msg.status === 'CLOSED') {
                     console.log('[RemoteSocketSource] Proxy WS Closed. Code:', msg.code);
                     this.onStatusChange('RELAY_DISCONNECTED');
+                    // Also trigger disconnect callback to cleanup any active session
+                    if (this.onDisconnectCallback) this.onDisconnectCallback();
                 }
                 break;
 
@@ -143,6 +145,12 @@ export class RemoteSocketSource implements ILiveInputSource {
         // We DO NOT disconnect the port here, because this source is persistent 
         // and needs to listen for future calls even after the current session ends.
         
+        // Notify Relay -> Guest that we hung up
+        if (this.port) {
+             console.log('[RemoteSocketSource] Sending END_CALL signal');
+             this.port.postMessage({ type: 'SEND_TEXT', payload: { type: 'END_CALL' } });
+        }
+
         /* 
         if (this.port) {
             this.port.disconnect();

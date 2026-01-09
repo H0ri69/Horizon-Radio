@@ -246,6 +246,11 @@ export class LiveCallService {
             // Monitor Input Source Disconnection (e.g. Remote caller hung up)
             if (this.inputSource.setOnDisconnect) {
                 this.inputSource.setOnDisconnect(() => {
+                    // Only act if this callback is from the current active session
+                    if (sessionId !== this.currentSessionId) {
+                        console.log(`[Hori-s] Ignoring stale disconnect callback from session #${sessionId} (current: #${this.currentSessionId})`);
+                        return;
+                    }
                     console.log(`[Hori-s] Input source #${sessionId} disconnected unexpectedly. Ending session.`);
                     // We assume the caller left, so we should clean up.
                     // Depending on UX, we might want Gemini to say "Goodbye" or just cut it.
