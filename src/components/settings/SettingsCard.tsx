@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { cn } from "@sglara/cn";
 
 interface SettingsCardProps {
@@ -13,7 +14,9 @@ interface SettingsCardProps {
 
 export const SettingsCard: React.FC<SettingsCardProps> = ({ selected, onClick, label, subLabel, icon, className = "", labelClassName = "" }) => {
   return (
-    <button
+    <motion.button
+      whileHover={{ scale: 1.02, translateY: -2 }}
+      whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className={cn(
         "relative p-6 rounded-2xl border transition-all duration-300 group overflow-hidden text-left",
@@ -28,8 +31,15 @@ export const SettingsCard: React.FC<SettingsCardProps> = ({ selected, onClick, l
           <div className={cn("font-bold text-[14px] mb-1", labelClassName)}>{label}</div>
           {subLabel && <div className="text-sm opacity-50 font-mono uppercase tracking-widest">{subLabel}</div>}
         </div>
-        {icon && <span className="text-2xl group-hover:scale-110 transition-transform">{icon}</span>}
+        {icon && (
+          <motion.span
+            animate={{ scale: selected ? 1.1 : 1, rotate: selected ? [0, -10, 10, 0] : 0 }}
+            className="text-2xl transition-transform"
+          >
+            {icon}
+          </motion.span>
+        )}
       </div>
-    </button>
+    </motion.button>
   );
 };

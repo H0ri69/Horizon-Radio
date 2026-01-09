@@ -13,6 +13,7 @@ import { VoiceCard } from "./settings/VoiceCard";
 import { SettingsSection } from "./settings/SettingsSection";
 import { SettingsCard } from "./settings/SettingsCard";
 import { SettingsToggle, SettingsSlider, SettingsInput, SettingsTextArea } from "./settings/SettingsControls";
+import { cn } from "@sglara/cn";
 
 interface Settings {
   enabled: boolean;
@@ -75,6 +76,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [loadingVoiceId, setLoadingVoiceId] = useState<string | null>(null);
   const [cachedVoices, setCachedVoices] = useState<Set<string>>(new Set());
+  const [isDebugOpen, setIsDebugOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -462,87 +464,110 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
             {/* 07 DEBUG SETTINGS */}
             <motion.section variants={containerVariants} className="pt-12 border-t border-white/5">
-              <details className="group">
-                <summary className="text-sm font-black text-white/60 uppercase tracking-[0.3em] cursor-pointer list-none flex items-center justify-between group-open:text-red-400/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <AlertTriangle className="w-4 h-4" /> Laboratory Settings
-                  </div>
-                  <ChevronDown className="w-5 h-5 transition-transform group-open:rotate-180" />
-                </summary>
-
-                <div className="mt-12 space-y-12 animate-in fade-in slide-in-from-top-4 duration-500">
-                  {/* Skip TTS */}
-                  <div className="flex items-center justify-between p-8 bg-red-500/5 border border-red-500/20 rounded-3xl">
-                    <div className="flex items-center gap-6">
-                      <div className="p-4 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-400">
-                        <Cpu className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <div className="text-white font-bold text-xl">Silent Scripting</div>
-                        <div className="text-lg text-white/60 mt-1 font-medium">Bypass voice generation for text-only debugging</div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => saveSettings({ ...settings, debug: { ...settings.debug!, skipTTS: !settings.debug?.skipTTS } })}
-                      className={`w-14 h-8 rounded-full p-1 transition-colors ${settings.debug?.skipTTS ? "bg-red-500" : "bg-white/10"}`}
-                    >
-                      <motion.div layout className="w-6 h-6 rounded-full bg-white transition-transform" />
-                    </button>
-                  </div>
-
-                  {/* Manual Trigger */}
-                  <section className="space-y-6">
-                    <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">Force Execution</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      <button
-                        onClick={() => window.dispatchEvent(new CustomEvent("HORIS_MANUAL_TRIGGER"))}
-                        className="flex items-center justify-between p-6 bg-indigo-500 text-white rounded-3xl font-black text-lg transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-indigo-500/20 group"
-                      >
-                        RUN MANIFEST NOW
-                        <Zap className="w-6 h-6 group-hover:scale-125 transition-transform" />
-                      </button>
-
-                      <SettingsSlider
-                        label="Trigger Schedule"
-                        description=""
-                        value={settings.debug?.triggerPoint || 0.25}
-                        onChange={(val) => saveSettings({ ...settings, debug: { ...settings.debug!, triggerPoint: val } })}
-                        min={0.1}
-                        max={0.9}
-                        step={0.05}
-                      />
-                    </div>
-                  </section>
-
-                  {/* Call History Limit */}
-                  <section className="space-y-6">
-                    <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">Live Call Memory</h3>
-                    <SettingsSlider
-                      label="Caller History Limit"
-                      description="How many callers the DJ remembers"
-                      value={settings.debug?.callHistoryLimit || 5}
-                      onChange={(val) => saveSettings({ ...settings, debug: { ...settings.debug!, callHistoryLimit: val } })}
-                      min={1}
-                      max={15}
-                      step={1}
-                      formatValue={(val) => val.toString()}
-                    />
-                  </section>
-
-                  {/* Clear Voice Cache */}
-                  <section className="space-y-6">
-                    <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">Voice Test Cache</h3>
-                    <button
-                      onClick={clearVoiceCache}
-                      className="w-full flex items-center justify-center gap-3 p-6 bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded-3xl font-bold transition-all hover:bg-orange-500/20 hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                      Clear Cached Voice Samples
-                    </button>
-                    <p className="text-xs text-white/50 text-center">Clears all stored test voices (regenerates on next use, max 30-day cache)</p>
-                  </section>
+              <div
+                onClick={() => setIsDebugOpen(!isDebugOpen)}
+                className={cn(
+                  "text-sm font-black text-white/60 uppercase tracking-[0.3em] cursor-pointer flex items-center justify-between transition-colors hover:text-white",
+                  isDebugOpen && "text-red-400/50"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="w-4 h-4" /> Laboratory Settings
                 </div>
-              </details>
+                <ChevronDown className={cn("w-5 h-5 transition-transform duration-300", isDebugOpen && "rotate-180")} />
+              </div>
+
+              <AnimatePresence>
+                {isDebugOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-12 space-y-12">
+                      {/* Skip TTS */}
+                      <div className="flex items-center justify-between p-8 bg-red-500/5 border border-red-500/20 rounded-3xl">
+                        <div className="flex items-center gap-6">
+                          <div className="p-4 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-400">
+                            <Cpu className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <div className="text-white font-bold text-xl">Silent Scripting</div>
+                            <div className="text-lg text-white/60 mt-1 font-medium">Bypass voice generation for text-only debugging</div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => saveSettings({ ...settings, debug: { ...settings.debug!, skipTTS: !settings.debug?.skipTTS } })}
+                          className={cn(
+                            "w-14 h-8 rounded-full p-1 transition-colors duration-300 flex items-center bg-white/10",
+                            settings.debug?.skipTTS && "bg-red-500"
+                          )}
+                        >
+                          <motion.div
+                            animate={{ x: settings.debug?.skipTTS ? 15 : 0 }}
+                            className="w-6 h-6 rounded-full bg-white shadow-lg"
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Manual Trigger */}
+                      <section className="space-y-6">
+                        <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">Force Execution</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                          <button
+                            onClick={() => window.dispatchEvent(new CustomEvent("HORIS_MANUAL_TRIGGER"))}
+                            className="flex items-center justify-between p-6 bg-indigo-500 text-white rounded-3xl font-black text-lg transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-indigo-500/20 group"
+                          >
+                            RUN MANIFEST NOW
+                            <Zap className="w-6 h-6 group-hover:scale-125 transition-transform" />
+                          </button>
+
+                          <SettingsSlider
+                            label="Trigger Schedule"
+                            description=""
+                            value={settings.debug?.triggerPoint || 0.25}
+                            onChange={(val) => saveSettings({ ...settings, debug: { ...settings.debug!, triggerPoint: val } })}
+                            min={0.1}
+                            max={0.9}
+                            step={0.05}
+                          />
+                        </div>
+                      </section>
+
+                      {/* Call History Limit */}
+                      <section className="space-y-6">
+                        <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">Live Call Memory</h3>
+                        <SettingsSlider
+                          label="Caller History Limit"
+                          description="How many callers the DJ remembers"
+                          value={settings.debug?.callHistoryLimit || 5}
+                          onChange={(val) => saveSettings({ ...settings, debug: { ...settings.debug!, callHistoryLimit: val } })}
+                          min={1}
+                          max={15}
+                          step={1}
+                          formatValue={(val) => val.toString()}
+                        />
+                      </section>
+
+                      {/* Clear Voice Cache */}
+                      <section className="space-y-6">
+                        <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">Voice Test Cache</h3>
+                        <button
+                          onClick={clearVoiceCache}
+                          className="w-full flex items-center justify-center gap-3 p-6 bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded-3xl font-bold transition-all hover:bg-orange-500/20 hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                          Clear Cached Voice Samples
+                        </button>
+                        <p className="text-xs text-white/50 text-center">Clears all stored test voices (regenerates on next use, max 30-day cache)</p>
+                      </section>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.section>
           </div>
         </div>
