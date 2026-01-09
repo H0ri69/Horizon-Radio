@@ -1,4 +1,5 @@
 import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Play, Square, CheckCircle2 } from "lucide-react";
 import { cn } from "@sglara/cn";
 import { VOICE_PROFILES } from "../../config";
@@ -23,12 +24,14 @@ export const VoiceCard: React.FC<VoiceCardProps> = ({
   const isCached = cachedVoices.has(`${profile.id}_${language}`);
 
   return (
-    <div
+    <motion.div
+      layout
+      whileHover={{ scale: 1.01, translateY: -2 }}
       className={cn(
         "relative p-6 rounded-2xl transition-all duration-300 border overflow-hidden",
         isSelected
-          ? "bg-indigo-500/10 border-indigo-500/50 ring-1 ring-indigo-500/50"
-          : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
+          ? "bg-indigo-500/10 border-indigo-500/50 ring-1 ring-indigo-500/50 shadow-xl shadow-indigo-500/10"
+          : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 shadow-lg"
       )}
     >
       {/* Selectable area */}
@@ -37,18 +40,33 @@ export const VoiceCard: React.FC<VoiceCardProps> = ({
         className="w-full text-left"
       >
         <div className="flex justify-between items-center mb-4">
-          <span className={`text-xl font-bold ${isSelected ? "text-white" : "text-white/60"}`}>
+          <span className={`text-xl font-bold transition-colors ${isSelected ? "text-white" : "text-white/60"}`}>
             {profile.personaNames[language as AppLanguage]}
           </span>
           <div className="flex items-center gap-2">
-            {isCached && (
-              <span className="text-[9px] px-2 py-0.5 bg-green-500/20 border border-green-500/30 rounded-full text-green-400 font-bold uppercase tracking-wider">
-                Cached
-              </span>
-            )}
-            {isSelected && (
-              <CheckCircle2 className="w-5 h-5 text-indigo-400 drop-shadow-[0_0_8px_rgba(129,140,248,0.5)]" />
-            )}
+            <AnimatePresence>
+              {isCached && (
+                <motion.span
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="text-[9px] px-2 py-0.5 bg-green-500/20 border border-green-500/30 rounded-full text-green-400 font-bold uppercase tracking-wider"
+                >
+                  Cached
+                </motion.span>
+              )}
+            </AnimatePresence>
+            <AnimatePresence>
+              {isSelected && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0 }}
+                >
+                  <CheckCircle2 className="w-5 h-5 text-indigo-400 drop-shadow-[0_0_8px_rgba(129,140,248,0.5)]" />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -61,13 +79,15 @@ export const VoiceCard: React.FC<VoiceCardProps> = ({
       </button>
 
       {/* Play/Stop button */}
-      <button
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
         onClick={(e) => {
           e.stopPropagation();
           onTest(profile.id);
         }}
         disabled={isLoading || (loadingVoiceId !== null && loadingVoiceId !== profile.id)}
-        className={`mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all
+        className={`mt-6 w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all
           ${isPlaying
             ? "bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30"
             : "bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
@@ -75,13 +95,13 @@ export const VoiceCard: React.FC<VoiceCardProps> = ({
           disabled:opacity-40 disabled:cursor-not-allowed`}
       >
         {isLoading ? (
-          <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
+          <><Loader2 className="w-4 h-4 animate-spin text-indigo-400" /> Generating...</>
         ) : isPlaying ? (
-          <><Square className="w-4 h-4" /> Stop</>
+          <><Square className="w-4 h-4" /> Stop Preview</>
         ) : (
-          <><Play className="w-4 h-4" /> Preview</>
+          <><Play className="w-4 h-4" /> Listen Preview</>
         )}
-      </button>
-    </div>
+      </motion.button>
+    </motion.div>
   );
 };

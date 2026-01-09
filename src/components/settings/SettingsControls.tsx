@@ -23,19 +23,33 @@ export const SettingsToggle: React.FC<SettingsToggleProps> = ({ label, descripti
         onClick={() => onChange(!enabled)}
       >
         <div className="flex items-center gap-6">
-          <div className={`p-4 rounded-2xl border transition-colors ${enabled ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400" : "bg-black/20 border-white/5 text-white/20"}`}>
+          <motion.div
+            animate={{
+              scale: enabled ? 1 : 0.9,
+              rotate: enabled ? 0 : -10
+            }}
+            className={cn(
+              "p-4 rounded-2xl border transition-colors duration-500",
+              enabled ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.2)]" : "bg-black/20 border-white/5 text-white/10"
+            )}
+          >
             {icon || <Radio className="w-6 h-6" />}
-          </div>
+          </motion.div>
           <div>
-            <div className="font-bold text-xl text-white">{label}</div>
-            <div className="text-lg text-white/60 mt-1 font-medium">{description}</div>
+            <div className="font-bold text-xl text-white tracking-tight">{label}</div>
+            <div className="text-lg text-white/50 mt-1 font-medium">{description}</div>
           </div>
         </div>
-        <div className={`w-14 h-8 rounded-full p-1 transition-colors ${enabled ? "bg-indigo-500" : "bg-white/10"}`}>
-          <motion.div 
-            layout 
-            className="w-6 h-6 rounded-full bg-white shadow-lg" 
-            transition={{ type: "spring", stiffness: 500, damping: 30 }} 
+        <div
+          className={cn(
+            "w-14 h-8 rounded-full p-1 transition-colors duration-300 flex items-center bg-white/10",
+            enabled && "bg-indigo-500"
+          )}
+        >
+          <motion.div
+            animate={{ x: enabled ? 15 : 0 }}
+            className="w-6 h-6 rounded-full bg-white shadow-[0_2px_10px_rgba(0,0,0,0.2)]"
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
           />
         </div>
       </div>
@@ -67,11 +81,11 @@ interface SettingsSliderProps {
   formatValue?: (val: number) => string;
 }
 
-export const SettingsSlider: React.FC<SettingsSliderProps> = ({ 
-  label, description, value, onChange, min = 0, max = 1, step = 0.1, formatValue 
+export const SettingsSlider: React.FC<SettingsSliderProps> = ({
+  label, description, value, onChange, min = 0, max = 1, step = 0.1, formatValue
 }) => {
   const percentage = ((value - min) / (max - min)) * 100;
-  
+
   return (
     <div className="bg-white/5 rounded-3xl p-8 border border-white/5">
       <div className="flex justify-between items-center mb-10">
@@ -84,27 +98,37 @@ export const SettingsSlider: React.FC<SettingsSliderProps> = ({
         </div>
       </div>
 
-      <div className="relative group p-2">
-        <div className="absolute inset-x-0 h-1.5 bg-black/40 rounded-full overflow-hidden">
+      <div className="relative group flex items-center h-10">
+        {/* Track Background */}
+        <div className="absolute inset-x-0 h-1.5 bg-black/40 rounded-full overflow-hidden top-1/2 -translate-y-1/2">
           <motion.div
-            layout
             className="h-full bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]"
             initial={false}
             animate={{ width: `${percentage}%` }}
           />
         </div>
+
+        {/* Real Input (Invisible) */}
         <input
           type="range" min={min} max={max} step={step}
           value={value}
           onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="absolute inset-0 w-full opacity-0 cursor-pointer z-10"
+          className="absolute inset-x-0 w-full h-full opacity-0 cursor-pointer z-20"
         />
+
+        {/* Visual Thumb */}
         <motion.div
-          layout
-          className="absolute top-1/2 h-6 w-6 bg-white rounded-full shadow-2xl pointer-events-none -translate-y-1/2"
+          className="absolute h-6 w-6 bg-white rounded-full shadow-[0_2px_10px_rgba(0,0,0,0.3)] pointer-events-none z-10 top-1/2"
           initial={false}
-          animate={{ left: `${percentage}%` }}
-          style={{ marginLeft: "-12px" }}
+          animate={{
+            left: `${percentage}%`,
+            y: "-50%",
+            scale: 1
+          }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+          style={{ x: "-50%" }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
         />
       </div>
     </div>
@@ -122,7 +146,7 @@ interface SettingsInputProps {
   className?: string;
 }
 
-export const SettingsInput: React.FC<SettingsInputProps> = ({ 
+export const SettingsInput: React.FC<SettingsInputProps> = ({
   label, value, onChange, placeholder, type = "text", icon, footer, className = ""
 }) => {
   return (
