@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 // Use local relay for dev, change for prod
 const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'ws://127.0.0.1:8765';
+console.log('Using Relay URL:', RELAY_URL);
 
 type ConnectionStatus = 'IDLE' | 'CONNECTING' | 'CONNECTED' | 'ERROR';
 type AppMode = 'LOGIN' | 'QUEUE' | 'WAITING' | 'ON_AIR';

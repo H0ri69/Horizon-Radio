@@ -16,11 +16,8 @@
       "https://music.youtube.com/*",
       "https://generativelanguage.googleapis.com/*",
       "https://suggestqueries.google.com/*",
-      "ws://127.0.0.1:8765/*",
-      "ws://localhost:8765/*",
-      "http://127.0.0.1:8765/*",
-      "http://localhost/*",
-      "*://localhost:*/*"
+      "*://localhost:*/*",
+      "wss://horizon-api.matejpesl.cz/*"
     ],
     "background": {
         "service_worker": "src/background.ts",
