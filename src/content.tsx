@@ -60,38 +60,38 @@ let remoteSource: RemoteSocketSource | null = null;
 
 // Initialize once
 chrome.storage.local.get(["horisHostId", "horisFmSettings"], (result) => {
-    let hostId = result.horisHostId as string;
-    const settings = (result as any).horisFmSettings || {};
+  let hostId = result.horisHostId as string;
+  const settings = (result as any).horisFmSettings || {};
 
-    // Generate Host ID if missing
-    if (!hostId) {
-        const segment = () => Math.random().toString(36).substring(2, 5).toUpperCase();
-        hostId = `${segment()}-${segment()}`;
-        console.log("[Hori-s] 🆕 Generated new Host ID:", hostId);
-        chrome.storage.local.set({ horisHostId: hostId });
-    }
-    
-    // Connect with HostID
-    if (hostId) {
-        console.log("[Hori-s] 📡 Initializing Remote Source for Host:", hostId);
-        remoteSource = new RemoteSocketSource(
-            hostId, 
-            (status) => console.log(`[Hori-s] [Remote] ${status}`),
-            (callData: { name: string; message: string }) => {
-                console.log("[Hori-s] 📞 Incoming Call Request:", callData);
-                state.pendingCall = {
-                    name: callData.name,
-                    message: callData.message,
-                    song: null, // No song request in simplified flow
-                    inputSource: remoteSource
-                };
-                
-                // TODO: Optional UI interaction (Toast notification?)
-            }
-        );
-        // Connect immediately (AudioContext is null initially, but that's fine for control messages)
-        remoteSource.connect(null as any, () => {});
-    }
+  // Generate Host ID if missing
+  if (!hostId) {
+    const segment = () => Math.random().toString(36).substring(2, 5).toUpperCase();
+    hostId = `${segment()}-${segment()}`;
+    console.log("[Hori-s] 🆕 Generated new Host ID:", hostId);
+    chrome.storage.local.set({ horisHostId: hostId });
+  }
+
+  // Connect with HostID
+  if (hostId) {
+    console.log("[Hori-s] 📡 Initializing Remote Source for Host:", hostId);
+    remoteSource = new RemoteSocketSource(
+      hostId,
+      (status) => console.log(`[Hori-s] [Remote] ${status}`),
+      (callData: { name: string; message: string }) => {
+        console.log("[Hori-s] 📞 Incoming Call Request:", callData);
+        state.pendingCall = {
+          name: callData.name,
+          message: callData.message,
+          song: null, // No song request in simplified flow
+          inputSource: remoteSource
+        };
+
+        // TODO: Optional UI interaction (Toast notification?)
+      }
+    );
+    // Connect immediately (AudioContext is null initially, but that's fine for control messages)
+    remoteSource.connect(null as any, () => { });
+  }
 });
 
 // --- EVENT BUS LISTENER ---
@@ -320,45 +320,138 @@ class WebAudioDucker {
   public ctx: AudioContext | null = null;
   public source: MediaElementAudioSourceNode | null = null;
   public gainNode: GainNode | null = null;
-  private initialized = false;
+  private connectedVideo: HTMLMediaElement | null = null;
+  private isDucked: boolean = false;
+  private targetGainWhileDucked: number = AUDIO.DUCK_GAIN;
 
   constructor() { }
 
-  private init(video: HTMLMediaElement) {
-    if (this.initialized && this.source?.mediaElement === video) return;
+  /**
+   * Initialize or reinitialize the audio routing.
+   * Handles the case where the video element changes (song switch).
+   */
+  private init(video: HTMLMediaElement): boolean {
+    // Already connected to this video
+    if (this.connectedVideo === video && this.source && this.gainNode && this.ctx) {
+      if (this.ctx.state === "suspended") this.ctx.resume();
+      return true;
+    }
+
     try {
+      // Create AudioContext if needed
       if (!this.ctx) {
         const Ctx = window.AudioContext || (window as any).webkitAudioContext;
         this.ctx = new Ctx();
       }
       if (this.ctx.state === "suspended") this.ctx.resume();
+
+      // Clean up previous connections if video changed
+      if (this.source && this.connectedVideo !== video) {
+        try {
+          this.source.disconnect();
+        } catch { /* ignore */ }
+        this.source = null;
+      }
+
+      // Check if this video already has a source node (from a previous init)
+      // MediaElementAudioSourceNode can only be created once per element
+      if ((video as any)._horisAudioSource) {
+        this.source = (video as any)._horisAudioSource;
+        this.gainNode = (video as any)._horisGainNode;
+        this.connectedVideo = video;
+
+        // If we're in ducked state, ensure gain is at duck level
+        if (this.isDucked && this.gainNode) {
+          this.gainNode.gain.setValueAtTime(this.targetGainWhileDucked, this.ctx.currentTime);
+        }
+        return true;
+      }
+
+      // Create new audio routing
       this.source = this.ctx.createMediaElementSource(video);
       this.gainNode = this.ctx.createGain();
       this.source.connect(this.gainNode);
       this.gainNode.connect(this.ctx.destination);
-      this.initialized = true;
+      this.connectedVideo = video;
+
+      // Store references on video element for reconnection
+      (video as any)._horisAudioSource = this.source;
+      (video as any)._horisGainNode = this.gainNode;
+
+      // If we're supposed to be ducked, start at duck volume to prevent spike
+      if (this.isDucked) {
+        this.gainNode.gain.setValueAtTime(this.targetGainWhileDucked, this.ctx.currentTime);
+      } else {
+        this.gainNode.gain.setValueAtTime(AUDIO.FULL_GAIN, this.ctx.currentTime);
+      }
+
+      console.log("[Hori-s] 🔊 Audio routing initialized for video element");
+      return true;
     } catch (e) {
       console.error("[Hori-s] Audio Init Failed:", e);
+      return false;
     }
+  }
+
+  /**
+   * Ensure we're connected to the current video element.
+   * Call this periodically or before operations to handle video element changes.
+   */
+  public ensureConnected(): boolean {
+    const video = document.querySelector("video");
+    if (!video) return false;
+    return this.init(video);
   }
 
   public async duck(duration: number = TIMING.DUCK_DURATION, targetGain: number = AUDIO.DUCK_GAIN) {
     const video = document.querySelector("video");
     if (!video) return;
-    this.init(video);
+
+    if (!this.init(video)) return;
     if (!this.ctx || !this.gainNode) return;
+
+    this.isDucked = true;
+    this.targetGainWhileDucked = targetGain;
+
     const now = this.ctx.currentTime;
+    const currentGain = this.gainNode.gain.value;
+
+    // Cancel any scheduled changes and set current value
     this.gainNode.gain.cancelScheduledValues(now);
-    this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
-    this.gainNode.gain.linearRampToValueAtTime(targetGain, now + duration / 1000);
+    this.gainNode.gain.setValueAtTime(currentGain, now);
+
+    // Use exponential ramp for more natural sound (but avoid 0 which breaks exponential)
+    const safeTarget = Math.max(targetGain, 0.001);
+    this.gainNode.gain.exponentialRampToValueAtTime(safeTarget, now + duration / 1000);
   }
 
   public async unduck(duration: number = TIMING.UNDUCK_DURATION) {
+    // Ensure we're connected before undocking (handles video element changes)
+    this.ensureConnected();
+
     if (!this.ctx || !this.gainNode) return;
+
+    this.isDucked = false;
+
     const now = this.ctx.currentTime;
+    const currentGain = Math.max(this.gainNode.gain.value, 0.001); // Avoid 0 for exponential ramp
+
+    // Cancel any scheduled changes and set current value
     this.gainNode.gain.cancelScheduledValues(now);
-    this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
-    this.gainNode.gain.linearRampToValueAtTime(AUDIO.FULL_GAIN, now + duration / 1000);
+    this.gainNode.gain.setValueAtTime(currentGain, now);
+
+    // Use exponential ramp for more natural sound
+    this.gainNode.gain.exponentialRampToValueAtTime(AUDIO.FULL_GAIN, now + duration / 1000);
+  }
+
+  /**
+   * Force set gain immediately (useful for handling abrupt transitions)
+   */
+  public setGainImmediate(gain: number) {
+    if (!this.ctx || !this.gainNode) return;
+    this.gainNode.gain.cancelScheduledValues(this.ctx.currentTime);
+    this.gainNode.gain.setValueAtTime(gain, this.ctx.currentTime);
+    this.isDucked = gain < AUDIO.FULL_GAIN;
   }
 }
 
@@ -517,10 +610,10 @@ const startLiveCall = async () => {
         setTimeout(() => updateStatus("IDLE"), TIMING.COOLDOWN_PERIOD);
       },
       onSessionStart: () => {
-          // Send GO LIVE signal to remote client
-          if (callData.inputSource instanceof RemoteSocketSource) {
-              callData.inputSource.sendGoLive();
-          }
+        // Send GO LIVE signal to remote client
+        if (callData.inputSource instanceof RemoteSocketSource) {
+          callData.inputSource.sendGoLive();
+        }
       }
     });
   });
@@ -670,6 +763,13 @@ const mainLoop = setInterval(() => {
   const isPaused = video ? video.paused : false;
   const { current, next, playlistContext } = getSongInfo();
 
+  // 1.1 Ensure audio ducker stays connected (handles video element changes)
+  // Only check during active playback states to avoid unnecessary work
+  if (state.status === "PLAYING" || state.status === "LIVE_CALL") {
+    ducker.ensureConnected();
+  }
+
+
   // 2. Continuous Background Update (Context Aware)
   // If music is paused, prioritizes hero/page content. If playing, prioritizes song art.
   const pageHero = findIdleBackground();
@@ -719,7 +819,13 @@ const mainLoop = setInterval(() => {
     state.bufferedAudio = null;
     state.generatedForSig = null;
     state.lastSongChangeTs = Date.now();
-    if (!audioEl.paused) ducker.duck(50);
+
+    // Ensure ducker reconnects to any new video element to prevent volume spikes
+    // If DJ audio is playing, maintain duck state on the new video
+    if (!audioEl.paused) {
+      ducker.ensureConnected(); // This will apply ducked gain to new video if needed
+      ducker.duck(50); // Quick duck to smooth any transition
+    }
   }
 
   state.lastTime = currentTime;
