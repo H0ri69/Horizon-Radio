@@ -7,16 +7,17 @@ import { Blob as GenAIBlob } from '@google/genai';
 export class RemoteSocketSource implements ILiveInputSource {
     public name = "Remote Caller";
     private port: chrome.runtime.Port | null = null;
-    private hostId: string; 
+    private hostId: string;
+
     private onStatusChange: (status: string) => void;
-    
+
     private onCallRequest: ((data: { name: string; message: string }) => void) | null = null;
-    
+
     // We hold the 'onAudioData' callback provided by the Service
     private propagateAudio: ((blob: GenAIBlob) => void) | null = null;
 
     constructor(
-        hostId: string, 
+        hostId: string,
         onStatusChange: (s: string) => void,
         onCallRequest?: (data: { name: string; message: string }) => void
     ) {
@@ -50,17 +51,17 @@ export class RemoteSocketSource implements ILiveInputSource {
 
         // Ensure we are connected via Proxy
         if (!this.port) {
-             this.initProxyConnection();
+            this.initProxyConnection();
         }
     }
 
     private initProxyConnection() {
         console.log('[RemoteSocketSource] Connecting to Background Proxy...');
         this.onStatusChange('CONNECTING_PROXY...');
-        
+
         try {
             this.port = chrome.runtime.connect({ name: 'remote-socket-proxy' });
-            
+
             this.port.onMessage.addListener((msg) => {
                 this.handleProxyMessage(msg);
             });
@@ -84,9 +85,9 @@ export class RemoteSocketSource implements ILiveInputSource {
                     console.log('[RemoteSocketSource] Proxy WS Open. Registering Host:', this.hostId);
                     this.onStatusChange('WAITING_FOR_CALL');
                     // Send Register Command
-                    this.port?.postMessage({ 
-                        type: 'SEND_TEXT', 
-                        payload: { type: 'REGISTER_HOST', hostId: this.hostId } 
+                    this.port?.postMessage({
+                        type: 'SEND_TEXT',
+                        payload: { type: 'REGISTER_HOST', hostId: this.hostId }
                     });
                 } else if (msg.status === 'CLOSED') {
                     console.log('[RemoteSocketSource] Proxy WS Closed. Code:', msg.code);
@@ -99,9 +100,9 @@ export class RemoteSocketSource implements ILiveInputSource {
             case 'AUDIO_DATA':
                 if (this.propagateAudio && msg.data) {
                     // msg.data is Base64 string from background
-                    this.propagateAudio({ 
-                        data: msg.data, 
-                        mimeType: 'audio/pcm;rate=16000' 
+                    this.propagateAudio({
+                        data: msg.data,
+                        mimeType: 'audio/pcm;rate=16000'
                     });
                 }
                 break;
@@ -110,7 +111,7 @@ export class RemoteSocketSource implements ILiveInputSource {
                 const payload = msg.data;
                 this.handleControlMessage(payload);
                 break;
-            
+
             case 'PROXY_ERROR':
                 console.error('[RemoteSocketSource] Proxy reported error:', msg.error);
                 break;

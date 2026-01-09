@@ -517,10 +517,10 @@ const startLiveCall = async () => {
         setTimeout(() => updateStatus("IDLE"), TIMING.COOLDOWN_PERIOD);
       },
       onSessionStart: () => {
-          // Send GO LIVE signal to remote client
-          if (callData.inputSource instanceof RemoteSocketSource) {
-              callData.inputSource.sendGoLive();
-          }
+        // Send GO LIVE signal to remote client
+        if (callData.inputSource instanceof RemoteSocketSource) {
+          callData.inputSource.sendGoLive();
+        }
       }
     });
   });
