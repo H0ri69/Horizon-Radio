@@ -1,64 +1,98 @@
-# Hori-s.FM AI DJ
+# <p align="center"><img src="public/banner.png" alt="Hori-s.FM Banner" width="100%"></p>
 
-AI Radio Host extension for YouTube Music. This project uses React, Vite, and the Google Gemini API to provide an interactive DJ experience within the browser.
+# 🎙️ Hori-s.FM: The AI Radio Revolution
 
-## Prerequisites
+**Hori-s.FM** is a premium Chrome Extension that transforms your YouTube Music experience into a live, professional radio broadcast. Powered by Google's cutting-edge **Gemini 2.5** models, Hori-s.FM acts as your personal AI Radio Host/DJ, providing context-aware intros, charismatic banter, and seamless transitions between your favorite tracks.
 
-- [Node.js](https://nodejs.org/) (v18 or higher recommended)
-- [pnpm](https://pnpm.io/) (v8 or higher)
+---
 
-## Setup
+## ✨ Key Features
 
-1.  **Clone the repository**:
+### 🎧 Persistent AI DJ
+- **Contextual Scripting**: Uses `gemini-2.5-flash` to generate scripts based on your current song, next track, and even the "vibe" of your artist history.
+- **High-Fidelity TTS**: Powered by `gemini-2.5-flash-preview-tts` for natural-sounding, expressive radio host voices.
+- **Smart Transitions**: The DJ "ducks" the music volume just like a real station when speaking, using smooth UI-integrated volume transitions.
+
+### 📞 Live Call Ecosystem
+- **Remote Guest Calls**: Guests can join your "broadcast" via a dedicated Remote Client.
+- **QR Code Pairing**: Instant connection between the extension and remote callers via encrypted pairing codes.
+- **Song Requests**: Guests can request songs live, which the AI DJ will acknowledge and queue up automatically using smart "Play Next" logic.
+
+### 🎨 Premium Design Aesthetics
+- **Glassmorphism UI**: A sleek, modern interface that floats over YouTube Music with vibrant gradients and blur effects.
+- **Dynamic Animations**: Powered by **Framer Motion** for liquid-smooth transitions and reactive UI elements.
+- **Contextual Themes**: The UI colors adapt to the currently playing album art for a fully immersive experience.
+
+### ⚙️ Professional Controls
+- **Verbose Logging**: Keep track of the AI's "thought process" with a toggleable debug mode.
+- **Customizable Logic**: Adjust how often the DJ speaks, the "ducking" depth, and voice profiles.
+
+---
+
+## 🏗️ Architecture
+
+The project consists of three main components:
+
+1.  **The Extension**: The core "brain" running on `music.youtube.com`. Manages the state machine, scrapers, and local audio control.
+2.  **The Relay Server**: A lightweight WebSocket server that bridges the gap between the Extension and the outside world.
+3.  **The Remote Client**: A mobile-friendly web app allowing anyone to call in and interact with your session.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- [Node.js](https://nodejs.org/) (v18+)
+- [pnpm](https://pnpm.io/) (v8+)
+- A **Google Gemini API Key** (Get one at [Google AI Studio](https://aistudio.google.com/))
+
+### Installation
+
+1.  **Clone the Repo**:
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/H0ri69/Hori-s.FM.git
     cd Hori-s.FM
     ```
 
-2.  **Install dependencies**:
+2.  **Install Dependencies**:
     ```bash
     pnpm install
     ```
 
-3.  **Configure Environment Variables**:
-    Create a `.env` file in the root directory and add your Google Gemini API key:
+3.  **Setup Environment**:
+    Create a `.env` file in the root:
     ```env
-    GEMINI_API_KEY=your_api_key_here
+    GEMINI_API_KEY=your_key_here
     ```
 
-## Running the Project
+### Running the Ecosystem
 
-### Full Ecosystem (Extension + Remote Call)
-To start everything required for remote live calls:
+To start everything (Extension, Relay, and Remote Client) concurrently:
 ```bash
 pnpm start
 ```
-This command uses `concurrently` to launch:
-- **Relay Server**: (Port 8765) Handles communication between remote guests and the extension.
-- **Remote Client**: (Vite dev server) The web platform for phone callers.
-- **Extension**: (Vite + CRXJS) Watches extension files and builds into `dist/`.
 
-### Individual Components
-- **Extension Only**: `pnpm dev`
-- **Relay Server Only**: `pnpm start:relay`
-- **Remote Client Only**: `pnpm start:app`
+### Loading the Extension
+1. Go to `chrome://extensions/`
+2. Enable **Developer mode**.
+3. Click **Load unpacked** and select the `dist` folder.
+4. Open [YouTube Music](https://music.youtube.com/) and enjoy your new AI radio.
 
-## Loading the Extension
-1.  **Open Chrome** and navigate to `chrome://extensions/`.
-2.  Enable **Developer mode** (top right).
-3.  Click **Load unpacked**.
-4.  Select the `dist` folder in the project directory.
+---
 
-## Usage
-- Navigate to [YouTube Music](https://music.youtube.com/).
-- The extension will inject its components into the page.
-- **Remote Calls**: Copy your **Host Pairing Code** from the extension settings and give it to guests to use in the Remote Client.
-- **Local Studio**: Use the "Call Studio" button to talk directly through your PC microphone.
+## 🛠️ Tech Stack
 
-## Build
+- **Frontend**: React 19, TypeScript, Tailwind CSS
+- **Animations**: Framer Motion
+- **Extension**: Vite + CRXJS (Manifest V3)
+- **AI**: Google Generative AI (`gemini-2.5-flash`, `gemini-2.5-flash-preview-tts`)
+- **Real-time**: WebSockets (WS)
+- **Color Extraction**: Node-Vibrant & ColorJS.io
 
-To build the extension for production:
-```bash
-pnpm build
-```
-The production-ready files will be in the `dist` directory.
+---
+
+## 📄 License
+This project is for educational and creative purposes. Ensure you comply with Google Gemini's Terms of Service when using your API key.
+
+---
+<p align="center">Made with ❤️ for the music community.</p>

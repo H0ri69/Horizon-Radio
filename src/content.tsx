@@ -18,6 +18,66 @@ console.log("Hori-s.FM Content Script Loaded (v2.6 - Clean Logs)");
 // --- TYPES & STATE ---
 import { liveCallService } from "./services/liveCallService";
 import { RemoteSocketSource } from "./services/RemoteSocketSource";
+import { YtmApiService } from "./services/ytmApiService";
+
+// --- YTM INJECTION BRIDGE ---
+const injectYtmInterceptor = () => {
+  const script = document.createElement('script');
+  script.textContent = `
+    (function() {
+        function broadcastContext() {
+            try {
+                if (window.ytcfg && window.ytcfg.data_) {
+                    window.dispatchEvent(new CustomEvent("HORIS_YTM_CONTEXT", { 
+                        detail: {
+                            apiKey: window.ytcfg.data_.INNERTUBE_API_KEY,
+                            context: window.ytcfg.data_.INNERTUBE_CONTEXT,
+                            clientVersion: window.ytcfg.data_.INNERTUBE_CLIENT_VERSION
+                        }
+                    }));
+                }
+            } catch(e) { console.error("[Hori-s] Context broadcast failed", e); }
+        }
+        
+        // Initial try and retry
+        setTimeout(broadcastContext, 1000);
+        setTimeout(broadcastContext, 3000);
+        setTimeout(broadcastContext, 10000);
+
+        window.addEventListener("HORIS_CMD_PLAY_NEXT", (e) => {
+             // Parse detail (might be stringified for boundary crossing)
+             let data = e.detail;
+             try {
+                if (typeof data === 'string') data = JSON.parse(data);
+             } catch(err) { console.error("Parse error", err); }
+
+             const videoId = data?.videoId;
+             if(!videoId) return;
+             
+             console.log("[Hori-s] Requesting Play Next for:", videoId);
+             
+             try {
+                // Method 1: Try accessing the Queue Service via DOM (Fragile)
+                const queue = document.querySelector("ytmusic-player-queue");
+                if (queue && queue.dispatch) {
+                    queue.dispatch({ type: "ADD", payload: videoId }); 
+                } else {
+                     // Method 2: Navigation Fallback (Guaranteed to play)
+                     // If we can't unobtrusively queue, we just play it.
+                     // The user is "calling in" to request it, so playing it now is acceptable contextually.
+                     console.log("[Hori-s] Standard queue access failed. Switching to direct navigation.");
+                     window.location.href = "/watch?v=" + videoId;
+                }
+             } catch(err) { 
+                 console.error("[Hori-s] Play action failed", err);
+             }
+        });
+    })();
+  `;
+  (document.head || document.documentElement).appendChild(script);
+};
+
+injectYtmInterceptor();
 
 // --- TYPES & STATE ---
 type DJState = "IDLE" | "GENERATING" | "READY" | "PLAYING" | "COOLDOWN" | "LIVE_CALL";
@@ -586,6 +646,13 @@ const startLiveCall = async () => {
     }
 
     logger.debug("[Hori-s] 🎬 Calling liveCallService.startSession...");
+
+    // Queue the song if valid
+    if (callData.song && callData.song.id && !callData.song.id.startsWith("manual-")) {
+      console.log(`[Hori-s] 🎵 Queuing Requested Song: ${callData.song.title}`);
+      YtmApiService.playNext(callData.song.id);
+    }
+
     liveCallService.startSession({
       apiKey,
       inputSource: callData.inputSource,
@@ -593,8 +660,8 @@ const startLiveCall = async () => {
       reason: callData.message,
       previousSongTitle: current.title || "Unknown",
       previousSongArtist: current.artist || "Unknown",
-      nextSongTitle: next.title || "Next Song",
-      nextSongArtist: next.artist || "Unknown",
+      nextSongTitle: callData.song ? callData.song.title : (next.title || "Next Song"),
+      nextSongArtist: callData.song ? callData.song.artist : (next.artist || "Unknown"), // Prompt the DJ about the requested song as the "Next" one
       voice: settings.djVoice || "sadachbia",
       personaName: DJ_PERSONA_NAMES[settings.djVoice as DJVoice]?.[settings.language as AppLanguage] || "Host",
       language: settings.language || "en",

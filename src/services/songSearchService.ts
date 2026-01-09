@@ -1,43 +1,31 @@
-import browser from "webextension-polyfill";
+import { YtmApiService } from './ytmApiService';
 
 export class SongSearchService {
     /**
-     * Searches for songs using YouTube's suggestion API (public).
-     * Note: This returns suggestions (strings), not full Song objects.
-     * We will wrap them in mock Song objects.
+     * Searches for songs using YTM Internal API via injected context.
+     * Returns rich metadata including cover art and artist.
      */
     static async search(query: string): Promise<any[]> {
         if (!query || query.length < 2) return [];
 
         try {
-            const response: any = await browser.runtime.sendMessage({
-                type: "SEARCH_SONGS",
-                data: { query }
-            });
+            // Use local YTM API service (via injected context)
+            const results = await YtmApiService.search(query);
 
-            if (response.error) throw new Error(response.error);
-            const data = response.data;
-
-            if (Array.isArray(data) && data.length > 1 && Array.isArray(data[1])) {
-                const suggestions = data[1]; // Array of strings
-                return suggestions.slice(0, 5).map((title: string, index: number) => ({
-                    id: `search-res-${index}`,
-                    title: title,
-                    artist: "YouTube Music",
-                    duration: 0,
-                    file: new File([], "placeholder")
-                }));
-            }
-
-            return [];
+            // Ensure compatibility with whatever Song interface CallModal expects
+            return results.map(r => ({
+                ...r,
+                file: new File([], "placeholder")
+            }));
         } catch (e) {
-            console.warn("[Hori-s] Search API failed, using fallback", e);
+            console.warn("[Hori-s] YTM API search failed, falling back to basic result", e);
             return [
                 {
                     id: 'manual-1',
                     title: query,
                     artist: "Search Result",
                     duration: 0,
+                    cover: "",
                     file: new File([], 'placeholder')
                 }
             ];
