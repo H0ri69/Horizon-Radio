@@ -155,8 +155,29 @@ browser.runtime.onMessage.addListener((message: any, sender, sendResponse): any 
       });
 
     return true;
-  }
+  } else if (msg.type === "PROXY_FETCH_IMAGE") {
+    const url = msg.data.url;
+    console.log("[Hori-s:Background] Proxy fetching image:", url);
 
+    fetch(url, {
+      referrerPolicy: "no-referrer",
+      credentials: "omit"
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+        const contentType = response.headers.get("content-type") || "image/jpeg";
+        const buffer = await response.arrayBuffer();
+        const base64 = arrayBufferToBase64(buffer);
+
+        sendResponse({ dataUrl: `data:${contentType};base64,${base64}` });
+      })
+      .catch((err) => {
+        console.error("[Hori-s:Background] ❌ Image proxy fetch failed:", err);
+        sendResponse({ error: err.message });
+      });
+    return true;
+  }
 });
 
 // --- REMOTE SOCKET PROXY ---
@@ -170,81 +191,81 @@ chrome.runtime.onConnect.addListener((port) => {
     console.log('[Background] Using Relay URL:', RELAY_URL);
 
     try {
-        ws = new WebSocket(RELAY_URL);
-        ws.binaryType = 'arraybuffer';
+      ws = new WebSocket(RELAY_URL);
+      ws.binaryType = 'arraybuffer';
 
-        ws.onopen = () => {
-             console.log('[Background] WS Connected to Relay');
-             port.postMessage({ type: 'PROXY_STATUS', status: 'OPEN' });
-        };
+      ws.onopen = () => {
+        console.log('[Background] WS Connected to Relay');
+        port.postMessage({ type: 'PROXY_STATUS', status: 'OPEN' });
+      };
 
-        ws.onmessage = (event) => {
-             // Forward message to Content Script
-             if (event.data instanceof ArrayBuffer) {
-                 // Forward binary audio directly (Structured Clone handles ArrayBuffer)
-                 // We wrap it to distinguish from text JSON
-                 try {
-                     // Convert to Base64 here to avoid any structured clone issues across contexts
-                     // although ArrayBuffer is supported, debugging is easier with strings sometimes.
-                     // Let's try raw ArrayBuffer first for performance.
-                     // Actually, let's wrap it in an object so we can tag it.
-                     const base64 = arrayBufferToBase64(event.data);
-                     port.postMessage({ type: 'AUDIO_DATA', data: base64 });
-                 } catch (e) {
-                     console.error('[Background] Failed to forward binary:', e);
-                 }
-             } else {
-                 // Forward text 1:1
-                 try {
-                     const msg = JSON.parse(event.data);
-                     port.postMessage({ type: 'CONTROL_MSG', data: msg });
-                 } catch (e) {
-                     console.warn('[Background] Recv non-JSON text:', event.data);
-                 }
-             }
-        };
+      ws.onmessage = (event) => {
+        // Forward message to Content Script
+        if (event.data instanceof ArrayBuffer) {
+          // Forward binary audio directly (Structured Clone handles ArrayBuffer)
+          // We wrap it to distinguish from text JSON
+          try {
+            // Convert to Base64 here to avoid any structured clone issues across contexts
+            // although ArrayBuffer is supported, debugging is easier with strings sometimes.
+            // Let's try raw ArrayBuffer first for performance.
+            // Actually, let's wrap it in an object so we can tag it.
+            const base64 = arrayBufferToBase64(event.data);
+            port.postMessage({ type: 'AUDIO_DATA', data: base64 });
+          } catch (e) {
+            console.error('[Background] Failed to forward binary:', e);
+          }
+        } else {
+          // Forward text 1:1
+          try {
+            const msg = JSON.parse(event.data);
+            port.postMessage({ type: 'CONTROL_MSG', data: msg });
+          } catch (e) {
+            console.warn('[Background] Recv non-JSON text:', event.data);
+          }
+        }
+      };
 
-        ws.onerror = (e) => {
-             console.error('[Background] WS Error:', e);
-             port.postMessage({ type: 'PROXY_ERROR', error: 'WebSocket Error' });
-        };
+      ws.onerror = (e) => {
+        console.error('[Background] WS Error:', e);
+        port.postMessage({ type: 'PROXY_ERROR', error: 'WebSocket Error' });
+      };
 
-        ws.onclose = (event) => {
-             console.log('[Background] WS Closed:', event.code);
-             port.postMessage({ type: 'PROXY_STATUS', status: 'CLOSED', code: event.code });
-             port.disconnect(); // Close port if WS dies
-        };
+      ws.onclose = (event) => {
+        console.log('[Background] WS Closed:', event.code);
+        port.postMessage({ type: 'PROXY_STATUS', status: 'CLOSED', code: event.code });
+        port.disconnect(); // Close port if WS dies
+      };
 
     } catch (e) {
-        console.error('[Background] Failed to create WS:', e);
-        port.disconnect();
+      console.error('[Background] Failed to create WS:', e);
+      port.disconnect();
     }
 
     // Handle messages FROM Content Script
     port.onMessage.addListener((msg) => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            // Check if we need to send binary or text
-            // Implementation currently only sends Text control messages (REGISTER, GO_LIVE)
-            // If we ever need to send Audio FROM Extension TO Relay, we handle it here.
-            if (msg.type === 'SEND_TEXT') {
-                ws.send(JSON.stringify(msg.payload));
-            }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        // Check if we need to send binary or text
+        // Implementation currently only sends Text control messages (REGISTER, GO_LIVE)
+        // If we ever need to send Audio FROM Extension TO Relay, we handle it here.
+        if (msg.type === 'SEND_TEXT') {
+          ws.send(JSON.stringify(msg.payload));
         }
+      }
     });
 
     port.onDisconnect.addListener(() => {
-        console.log('[Background] Proxy Port disconnected. Closing WS.');
-        if (ws) ws.close();
+      console.log('[Background] Proxy Port disconnected. Closing WS.');
+      if (ws) ws.close();
     });
   }
 });
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Vibrant } from "node-vibrant/browser";
 import Color from "colorjs.io";
+import browser from "webextension-polyfill";
 
 interface PaletteColor {
     hex: string;
@@ -83,7 +84,25 @@ export function PaletteExtractor() {
 
                 console.log("[Palette] Extracting colors from:", imgSrc);
 
-                const vibrantPalette = await Vibrant.from(imgSrc)
+                let targetSrc = imgSrc;
+                try {
+                    // Use background proxy to avoid CORS issues, especially in Firefox
+                    const response = await browser.runtime.sendMessage({
+                        type: "PROXY_FETCH_IMAGE",
+                        data: { url: imgSrc }
+                    }) as { dataUrl?: string; error?: string };
+
+                    if (response && response.dataUrl) {
+                        console.log("[Palette] Successfully proxied image via background");
+                        targetSrc = response.dataUrl;
+                    } else if (response && response.error) {
+                        console.warn("[Palette] Proxy fetch failed:", response.error);
+                    }
+                } catch (proxyErr) {
+                    console.error("[Palette] Failed to communicate with background proxy:", proxyErr);
+                }
+
+                const vibrantPalette = await Vibrant.from(targetSrc)
                     .quality(10)
                     .getPalette();
 
