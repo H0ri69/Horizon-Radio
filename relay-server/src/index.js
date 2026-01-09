@@ -128,6 +128,18 @@ function handleMessage(ws, msg) {
             console.log(`[Relay] Sent GO_LIVE to ${recipientCount} guests.`);
             break;
 
+        case 'END_CALL':
+            // Host -> Guest (Signal that call is over)
+            console.log(`[Relay] Broadcasting END_CALL for Host: ${ws.hostId}`);
+            for (const [guestWs, info] of guests.entries()) {
+                if (info.hostId === ws.hostId && guestWs.readyState === WebSocket.OPEN) {
+                    // We send 'GUEST_DISCONNECTED' because the client already listens for it 
+                    // and treats it as a signal to close/reset.
+                    guestWs.send(JSON.stringify({ type: 'GUEST_DISCONNECTED' }));
+                }
+            }
+            break;
+
         default:
             console.warn('[Relay] Unknown message type:', msg.type);
     }
@@ -136,9 +148,15 @@ function handleMessage(ws, msg) {
 function handleDisconnect(ws) {
     if (ws.isHost) {
         console.log(`[Relay] Host disconnected: ${ws.hostId}`);
+        
+        // Notify all guests connected to this host that they're being disconnected
+        for (const [guestWs, info] of guests.entries()) {
+            if (info.hostId === ws.hostId && guestWs.readyState === WebSocket.OPEN) {
+                guestWs.send(JSON.stringify({ type: 'GUEST_DISCONNECTED' }));
+            }
+        }
+        
         hosts.delete(ws.hostId);
-        // Optional: Disconnect all guests tailored to this host?
-        // For now, let's leave them hanging or implement a timeout.
     } else {
         const guestInfo = guests.get(ws);
         if (guestInfo) {
