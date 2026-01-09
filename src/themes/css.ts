@@ -87,8 +87,8 @@ export const backgrounds = /*css*/ `
   /* if an alpha color is specified, this will let the "hue" lights on the homepage show through */
   --ts-body-alpha-gradient-color: var(--ts-body-color);
 
-  /* PERF: avoid animating large surfaces via CSS variables; this caused constant repaints when palette vars update */
-  --ts-bgcolor-transition: none;
+  /* PERF: Enabling smooth background transitions */
+  --ts-bgcolor-transition: background-color 0.7s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
   --yt-spec-inverted-background: var(--ts-body-color);
 }
 
@@ -106,6 +106,7 @@ export const backgrounds = /*css*/ `
 
 body {
   background: var(--ts-body-color);
+  transition: var(--ts-bgcolor-transition);
 }
 
 ytmusic-browse-response[has-background]:not([disable-gradient]) .background-gradient.ytmusic-browse-response {
@@ -129,7 +130,7 @@ ytmusic-player-page,
 #player-page {
   background: var(--ts-playerpage-color) !important;
   /* PERF: keep the open/close transform animation, drop background transitions */
-  transition: transform 300ms cubic-bezier(0.2,0,0.6,1);
+  transition: transform 300ms cubic-bezier(0.2,0,0.6,1), background-color 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 #main-panel {
@@ -139,7 +140,7 @@ ytmusic-player-page,
 #song-image {
   background: var(--ts-playerpage-color) !important;
   /* PERF: keep transform only */
-  transition: transform 300ms cubic-bezier(0.2,0,0.6,1);
+  transition: transform 300ms cubic-bezier(0.2,0,0.6,1), background-color 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 #nav-bar-background {
@@ -654,7 +655,7 @@ export const coloredPlayerBg = /*css*/ `
   ytmusic-player {
     background-color: var(--ts-playerpage-color);
     /* PERF: avoid background transitions on large surfaces */
-    transition: none !important;
+    transition: background-color 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
   }
 `;
 
@@ -1977,7 +1978,9 @@ export const appleMusicThemeCss = /*css*/ `
     /* PERF: avoid transitions on palette-driven variables and large surfaces.
        NOTE: don't globally disable transition; it kills small UI micro-interactions and can
        make YTM's own transform animations feel “snappy/janky”. */
-    --ts-bgcolor-transition: none;
+    /* PERF: Enabling smooth transitions for Apple Music theme */
+    --ts-bgcolor-transition: background-color 0.7s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: --ts-theme-apple-2-color 0.7s, --ts-theme-apple-3-color 0.7s, --ts-theme-apple-4-color 0.7s, --ts-theme-apple-5-color 0.7s, --ts-body-color 0.7s, --ts-playerpage-color 0.7s, --ts-navbar-color 0.7s, --ts-playerbar-color 0.7s, --ts-sidebar-color 0.7s;
   }
 
 
@@ -2083,7 +2086,7 @@ export const appleMusicThemeCss = /*css*/ `
   #player-page {
     background: var(--ts-playerpage-color) !important;
     /* PERF: keep to transform-only; this is cheap and prevents “snap” on exit */
-    transition: transform 320ms cubic-bezier(0.2, 0, 0.2, 1) !important;
+    transition: transform 320ms cubic-bezier(0.2, 0, 0.2, 1), background-color 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
   }
 
   /* Force AV Toggle to use dynamic color when player is open */
@@ -2097,7 +2100,7 @@ export const appleMusicThemeCss = /*css*/ `
 
   ytmusic-player[player-ui-state=PLAYER_PAGE_OPEN] {
     background: transparent !important;
-    transition: none !important;
+    transition: background-color 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
   }
 
   /*
@@ -2238,7 +2241,7 @@ export const appleMusicThemeCss = /*css*/ `
   /* Player page open state - make sure it uses the global variable */
   ytmusic-player[player-ui-state=PLAYER_PAGE_OPEN] {
     background: transparent !important;
-    transition: none !important;
+    transition: background-color 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
   }
 
   /* Apple Music Theme Accent Color */
