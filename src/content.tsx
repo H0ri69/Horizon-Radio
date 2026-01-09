@@ -1,3 +1,4 @@
+import browser from "webextension-polyfill";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { InjectedApp } from "./components/InjectedApp";
@@ -33,7 +34,7 @@ interface State {
 }
 
 // --- INITIAL LOAD ---
-chrome.storage.local.get(["recentThemes", "themeUsageHistory"], (result) => {
+browser.storage.local.get(["recentThemes", "themeUsageHistory"]).then((result) => {
   if (Array.isArray(result.recentThemes)) {
     state.recentThemeIndices = result.recentThemes as number[];
   }
@@ -57,14 +58,14 @@ eventBus.on("HORIS_CALL_SUBMITTED", (detail) => {
   if (detail) {
     console.log("[Hori-s] 📞 Call Request Received through EventBus:", detail);
     state.pendingCall = detail;
-    
+
     // If it's a remote call, we might want to update the status callback to something persistent
     // because the Modal is gone.
     if (detail.remoteSource && typeof detail.remoteSource.setStatusCallback === 'function') {
-        detail.remoteSource.setStatusCallback((s: string) => {
-            console.log(`[Hori-s] [RemoteSourceStatus] ${s}`);
-            // Optionally broadcast this status to UI if we had a persistent status bar
-        });
+      detail.remoteSource.setStatusCallback((s: string) => {
+        console.log(`[Hori-s] [RemoteSourceStatus] ${s}`);
+        // Optionally broadcast this status to UI if we had a persistent status bar
+      });
     }
   }
 });
@@ -428,7 +429,7 @@ const startLiveCall = async () => {
 
   const { current, next } = getSongInfo(); // Re-fetch info
 
-  chrome.storage.local.get(["horisFmSettings"], (result) => {
+  browser.storage.local.get(["horisFmSettings"]).then((result) => {
     const settings = (result as any).horisFmSettings || {};
     const apiKey = settings.apiKey;
 
@@ -610,7 +611,7 @@ const ensurePlayerStateObserver = (() => {
 })();
 
 const mainLoop = setInterval(() => {
-  if (!chrome.runtime?.id) {
+  if (!browser.runtime?.id) {
     clearInterval(mainLoop);
     return;
   }
@@ -700,7 +701,7 @@ const mainLoop = setInterval(() => {
       updateStatus("GENERATING");
       state.generatedForSig = sig;
 
-      chrome.storage.local.get(["horisFmSettings"], (result) => {
+      browser.storage.local.get(["horisFmSettings"]).then((result) => {
         const settings = (result as any).horisFmSettings || { enabled: true, djVoice: "sadachbia" };
         console.log(`[Hori-s] ✨ Generation started (Text: ${settings.textModel || "FLASH"}, TTS: ${settings.ttsModel || "FLASH"})`);
 
@@ -714,63 +715,58 @@ const mainLoop = setInterval(() => {
         const isLong = Math.random() < prob;
 
         try {
-          chrome.runtime.sendMessage(
-            {
-              type: "GENERATE_INTRO",
-              data: {
-                currentSong: { title: current.title, artist: current.artist, id: "ytm-current" },
-                nextSong: {
-                  title: next.title || "Next Track",
-                  artist: next.artist || "Unknown",
-                  id: "ytm-next",
-                },
-                playlistContext,
-                style: settings.djStyle || "STANDARD",
-                voice: settings.djVoice,
-                language: settings.language || "en",
-                customPrompt: settings.customStylePrompt,
-                dualDjMode: settings.dualDjMode,
-                secondaryVoice: settings.secondaryDjVoice,
-                isLongMessage: isLong,
-                recentThemeIndices: state.recentThemeIndices,
-                themeUsageHistory: state.themeUsageHistory,
-                debugSettings: settings.debug,
-                textModel: settings.textModel,
-                ttsModel: settings.ttsModel,
+          browser.runtime.sendMessage({
+            type: "GENERATE_INTRO",
+            data: {
+              currentSong: { title: current.title, artist: current.artist, id: "ytm-current" },
+              nextSong: {
+                title: next.title || "Next Track",
+                artist: next.artist || "Unknown",
+                id: "ytm-next",
               },
+              playlistContext,
+              style: settings.djStyle || "STANDARD",
+              voice: settings.djVoice,
+              language: settings.language || "en",
+              customPrompt: settings.customStylePrompt,
+              dualDjMode: settings.dualDjMode,
+              secondaryVoice: settings.secondaryDjVoice,
+              isLongMessage: isLong,
+              recentThemeIndices: state.recentThemeIndices,
+              themeUsageHistory: state.themeUsageHistory,
+              debugSettings: settings.debug,
+              textModel: settings.textModel,
+              ttsModel: settings.ttsModel,
             },
-            (response) => {
-              if (chrome.runtime.lastError) {
-                updateStatus("IDLE");
-                state.generatedForSig = null;
-                return;
+          }).then((response: any) => {
+            if (state.currentSongSig !== sig) return;
+
+            if (response && response.audio) {
+              state.bufferedAudio = response.audio;
+              state.bufferedAudioType = isLong ? "LONG" : "SHORT";
+
+              if (response.themeIndex !== null && typeof response.themeIndex === "number") {
+                state.recentThemeIndices = [response.themeIndex, ...state.recentThemeIndices].slice(0, 2);
+                state.themeUsageHistory[response.themeIndex] = Date.now();
+                browser.storage.local.set({
+                  recentThemes: state.recentThemeIndices,
+                  themeUsageHistory: state.themeUsageHistory
+                });
               }
 
-              if (state.currentSongSig !== sig) return;
-
-              if (response && response.audio) {
-                state.bufferedAudio = response.audio;
-                state.bufferedAudioType = isLong ? "LONG" : "SHORT";
-
-                if (response.themeIndex !== null && typeof response.themeIndex === "number") {
-                  state.recentThemeIndices = [response.themeIndex, ...state.recentThemeIndices].slice(0, 2);
-                  state.themeUsageHistory[response.themeIndex] = Date.now();
-                  chrome.storage.local.set({
-                    recentThemes: state.recentThemeIndices,
-                    themeUsageHistory: state.themeUsageHistory
-                  });
-                }
-
-                if (response.script) {
-                  console.log(`[Hori-s] 🤖 Script: "${response.script}"`);
-                }
-                console.log(`[Hori-s] ✅ Generation ready`);
-                updateStatus("READY");
-              } else {
-                updateStatus("COOLDOWN");
+              if (response.script) {
+                console.log(`[Hori-s] 🤖 Script: "${response.script}"`);
               }
+              console.log(`[Hori-s] ✅ Generation ready`);
+              updateStatus("READY");
+            } else {
+              updateStatus("COOLDOWN");
             }
-          );
+          }).catch((err) => {
+            console.error("[Hori-s] sendMessage error:", err);
+            updateStatus("IDLE");
+            state.generatedForSig = null;
+          });
         } catch (e) {
           state.status = "IDLE";
           state.generatedForSig = null;

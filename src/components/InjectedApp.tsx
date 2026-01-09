@@ -1,3 +1,4 @@
+import browser from "webextension-polyfill";
 import React, { useState, useEffect } from "react";
 import { PlayerControls } from "./PlayerControls";
 import { SettingsModal } from "./SettingsModal";
@@ -18,7 +19,7 @@ export const InjectedApp: React.FC<InjectedAppProps> = ({ ducker }) => {
   // Sync visualizer setting
   useEffect(() => {
     const syncSettings = () => {
-      chrome.storage.local.get(["horisFmSettings"], (result) => {
+      browser.storage.local.get(["horisFmSettings"]).then((result) => {
         const settings = result.horisFmSettings as any;
         if (settings) {
           if (settings.visualTheme) {
@@ -35,8 +36,8 @@ export const InjectedApp: React.FC<InjectedAppProps> = ({ ducker }) => {
         syncSettings();
       }
     };
-    chrome.storage.onChanged.addListener(listener);
-    return () => chrome.storage.onChanged.removeListener(listener);
+    browser.storage.onChanged.addListener(listener);
+    return () => browser.storage.onChanged.removeListener(listener);
   }, []);
 
   const handleCallSubmit = (data: { name: string; song: any; message: string; useRemote?: boolean; remoteSource?: any }) => {

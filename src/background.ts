@@ -1,3 +1,4 @@
+import browser from "webextension-polyfill";
 import { generateDJIntro, testVoice } from "./services/geminiService";
 import { Song, DJVoice } from "./types";
 import { DJStyle } from "./config";
@@ -6,8 +7,15 @@ import { encodeAudio } from "./services/liveAudioUtils";
 
 const MAX_HISTORY = EXTENSION_CONFIG.MAX_HISTORY;
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === "GENERATE_INTRO") {
+interface ExtensionMessage {
+  type: string;
+  data?: any;
+}
+
+browser.runtime.onMessage.addListener((message: any, sender, sendResponse): any => {
+  const msg = message as ExtensionMessage;
+
+  if (msg.type === "GENERATE_INTRO") {
     const {
       currentSong,
       nextSong,
@@ -23,10 +31,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       themeUsageHistory,
       textModel,
       ttsModel,
-    } = message.data;
+    } = msg.data;
 
     // 1. Fetch History
-    chrome.storage.local.get(["narrativeHistory"], (result) => {
+    browser.storage.local.get(["narrativeHistory"]).then((result) => {
       const history = (result as any).narrativeHistory || [];
 
       // 2. Call Service
@@ -41,7 +49,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         history,
         dualDjMode,
         secondaryVoice,
-        message.data.isLongMessage,
+        msg.data.isLongMessage,
         recentThemeIndices || [],
         debugSettings,
         themeUsageHistory || {},
@@ -53,7 +61,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             // 3. Update History
             const newEntry = `Transitioned: "${currentSong.title}" -> "${nextSong.title}"`;
             const updatedHistory = [newEntry, ...history].slice(0, MAX_HISTORY);
-            chrome.storage.local.set({ narrativeHistory: updatedHistory });
+            browser.storage.local.set({ narrativeHistory: updatedHistory });
 
             const base64 = encodeAudio(new Uint8Array(result.audio));
             sendResponse({ audio: base64, themeIndex: result.themeIndex, script: result.script });
@@ -68,15 +76,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
 
     return true;
-  } else if (message.type === "TEST_VOICE") {
-    const { voice, language } = message.data;
+  } else if (msg.type === "TEST_VOICE") {
+    const { voice, language } = msg.data;
     const cacheKey = `voiceTestCache_${voice}_${language}`;
     const CACHE_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-    
+
     // Check cache first
-    chrome.storage.local.get([cacheKey], (result) => {
+    browser.storage.local.get([cacheKey]).then((result) => {
       const cached = result[cacheKey] as { audio: string; timestamp: number } | undefined;
-      
+
       // Check if cache exists and is still valid
       if (cached && cached.timestamp && cached.audio) {
         const age = Date.now() - cached.timestamp;
@@ -88,18 +96,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           console.log(`[Hori-s:Background] Cache expired for ${voice}/${language}, regenerating...`);
         }
       }
-      
+
       // Generate fresh sample and cache it with timestamp
       testVoice(voice, language)
         .then((audio) => {
           if (audio) {
             const base64 = encodeAudio(new Uint8Array(audio));
             // Store in cache with timestamp for expiry tracking
-            chrome.storage.local.set({ 
-              [cacheKey]: { 
-                audio: base64, 
-                timestamp: Date.now() 
-              } 
+            browser.storage.local.set({
+              [cacheKey]: {
+                audio: base64,
+                timestamp: Date.now()
+              }
             });
             console.log(`[Hori-s:Background] Cached voice sample for ${voice}/${language}`);
             sendResponse({ audio: base64, fromCache: false });
@@ -113,12 +121,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
     });
     return true;
-  } else if (message.type === "CLEAR_VOICE_CACHE") {
+  } else if (msg.type === "CLEAR_VOICE_CACHE") {
     // Clear all voice test cache entries
-    chrome.storage.local.get(null, (items) => {
+    browser.storage.local.get(null).then((items) => {
       const keysToRemove = Object.keys(items).filter(key => key.startsWith("voiceTestCache_"));
       if (keysToRemove.length > 0) {
-        chrome.storage.local.remove(keysToRemove, () => {
+        browser.storage.local.remove(keysToRemove).then(() => {
           console.log(`[Hori-s:Background] Cleared ${keysToRemove.length} voice cache entries`);
           sendResponse({ cleared: keysToRemove.length });
         });
@@ -127,8 +135,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     });
     return true;
-  } else if (message.type === "SEARCH_SONGS") {
-    const query = message.data.query;
+  } else if (msg.type === "SEARCH_SONGS") {
+    const query = msg.data.query;
     const url = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(query)}`;
 
     fetch(url)

@@ -1,3 +1,4 @@
+import browser from "webextension-polyfill";
 import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type, StartSensitivity, EndSensitivity, Blob } from "@google/genai";
 import { decodeAudio, decodeAudioData, createPcmBlob, downsampleTo16k } from './liveAudioUtils';
 import { DJVoice, AppLanguage } from '../types';
@@ -12,14 +13,14 @@ export interface ILiveInputSource {
      * Must be called before connect.
      */
     initialize(context: AudioContext): Promise<void>;
-    
+
     /**
      * Start sending audio data.
      * @param context The AudioContext to use for processing (if applicable)
      * @param onAudioData Callback to receive ready-to-send PCM Blobs
      */
     connect(context: AudioContext, onAudioData: (pcmBlob: Blob) => void): void;
-    
+
     /**
      * Stop and cleanup resources.
      */
@@ -56,7 +57,7 @@ export class LocalMicSource implements ILiveInputSource {
         // Handle audio process
         this.scriptProcessor.onaudioprocess = (e) => {
             const inputData = e.inputBuffer.getChannelData(0);
-            
+
             // Convert to Gemini-compatible PCM
             const pcmBlob = createPcmBlob(downsampleTo16k(inputData, context.sampleRate));
             onAudioData(pcmBlob);
@@ -110,10 +111,10 @@ interface LiveCallConfig {
 export class LiveCallService {
     private liveInputContext: AudioContext | null = null;
     private liveOutputContext: AudioContext | null = null;
-    
+
     // Abstracted Input Source
     private inputSource: ILiveInputSource = new LocalMicSource();
-    
+
     private liveSession: any = null; // Resolved session object
     private liveSources: Set<AudioBufferSourceNode> = new Set();
     private liveNextStartTime: number = 0;
@@ -121,10 +122,10 @@ export class LiveCallService {
 
     private config: LiveCallConfig | null = null;
     private currentSessionId: number = 0; // Track which session is active
-    
+
     // Bug fix: Promise to await session resolution before using it
     private sessionResolve: ((session: any) => void) | null = null;
-    
+
     // Bug fix: Prevent double onCallEnd calls
     private callEndFired: boolean = false;
 
@@ -145,18 +146,18 @@ export class LiveCallService {
 
         // Use custom input source if provided (for Remote Calls), otherwise default to LocalMic
         if (config.inputSource) {
-             console.log(`[Hori-s] Using custom input source: ${config.inputSource.name}`);
-             this.inputSource = config.inputSource;
+            console.log(`[Hori-s] Using custom input source: ${config.inputSource.name}`);
+            this.inputSource = config.inputSource;
         } else {
-             // ensure fresh instance for fresh stream
-             this.inputSource = new LocalMicSource();
+            // ensure fresh instance for fresh stream
+            this.inputSource = new LocalMicSource();
         }
 
         try {
             console.log(`[Hori-s] Creating AI client for session #${sessionId}`);
 
             // Get Call History for context and settings for limit
-            const storageResult = await chrome.storage.local.get(["horisCallHistory", "horisFmSettings"]);
+            const storageResult = await browser.storage.local.get(["horisCallHistory", "horisFmSettings"]);
             const history: any[] = Array.isArray(storageResult.horisCallHistory) ? storageResult.horisCallHistory : [];
             const callHistoryLimit = (storageResult.horisFmSettings as any)?.debug?.callHistoryLimit || 5;
 
@@ -171,20 +172,20 @@ export class LiveCallService {
             // We filter out previous entries of the same name to keep it clean
             const filteredHistory = history.filter(h => h.name.toLowerCase() !== config.callerName.toLowerCase());
             const updatedHistory = [{ name: config.callerName, reason: config.reason, timestamp: Date.now() }, ...filteredHistory].slice(0, callHistoryLimit);
-            chrome.storage.local.set({ horisCallHistory: updatedHistory });
+            browser.storage.local.set({ horisCallHistory: updatedHistory });
 
             const ai = new GoogleGenAI({ apiKey: config.apiKey });
             const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
 
             console.log(`[Hori-s] Creating audio contexts for session #${sessionId}`);
-            
-             // CLEANUP: Close existing contexts if they were left open
+
+            // CLEANUP: Close existing contexts if they were left open
             if (this.liveInputContext) {
-                try { await this.liveInputContext.close(); } catch(e) {}
+                try { await this.liveInputContext.close(); } catch (e) { }
                 this.liveInputContext = null;
             }
             if (this.liveOutputContext) {
-                try { await this.liveOutputContext.close(); } catch(e) {}
+                try { await this.liveOutputContext.close(); } catch (e) { }
                 this.liveOutputContext = null;
             }
 
@@ -207,9 +208,9 @@ export class LiveCallService {
             } catch (inputError) {
                 console.error('[Hori-s] Input source initialization failed:', inputError);
                 if (inputError instanceof Error && (inputError.name === 'NotAllowedError' || inputError.name === 'PermissionDeniedError')) {
-                     this.config.onStatusChange('MIC ACCESS DENIED');
+                    this.config.onStatusChange('MIC ACCESS DENIED');
                 } else {
-                     this.config.onStatusChange('INPUT ERROR'); // Generic error
+                    this.config.onStatusChange('INPUT ERROR'); // Generic error
                 }
 
                 // Clean up contexts
@@ -264,7 +265,7 @@ export class LiveCallService {
 
 
             const sessionConfig = {
-                model: MODEL_MAPPING.LIVE.PRO, 
+                model: MODEL_MAPPING.LIVE.PRO,
                 config: {
                     responseModalities: [Modality.AUDIO],
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceProfile?.geminiVoiceName || config.voice } } },
@@ -288,11 +289,11 @@ export class LiveCallService {
                     onopen: async () => {
                         console.log(`[Hori-s] WebSocket opened for session #${sessionId}`);
                         this.config?.onStatusChange('LIVE: ON AIR');
-                        
+
                         // Wait for session to be fully resolved
                         const session = await sessionReadyPromise;
                         resolvedSession = session;
-                        
+
                         if (!this.liveInputContext) {
                             console.warn(`[Hori-s] Missing input context for session #${sessionId}`);
                             return;
@@ -302,8 +303,8 @@ export class LiveCallService {
 
                         // Connect Input Source
                         this.inputSource.connect(this.liveInputContext, (pcmBlob) => {
-                             if (!resolvedSession) return;
-                             resolvedSession.sendRealtimeInput({ media: pcmBlob });
+                            if (!resolvedSession) return;
+                            resolvedSession.sendRealtimeInput({ media: pcmBlob });
                         });
                     },
                     onmessage: async (msg: LiveServerMessage) => {
@@ -407,7 +408,7 @@ export class LiveCallService {
                     }
                 }
             });
-            
+
             sessionPromise.then(session => {
                 this.liveSession = session;
                 if (this.sessionResolve) {
