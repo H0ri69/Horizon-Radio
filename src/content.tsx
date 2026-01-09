@@ -16,6 +16,7 @@ console.log("Hori-s.FM Content Script Loaded (v2.6 - Clean Logs)");
 
 // --- TYPES & STATE ---
 import { liveCallService } from "./services/liveCallService";
+import { RemoteSocketSource } from "./services/RemoteSocketSource";
 
 // --- TYPES & STATE ---
 type DJState = "IDLE" | "GENERATING" | "READY" | "PLAYING" | "COOLDOWN" | "LIVE_CALL";
@@ -54,9 +55,43 @@ window.addEventListener("HORIS_MANUAL_TRIGGER", () => {
 
 // --- EVENT BUS LISTENER ---
 
+// --- REMOTE HOST CONNECTION (PASSIVE) ---
+const RELAY_URL = "ws://127.0.0.1:8765"; // Prod: "wss://relay.horis.fm" ?
+let remoteSource: RemoteSocketSource | null = null;
+
+// Initialize once
+chrome.storage.local.get(["horisHostId", "horisFmSettings"], (result) => {
+    const hostId = result.horisHostId as string;
+    const settings = (result as any).horisFmSettings || {};
+    
+    // Only connect if we have a HostID
+    if (hostId) {
+        console.log("[Hori-s] 📡 Initializing Remote Source for Host:", hostId);
+        remoteSource = new RemoteSocketSource(
+            hostId, 
+            RELAY_URL,
+            (status) => console.log(`[Hori-s] [Remote] ${status}`),
+            (callData) => {
+                console.log("[Hori-s] 📞 Incoming Call Request:", callData);
+                state.pendingCall = {
+                    name: callData.name,
+                    message: callData.message,
+                    song: null, // No song request in simplified flow
+                    inputSource: remoteSource
+                };
+                
+                // TODO: Optional UI interaction (Toast notification?)
+            }
+        );
+        // Connect immediately (AudioContext is null initially, but that's fine for control messages)
+        remoteSource.connect(null as any, () => {});
+    }
+});
+
+// --- EVENT BUS LISTENER ---
 eventBus.on("HORIS_CALL_SUBMITTED", (detail) => {
   if (detail) {
-    console.log("[Hori-s] 📞 Call Request Received through EventBus:", detail);
+    console.log("[Hori-s] 📞 Local Call Received:", detail);
     state.pendingCall = detail;
 
     // If it's a remote call, we might want to update the status callback to something persistent
@@ -449,8 +484,8 @@ const startLiveCall = async () => {
       reason: callData.message,
       previousSongTitle: current.title || "Unknown",
       previousSongArtist: current.artist || "Unknown",
-      nextSongTitle: callData.song ? callData.song.title : (next.title || "Next Song"),
-      nextSongArtist: callData.song ? "Requested Artist" : (next.artist || "Unknown"),
+      nextSongTitle: next.title || "Next Song",
+      nextSongArtist: next.artist || "Unknown",
       voice: settings.djVoice || "sadachbia",
       personaName: DJ_PERSONA_NAMES[settings.djVoice as DJVoice]?.[settings.language as AppLanguage] || "Host",
       language: settings.language || "en",
@@ -458,10 +493,9 @@ const startLiveCall = async () => {
       customPrompt: settings.customStylePrompt || "",
       dualDjMode: settings.dualDjMode || false,
       secondaryPersonaName: settings.dualDjMode ? (DJ_PERSONA_NAMES[settings.secondaryDjVoice as DJVoice]?.[settings.language as AppLanguage] || "Partner") : undefined,
-      onStatusChange: (s) => console.log(`[Hori-s] [LiveCall] ${s}`), // Fixed from multi-replace error
+      onStatusChange: (s) => console.log(`[Hori-s] [LiveCall] ${s}`),
       onUnrecoverableError: () => {
         console.error("[Hori-s] [LiveCall] Error.");
-        // Bug #5 fix: Use same status transition as onCallEnd for UI consistency
         updateStatus("COOLDOWN");
         ducker.unduck(TIMING.DUCK_DURATION);
         const video = getMoviePlayer();
@@ -471,11 +505,16 @@ const startLiveCall = async () => {
       onCallEnd: () => {
         console.log("[Hori-s] [LiveCall] Ended.");
         updateStatus("COOLDOWN");
-        // Resume music
         const video = getMoviePlayer();
         if (video) video.play();
         ducker.unduck(TIMING.DUCK_DURATION);
         setTimeout(() => updateStatus("IDLE"), TIMING.COOLDOWN_PERIOD);
+      },
+      onSessionStart: () => {
+          // Send GO LIVE signal to remote client
+          if (callData.inputSource instanceof RemoteSocketSource) {
+              callData.inputSource.sendGoLive();
+          }
       }
     });
   });
