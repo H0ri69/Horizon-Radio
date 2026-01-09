@@ -1,0 +1,43 @@
+{
+    "manifest_version": 3,
+    "name": "AI Radio for Youtube Music",
+    "version": "1.0.0",
+    "description": "AI generated Host and DJ voice-overs for YouTube Music",
+    "icons": {
+        "16": "icon.png",
+        "32": "icon.png",
+        "48": "icon.png",
+        "128": "icon.png"
+    },
+    "permissions": [
+        "storage"
+    ],
+    "host_permissions": [
+        "https://music.youtube.com/*",
+        "https://generativelanguage.googleapis.com/*",
+        "https://suggestqueries.google.com/*"
+    ],
+    "background": {
+        "scripts": [
+            "src/background.ts"
+        ],
+        "type": "module"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://music.youtube.com/*"
+            ],
+            "js": [
+                "src/content.tsx"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "{b310998f-712a-4173-9158-ecd97539f6a6}",
+            "strict_min_version": "109.0"
+        }
+    }
+}
