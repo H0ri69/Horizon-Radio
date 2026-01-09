@@ -1,5 +1,6 @@
 import { ILiveInputSource } from './liveCallService';
 import { Blob as GenAIBlob } from '@google/genai';
+import { logger } from "../utils/Logger";
 
 // Extension side code doesn't use 'ws' package directly usually (browser native WebSocket), 
 // but for type safety it's fine. We use native WebSocket here.
@@ -7,35 +8,46 @@ import { Blob as GenAIBlob } from '@google/genai';
 export class RemoteSocketSource implements ILiveInputSource {
     public name = "Remote Caller";
     private port: chrome.runtime.Port | null = null;
-    private hostId: string; 
-    private onStatusChange: (status: string) => void;
-    
-    private onCallRequest: ((data: { name: string; message: string }) => void) | null = null;
-    
+    private hostId: string;
+    private statusListeners: ((status: string) => void)[] = [];
+    private callRequestListeners: ((data: { name: string; message: string }) => void)[] = [];
+
     // We hold the 'onAudioData' callback provided by the Service
     private propagateAudio: ((blob: GenAIBlob) => void) | null = null;
 
     constructor(
-        hostId: string, 
-        onStatusChange: (s: string) => void,
-        onCallRequest?: (data: { name: string; message: string }) => void
+        hostId: string
     ) {
         this.hostId = hostId;
-        this.onStatusChange = onStatusChange;
-        if (onCallRequest) this.onCallRequest = onCallRequest;
     }
 
-    public setStatusCallback(callback: (status: string) => void) {
-        this.onStatusChange = callback;
+    public addStatusListener(callback: (status: string) => void) {
+        this.statusListeners.push(callback);
     }
 
-    public setCallRequestCallback(callback: (data: { name: string; message: string }) => void) {
-        this.onCallRequest = callback;
+    public removeStatusListener(callback: (status: string) => void) {
+        this.statusListeners = this.statusListeners.filter(cb => cb !== callback);
+    }
+
+    public addCallRequestListener(callback: (data: { name: string; message: string }) => void) {
+        this.callRequestListeners.push(callback);
+    }
+
+    public removeCallRequestListener(callback: (data: { name: string; message: string }) => void) {
+        this.callRequestListeners = this.callRequestListeners.filter(cb => cb !== callback);
+    }
+
+    private emitStatus(status: string) {
+        this.statusListeners.forEach(cb => cb(status));
+    }
+
+    private emitCallRequest(data: { name: string; message: string }) {
+        this.callRequestListeners.forEach(cb => cb(data));
     }
 
     public sendGoLive() {
         if (this.port) {
-            console.log('[RemoteSocketSource] Sending GO_LIVE signal via Proxy');
+            logger.debug('[RemoteSocketSource] Sending GO_LIVE signal via Proxy');
             this.port.postMessage({ type: 'SEND_TEXT', payload: { type: 'GO_LIVE' } });
         }
     }
@@ -50,30 +62,30 @@ export class RemoteSocketSource implements ILiveInputSource {
 
         // Ensure we are connected via Proxy
         if (!this.port) {
-             this.initProxyConnection();
+            this.initProxyConnection();
         }
     }
 
     private initProxyConnection() {
-        console.log('[RemoteSocketSource] Connecting to Background Proxy...');
-        this.onStatusChange('CONNECTING_PROXY...');
-        
+        logger.debug('[RemoteSocketSource] Connecting to Background Proxy...');
+        this.emitStatus('CONNECTING_PROXY...');
+
         try {
             this.port = chrome.runtime.connect({ name: 'remote-socket-proxy' });
-            
+
             this.port.onMessage.addListener((msg) => {
                 this.handleProxyMessage(msg);
             });
 
             this.port.onDisconnect.addListener(() => {
-                console.log('[RemoteSocketSource] Proxy Port Disconnected');
-                this.onStatusChange('PROXY_DISCONNECTED');
+                logger.debug('[RemoteSocketSource] Proxy Port Disconnected');
+                this.emitStatus('PROXY_DISCONNECTED');
                 this.port = null;
             });
 
         } catch (e) {
-            console.error('[RemoteSocketSource] Failed to connect to extension background:', e);
-            this.onStatusChange('EXTENSION_ERROR');
+            logger.error('[RemoteSocketSource] Failed to connect to extension background:', e);
+            this.emitStatus('EXTENSION_ERROR');
         }
     }
 
@@ -81,16 +93,16 @@ export class RemoteSocketSource implements ILiveInputSource {
         switch (msg.type) {
             case 'PROXY_STATUS':
                 if (msg.status === 'OPEN') {
-                    console.log('[RemoteSocketSource] Proxy WS Open. Registering Host:', this.hostId);
-                    this.onStatusChange('WAITING_FOR_CALL');
+                    logger.debug('[RemoteSocketSource] Proxy WS Open. Registering Host:', this.hostId);
+                    this.emitStatus('WAITING_FOR_CALL');
                     // Send Register Command
-                    this.port?.postMessage({ 
-                        type: 'SEND_TEXT', 
-                        payload: { type: 'REGISTER_HOST', hostId: this.hostId } 
+                    this.port?.postMessage({
+                        type: 'SEND_TEXT',
+                        payload: { type: 'REGISTER_HOST', hostId: this.hostId }
                     });
                 } else if (msg.status === 'CLOSED') {
-                    console.log('[RemoteSocketSource] Proxy WS Closed. Code:', msg.code);
-                    this.onStatusChange('RELAY_DISCONNECTED');
+                    logger.debug('[RemoteSocketSource] Proxy WS Closed. Code:', msg.code);
+                    this.emitStatus('RELAY_DISCONNECTED');
                     // Also trigger disconnect callback to cleanup any active session
                     if (this.onDisconnectCallback) this.onDisconnectCallback();
                 }
@@ -99,9 +111,9 @@ export class RemoteSocketSource implements ILiveInputSource {
             case 'AUDIO_DATA':
                 if (this.propagateAudio && msg.data) {
                     // msg.data is Base64 string from background
-                    this.propagateAudio({ 
-                        data: msg.data, 
-                        mimeType: 'audio/pcm;rate=16000' 
+                    this.propagateAudio({
+                        data: msg.data,
+                        mimeType: 'audio/pcm;rate=16000'
                     });
                 }
                 break;
@@ -110,7 +122,7 @@ export class RemoteSocketSource implements ILiveInputSource {
                 const payload = msg.data;
                 this.handleControlMessage(payload);
                 break;
-            
+
             case 'PROXY_ERROR':
                 console.error('[RemoteSocketSource] Proxy reported error:', msg.error);
                 break;
@@ -118,46 +130,54 @@ export class RemoteSocketSource implements ILiveInputSource {
     }
 
     private onDisconnectCallback: (() => void) | null = null;
-    
+
     public setOnDisconnect(callback: () => void) {
         this.onDisconnectCallback = callback;
     }
 
     private handleControlMessage(msg: any) {
         if (msg.type === 'GUEST_CONNECTED') {
-            console.log('[RemoteSocketSource] Guest Connected:', msg.callerName);
-            this.onStatusChange(`CALLER_CONNECTED:${msg.callerName}`);
+            logger.debug('[RemoteSocketSource] Guest Connected:', msg.callerName);
+            this.emitStatus(`CALLER_CONNECTED:${msg.callerName}`);
         }
         else if (msg.type === 'GUEST_DISCONNECTED') {
-            console.log('[RemoteSocketSource] Guest Disconnected');
-            this.onStatusChange('WAITING_FOR_CALL');
+            logger.debug('[RemoteSocketSource] Guest Disconnected');
+            this.emitStatus('WAITING_FOR_CALL');
             if (this.onDisconnectCallback) this.onDisconnectCallback();
         }
         else if (msg.type === 'CALL_REQUEST') {
-            console.log('[RemoteSocketSource] Call Request:', msg);
-            if (this.onCallRequest) {
-                this.onCallRequest({ name: msg.name, message: msg.message });
-            }
+            logger.debug('[RemoteSocketSource] Call Request:', msg);
+            this.emitCallRequest({ name: msg.name, message: msg.message });
         }
     }
 
+    /**
+     * Terminate the connection and Notify the remote user (Hang up).
+     */
     disconnect(): void {
-        // We DO NOT disconnect the port here, because this source is persistent 
-        // and needs to listen for future calls even after the current session ends.
-        
+        logger.debug("[RemoteSocketSource] disconnect() called (Sending END_CALL)");
+
         // Notify Relay -> Guest that we hung up
         if (this.port) {
-             console.log('[RemoteSocketSource] Sending END_CALL signal');
-             this.port.postMessage({ type: 'SEND_TEXT', payload: { type: 'END_CALL' } });
+            logger.debug('[RemoteSocketSource] Sending END_CALL signal');
+            this.port.postMessage({ type: 'SEND_TEXT', payload: { type: 'END_CALL' } });
+            this.port.disconnect(); // Actually close the port too
+            this.port = null;
         }
 
-        /* 
+        this.propagateAudio = null;
+    }
+
+    /**
+     * Close the local connection WITHOUT notifying the remote user.
+     * Use this when transferring the session or just closing the UI.
+     */
+    detach(): void {
+        logger.debug("[RemoteSocketSource] detach() called (Silent Close)");
         if (this.port) {
             this.port.disconnect();
             this.port = null;
-        } 
-        */
-       
+        }
         this.propagateAudio = null;
     }
 
@@ -165,9 +185,6 @@ export class RemoteSocketSource implements ILiveInputSource {
      * Call this if you strictly want to close the connection (e.g. settings change)
      */
     public destroy() {
-         if (this.port) {
-            this.port.disconnect();
-            this.port = null;
-        }
+        this.detach();
     }
 }

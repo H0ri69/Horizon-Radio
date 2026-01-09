@@ -5,6 +5,7 @@ import { InjectedApp } from "./components/InjectedApp";
 import { Song, DJVoice, AppLanguage } from "./types";
 import { DJStyle, DJ_PERSONA_NAMES, TIMING, AUDIO } from "./config";
 import { eventBus } from "./services/eventBus";
+import { logger } from "./utils/Logger";
 import "./index.css"; // Inject Tailwind Styles
 
 // Prevent running in iframes
@@ -73,22 +74,21 @@ chrome.storage.local.get(["horisHostId", "horisFmSettings"], (result) => {
 
   // Connect with HostID
   if (hostId) {
-    console.log("[Hori-s] 📡 Initializing Remote Source for Host:", hostId);
-    remoteSource = new RemoteSocketSource(
-      hostId,
-      (status) => console.log(`[Hori-s] [Remote] ${status}`),
-      (callData: { name: string; message: string }) => {
-        console.log("[Hori-s] 📞 Incoming Call Request:", callData);
-        state.pendingCall = {
-          name: callData.name,
-          message: callData.message,
-          song: null, // No song request in simplified flow
-          inputSource: remoteSource
-        };
+    logger.debug("[Hori-s] 📡 Initializing Remote Source for Host:", hostId);
+    remoteSource = new RemoteSocketSource(hostId);
 
-        // TODO: Optional UI interaction (Toast notification?)
-      }
-    );
+    remoteSource.addStatusListener((status) => logger.debug(`[Hori-s] [Remote] ${status}`));
+    remoteSource.addCallRequestListener((callData) => {
+      logger.debug("[Hori-s] 📞 Incoming Call Request:" + JSON.stringify(callData));
+      state.pendingCall = {
+        name: callData.name,
+        message: callData.message,
+        song: null, // No song request in simplified flow
+        inputSource: remoteSource
+      };
+
+      // TODO: Optional UI interaction (Toast notification?)
+    });
     // Connect immediately (AudioContext is null initially, but that's fine for control messages)
     remoteSource.connect(null as any, () => { });
   }
@@ -464,7 +464,11 @@ const mountReactApp = () => {
   rootDiv.id = rootId;
   document.body.appendChild(rootDiv);
   const root = createRoot(rootDiv);
-  root.render(<InjectedApp ducker={ducker} />);
+
+  // Provide a safe getter for remoteSource
+  const getRemoteSource = () => remoteSource;
+
+  root.render(<InjectedApp ducker={ducker} getRemoteSource={getRemoteSource} />);
 };
 
 if (document.readyState === "loading") {
@@ -542,10 +546,15 @@ const playBufferedAudio = async () => {
 
 
 const startLiveCall = async () => {
-  if (!state.pendingCall) return;
+  logger.debug("[Hori-s] 🚀 startLiveCall TRIGGERED");
+  if (!state.pendingCall) {
+    logger.debug("[Hori-s] ❌ startLiveCall aborted: No pending call");
+    return;
+  }
   const callData = state.pendingCall;
   state.pendingCall = null; // Clear queue
   updateStatus("LIVE_CALL");
+  logger.debug("[Hori-s] 📞 Live Call Status set. Preparing session...");
 
   ducker.duck(TIMING.SONG_CHECK_INTERVAL);
 
@@ -576,6 +585,7 @@ const startLiveCall = async () => {
       return;
     }
 
+    logger.debug("[Hori-s] 🎬 Calling liveCallService.startSession...");
     liveCallService.startSession({
       apiKey,
       inputSource: callData.inputSource,
@@ -594,7 +604,7 @@ const startLiveCall = async () => {
       secondaryPersonaName: settings.dualDjMode ? (DJ_PERSONA_NAMES[settings.secondaryDjVoice as DJVoice]?.[settings.language as AppLanguage] || "Partner") : undefined,
       onStatusChange: (s) => console.log(`[Hori-s] [LiveCall] ${s}`),
       onUnrecoverableError: () => {
-        console.error("[Hori-s] [LiveCall] Error.");
+        console.error("[Hori-s] [LiveCall] Unrecoverable Error Triggered.");
         updateStatus("COOLDOWN");
         ducker.unduck(TIMING.DUCK_DURATION);
         const video = getMoviePlayer();
@@ -602,7 +612,7 @@ const startLiveCall = async () => {
         setTimeout(() => updateStatus("IDLE"), TIMING.COOLDOWN_PERIOD);
       },
       onCallEnd: () => {
-        console.log("[Hori-s] [LiveCall] Ended.");
+        console.log("[Hori-s] [LiveCall] Ended normally.");
         updateStatus("COOLDOWN");
         const video = getMoviePlayer();
         if (video) video.play();
@@ -610,11 +620,15 @@ const startLiveCall = async () => {
         setTimeout(() => updateStatus("IDLE"), TIMING.COOLDOWN_PERIOD);
       },
       onSessionStart: () => {
+        logger.debug("[Hori-s] [LiveCall] Session Started Callback.");
         // Send GO LIVE signal to remote client
         if (callData.inputSource instanceof RemoteSocketSource) {
           callData.inputSource.sendGoLive();
         }
       }
+    }).catch(err => {
+      console.error("[Hori-s] 💥 liveCallService.startSession Promise Rejected:", err);
+      updateStatus("IDLE");
     });
   });
 };
