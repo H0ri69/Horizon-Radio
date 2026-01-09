@@ -104,6 +104,7 @@ interface LiveCallConfig {
     onStatusChange: (status: string) => void;
     onUnrecoverableError: () => void;
     onCallEnd: () => void;
+    onSessionStart?: () => void;
     // Future: inputSource?: ILiveInputSource;
 }
 
@@ -309,6 +310,9 @@ export class LiveCallService {
                     onmessage: async (msg: LiveServerMessage) => {
                         if (msg.setupComplete) {
                             console.log(`[Hori-s] Setup complete for session #${sessionId}. Triggering intro.`);
+                            // Trigger session start callback (e.g. for Remote GO LIVE signal)
+                            this.config?.onSessionStart?.();
+
                             const session = await sessionReadyPromise;
                             session.sendClientContent({
                                 turns: [{

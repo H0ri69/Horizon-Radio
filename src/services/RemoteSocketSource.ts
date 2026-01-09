@@ -6,22 +6,44 @@ import { Blob as GenAIBlob } from '@google/genai';
 
 export class RemoteSocketSource implements ILiveInputSource {
     public name = "Remote Caller";
-    private ws: WebSocket | null = null;
+    private port: chrome.runtime.Port | null = null;
     private hostId: string;
-    private relayUrl: string;
+    // Relay URL is now managed by Background, but we keep it in constructor signature for compatibility (?)
+    // Actually, background hardcodes it or we could pass it via connect info? 
+    // For now, Background hardcodes it to keep architecture simple as per plan.
+    private relayUrl: string; 
     private onStatusChange: (status: string) => void;
+    
+    private onCallRequest: ((data: { name: string; message: string }) => void) | null = null;
     
     // We hold the 'onAudioData' callback provided by the Service
     private propagateAudio: ((blob: GenAIBlob) => void) | null = null;
 
-    constructor(hostId: string, relayUrl: string, onStatusChange: (s: string) => void) {
+    constructor(
+        hostId: string, 
+        relayUrl: string, 
+        onStatusChange: (s: string) => void,
+        onCallRequest?: (data: { name: string; message: string }) => void
+    ) {
         this.hostId = hostId;
         this.relayUrl = relayUrl;
         this.onStatusChange = onStatusChange;
+        if (onCallRequest) this.onCallRequest = onCallRequest;
     }
 
     public setStatusCallback(callback: (status: string) => void) {
         this.onStatusChange = callback;
+    }
+
+    public setCallRequestCallback(callback: (data: { name: string; message: string }) => void) {
+        this.onCallRequest = callback;
+    }
+
+    public sendGoLive() {
+        if (this.port) {
+            console.log('[RemoteSocketSource] Sending GO_LIVE signal via Proxy');
+            this.port.postMessage({ type: 'SEND_TEXT', payload: { type: 'GO_LIVE' } });
+        }
     }
 
     async initialize(context: AudioContext): Promise<void> {
@@ -32,85 +54,95 @@ export class RemoteSocketSource implements ILiveInputSource {
     connect(context: AudioContext, onAudioData: (pcmBlob: GenAIBlob) => void): void {
         this.propagateAudio = onAudioData;
 
-        // Ensure we are connected to Relay
-        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-             this.initWebSocket();
+        // Ensure we are connected via Proxy
+        if (!this.port) {
+             this.initProxyConnection();
         }
     }
 
-    private initWebSocket() {
-        console.log('[RemoteSocketSource] Connecting to Relay:', this.relayUrl);
-        this.onStatusChange('CONNECTING TO RELAY...');
+    private initProxyConnection() {
+        console.log('[RemoteSocketSource] Connecting to Background Proxy...');
+        this.onStatusChange('CONNECTING_PROXY...');
         
-        this.ws = new WebSocket(this.relayUrl);
-        this.ws.binaryType = 'arraybuffer'; // Crucial for receiving raw audio
+        try {
+            this.port = chrome.runtime.connect({ name: 'remote-socket-proxy' });
+            
+            this.port.onMessage.addListener((msg) => {
+                this.handleProxyMessage(msg);
+            });
 
-        this.ws.onopen = () => {
-            console.log('[RemoteSocketSource] Connected to Relay. Registering as Host:', this.hostId);
-            this.ws?.send(JSON.stringify({ type: 'REGISTER_HOST', hostId: this.hostId }));
-            this.onStatusChange('WAITING FOR CALL...');
-        };
+            this.port.onDisconnect.addListener(() => {
+                console.log('[RemoteSocketSource] Proxy Port Disconnected');
+                this.onStatusChange('PROXY_DISCONNECTED');
+                this.port = null;
+            });
 
-        this.ws.onmessage = (event) => {
-            // Handle Audio (Binary)
-            if (event.data instanceof ArrayBuffer) {
-                if (this.propagateAudio) {
-                    // Convert ArrayBuffer to Blob for Gemini
-                    // Gemini expects "audio/pcm"
-                    const blob = new Blob([event.data], { type: 'audio/pcm' });
-                    // Gemini Blob type: { data: string (base64) | Blob, mimeType: string }
-                    // Wait, the SDK expects a specific format.
-                    // Let's check liveCallService usage: `createPcmBlob` returns { data: base64, mimeType... }
-                    // We need to match that format? Or does SDK accept raw Blob?
-                    // SDK `Session.sendRealtimeInput` -> `media: { mimeType, data }`
-                    
-                    // We need to convert ArrayBuffer -> Base64
-                    const base64 = this.arrayBufferToBase64(event.data);
+        } catch (e) {
+            console.error('[RemoteSocketSource] Failed to connect to extension background:', e);
+            this.onStatusChange('EXTENSION_ERROR');
+        }
+    }
+
+    private handleProxyMessage(msg: any) {
+        switch (msg.type) {
+            case 'PROXY_STATUS':
+                if (msg.status === 'OPEN') {
+                    console.log('[RemoteSocketSource] Proxy WS Open. Registering Host:', this.hostId);
+                    this.onStatusChange('WAITING_FOR_CALL');
+                    // Send Register Command
+                    this.port?.postMessage({ 
+                        type: 'SEND_TEXT', 
+                        payload: { type: 'REGISTER_HOST', hostId: this.hostId } 
+                    });
+                } else if (msg.status === 'CLOSED') {
+                    console.log('[RemoteSocketSource] Proxy WS Closed. Code:', msg.code);
+                    this.onStatusChange('RELAY_DISCONNECTED');
+                }
+                break;
+
+            case 'AUDIO_DATA':
+                if (this.propagateAudio && msg.data) {
+                    // msg.data is Base64 string from background
                     this.propagateAudio({ 
-                        data: base64, 
+                        data: msg.data, 
                         mimeType: 'audio/pcm;rate=16000' 
                     });
                 }
-                return;
-            }
+                break;
 
-            // Handle Text (Control)
-            try {
-                const msg = JSON.parse(event.data);
-                if (msg.type === 'GUEST_CONNECTED') {
-                    console.log('[RemoteSocketSource] Guest Connected:', msg.callerName);
-                    this.onStatusChange(`CALLER: ${msg.callerName}`);
-                }
-                else if (msg.type === 'GUEST_DISCONNECTED') {
-                    console.log('[RemoteSocketSource] Guest Disconnected');
-                    this.onStatusChange('WAITING FOR CALL...');
-                }
-            } catch (e) {
-                console.error('Invalid message', e);
-            }
-        };
+            case 'CONTROL_MSG':
+                const payload = msg.data;
+                this.handleControlMessage(payload);
+                break;
+            
+            case 'PROXY_ERROR':
+                console.error('[RemoteSocketSource] Proxy reported error:', msg.error);
+                break;
+        }
+    }
 
-        this.ws.onclose = () => {
-            console.log('[RemoteSocketSource] Disconnected from Relay');
-            this.onStatusChange('RELAY DISCONNECTED');
-        };
+    private handleControlMessage(msg: any) {
+        if (msg.type === 'GUEST_CONNECTED') {
+            console.log('[RemoteSocketSource] Guest Connected:', msg.callerName);
+            this.onStatusChange(`CALLER_CONNECTED:${msg.callerName}`);
+        }
+        else if (msg.type === 'GUEST_DISCONNECTED') {
+            console.log('[RemoteSocketSource] Guest Disconnected');
+            this.onStatusChange('WAITING_FOR_CALL');
+        }
+        else if (msg.type === 'CALL_REQUEST') {
+            console.log('[RemoteSocketSource] Call Request:', msg);
+            if (this.onCallRequest) {
+                this.onCallRequest({ name: msg.name, message: msg.message });
+            }
+        }
     }
 
     disconnect(): void {
-        if (this.ws) {
-            this.ws.close();
-            this.ws = null;
+        if (this.port) {
+            this.port.disconnect();
+            this.port = null;
         }
         this.propagateAudio = null;
-    }
-
-    private arrayBufferToBase64(buffer: ArrayBuffer): string {
-        let binary = '';
-        const bytes = new Uint8Array(buffer);
-        const len = bytes.byteLength;
-        for (let i = 0; i < len; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        return window.btoa(binary);
     }
 }

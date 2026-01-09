@@ -12,7 +12,7 @@ import { RemoteSocketSource } from '../services/RemoteSocketSource';
 import { LocalMicSource } from '../services/liveCallService';
 
 // Change for prod
-const RELAY_URL = 'ws://localhost:8080';
+const RELAY_URL = 'ws://127.0.0.1:8765';
 
 interface CallModalProps {
     onClose: () => void;
@@ -182,39 +182,11 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
                     </button>
                 </div>
 
-                {/* Tab Switcher */}
-                <div className="px-10 pt-8 flex gap-4">
-                    <button 
-                        onClick={() => setMode('LOCAL')} 
-                        className={`flex-1 py-4 rounded-xl font-bold uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 ${mode === 'LOCAL' ? 'bg-white text-black' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
-                    >
-                        <Mic className="w-4 h-4" /> Local Microphone
-                    </button>
-                    <button 
-                        onClick={() => setMode('REMOTE')} 
-                        className={`flex-1 py-4 rounded-xl font-bold uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 ${mode === 'REMOTE' ? 'bg-[var(--ts-accent-color)] text-black' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
-                    >
-                        <Smartphone className="w-4 h-4" /> Remote Caller (Phone)
-                    </button>
-                </div>
+
 
                 {/* Scrollable Content */}
                 <div className="overflow-y-auto custom-scrollbar flex-1">
                     <form onSubmit={handleSubmit} className="p-10 md:p-14 space-y-16">
-
-                        {mode === 'REMOTE' && (
-                             <motion.section variants={itemVariants} className="bg-white/5 p-8 rounded-3xl border border-white/10 text-center space-y-4">
-                                <h3 className="text-xs font-black uppercase tracking-widest text-white/50">Pairing Code</h3>
-                                <div className="text-5xl font-mono font-black tracking-widest text-white">{hostId}</div>
-                                <p className="text-sm text-white/40 max-w-sm mx-auto">
-                                    Open <strong>remote.horis.fm</strong> on your phone and enter this code to connect as a caller.
-                                </p>
-                                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest ${remoteStatus.includes('CALLER') ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-white/50'}`}>
-                                    <div className={`w-2 h-2 rounded-full ${remoteStatus.includes('CALLER') ? 'bg-green-400 animate-pulse' : 'bg-white/20'}`} />
-                                    {remoteStatus}
-                                </div>
-                             </motion.section>
-                        )}
 
                         {/* 00 CALLER IDENTITY */}
                         <motion.section variants={itemVariants}>
@@ -328,16 +300,14 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
                         <motion.div variants={itemVariants} className="pt-6">
                             <button
                                 type="submit"
-                                disabled={!canAnswer}
-                                className={`shimmer w-full py-6 rounded-2xl text-xl font-black uppercase tracking-[0.2em] shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-4 ${canAnswer ? 'bg-[var(--ts-accent-color)] text-white shadow-[var(--ts-accent-color-alpha-20)]' : 'bg-white/10 text-white/30 cursor-not-allowed'}`}
+                                className="shimmer w-full py-6 rounded-2xl text-xl font-black uppercase tracking-[0.2em] shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-4 bg-[var(--ts-accent-color)] text-white shadow-[var(--ts-accent-color-alpha-20)]"
                             >
                                 <Phone className="w-6 h-6 fill-current" />
-                                {mode === 'REMOTE' && !canAnswer ? 'Wait for Caller...' : 'Go Live Now'}
+                                Go Live Now
                             </button>
                         </motion.div>
                     </form>
                 </div>
-
                 {/* Footer - Fixed */}
                 <div className="p-8 md:p-10 border-t border-white/5 modal-footer flex justify-between items-center z-20">
                     <div className="flex items-center gap-6">
@@ -350,8 +320,8 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
                     </div>
 
                     <div className="flex items-center gap-2 text-[10px] font-black text-white/30 uppercase tracking-widest">
-                        <div className={`w-1.5 h-1.5 rounded-full ${mode === 'REMOTE' ? 'bg-blue-500/40' : 'bg-green-500/40'}`} />
-                        {mode === 'REMOTE' ? 'Relay Active' : 'Studio Ready'}
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500/40" />
+                        Studio Ready
                     </div>
                 </div>
             </motion.div>
