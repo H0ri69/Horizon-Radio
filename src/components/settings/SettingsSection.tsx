@@ -18,7 +18,7 @@ const itemVariants = {
 export const SettingsSection: React.FC<SettingsSectionProps> = ({ icon: Icon, title, children, className = "" }) => {
   return (
     <motion.section variants={itemVariants} className={cn(className)}>
-      <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/60 mb-8 flex items-center gap-3">
+      <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/80 mb-8 flex items-center gap-3">
         <Icon className="w-4 h-4 text-indigo-400" /> {title}
       </h2>
       {children}

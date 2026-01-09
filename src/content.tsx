@@ -53,8 +53,8 @@ if (process.env.TARGET_BROWSER === 'firefox') {
                if(!videoId) return;
                try {
                   const queue = document.querySelector("ytmusic-player-queue");
-                  if (queue && (queue as any).dispatch) {
-                      (queue as any).dispatch({ type: "ADD", payload: videoId }); 
+                  if (queue && queue.dispatch) {
+                      queue.dispatch({ type: "ADD", payload: videoId }); 
                   } else {
                        window.location.href = "/watch?v=" + videoId;
                   }

@@ -227,7 +227,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
             </div>
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-white mb-1">System Settings</h1>
-              <p className="text-base text-white/60">Configure your Horizon Radio workspace</p>
+              <p className="text-base text-white/80">Configure your Horizon Radio workspace</p>
             </div>
           </div>
 
@@ -385,7 +385,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                   >
                     <div className="relative z-10">
                       <div className="font-bold text-xl mb-1">{theme}</div>
-                      <div className="text-base opacity-50">Studio Color Palette</div>
+                      <div className="text-base opacity-70">Studio Color Palette</div>
                     </div>
                   </button>
                 ))}
@@ -439,7 +439,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
               </div>
               <div className="flex gap-3 mt-6 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
                 <Zap className="w-5 h-5 text-indigo-400 shrink-0" />
-                <p className="text-xs text-white/60 leading-relaxed font-medium">
+                <p className="text-xs text-white/80 leading-relaxed font-medium">
                   <span className="text-white">Pro Models</span> offer richer personality and nuance, but may take longer to generate.
                 </p>
               </div>
@@ -458,7 +458,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 icon={<Key className="w-5 h-5 text-indigo-400/50" />}
                 footer={
                   <div className="flex justify-between items-center mt-6">
-                    <div className="flex items-center gap-2 text-[10px] text-white/50 font-bold uppercase tracking-wider">
+                    <div className="flex items-center gap-2 text-[10px] text-white/70 font-bold uppercase tracking-wider">
                       <div className="w-1.5 h-1.5 rounded-full bg-green-500/50" /> Fully Encrypted Locally
                     </div>
                     <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-indigo-400 hover:text-indigo-300 text-xs font-bold transition-colors">
@@ -474,7 +474,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
               <div
                 onClick={() => setIsDebugOpen(!isDebugOpen)}
                 className={cn(
-                  "text-sm font-black text-white/60 uppercase tracking-[0.3em] cursor-pointer flex items-center justify-between transition-colors hover:text-white",
+                  "text-sm font-black text-white/50 uppercase tracking-[0.3em] cursor-pointer flex items-center justify-between transition-colors hover:text-white",
                   isDebugOpen && "text-red-400/50"
                 )}
               >
@@ -502,7 +502,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                           </div>
                           <div>
                             <div className="text-white font-bold text-xl">Silent Scripting</div>
-                            <div className="text-lg text-white/60 mt-1 font-medium">Bypass voice generation for text-only debugging</div>
+                            <div className="text-lg text-white/70 mt-1 font-medium">Bypass voice generation for text-only debugging</div>
                           </div>
                         </div>
                         <button
@@ -528,7 +528,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                           </div>
                           <div>
                             <div className="text-white font-bold text-xl">Verbose Logging</div>
-                            <div className="text-lg text-white/60 mt-1 font-medium">Show full prompt details in console</div>
+                            <div className="text-lg text-white/70 mt-1 font-medium">Show full prompt details in console</div>
                           </div>
                         </div>
                         <SettingsToggle
@@ -577,7 +577,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         {/* Footer */}
         <div className="p-8 md:p-10 border-t border-white/5 modal-footer flex justify-between items-center z-20">
           <div className="flex items-center gap-6">
-            <div className="font-mono text-[10px] font-black tracking-[0.4em] text-white/60 uppercase">Core-v1.0.4-Stable</div>
+            <div className="font-mono text-[10px] font-black tracking-[0.4em] text-white/50 uppercase">Core-v1.0.4-Stable</div>
             <div className="h-4 w-px bg-white/10" />
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />

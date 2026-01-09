@@ -37,7 +37,7 @@ export const SettingsToggle: React.FC<SettingsToggleProps> = ({ label, descripti
           </motion.div>
           <div>
             <div className="font-bold text-xl text-white tracking-tight">{label}</div>
-            <div className="text-lg text-white/50 mt-1 font-medium">{description}</div>
+            <div className="text-lg text-white/70 mt-1 font-medium">{description}</div>
           </div>
         </div>
         <div
@@ -91,7 +91,7 @@ export const SettingsSlider: React.FC<SettingsSliderProps> = ({
       <div className="flex justify-between items-center mb-10">
         <div>
           <div className="text-white font-bold text-lg mb-1">{label}</div>
-          <div className="text-white/60 text-base">{description}</div>
+          <div className="text-white/70 text-base">{description}</div>
         </div>
         <div className="font-mono text-indigo-400 bg-indigo-500/10 px-4 py-2 rounded-xl border border-indigo-500/20 text-lg font-bold">
           {formatValue ? formatValue(value) : `${Math.round(percentage)}%`}
@@ -152,7 +152,7 @@ export const SettingsInput: React.FC<SettingsInputProps> = ({
   return (
     <div className={cn("bg-white/5 rounded-3xl p-8 border border-white/5", className)}>
       <div className="mb-2">
-        <label className="block text-sm font-bold text-white/70 mb-4 ml-1">
+        <label className="block text-sm font-bold text-white/80 mb-4 ml-1">
           {label}
         </label>
         <div className="relative group">
@@ -167,7 +167,7 @@ export const SettingsInput: React.FC<SettingsInputProps> = ({
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             className={cn(
-              "w-full bg-black/20 border border-white/10 rounded-2xl p-4 text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all",
+              "w-full bg-black/20 border border-white/10 rounded-2xl p-4 text-white placeholder-white/50 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all",
               icon ? "pl-12" : ""
             )}
           />
@@ -192,7 +192,7 @@ export const SettingsTextArea: React.FC<SettingsTextAreaProps> = ({ value, onCha
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full h-32 bg-black/20 border border-white/10 rounded-xl p-4 text-white placeholder-white/40 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none"
+        className="w-full h-32 bg-black/20 border border-white/10 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none"
       />
     </div>
   );
