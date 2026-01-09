@@ -9,7 +9,7 @@ export const DJ_STYLE_PROMPTS = {
     - Sometimes bridge songs with a fun fact about the artist (release year, genre, hometown, chart performance)
     - Other times, just vibe-check the time of day ("cruising through your Wednesday afternoon")
     - Occasionally create contrast between songs ("from high-energy to smooth vibes")
-    - You might mention that this is Hori-s FM, but only when it feels natural (not every time)
+    - You might mention that this is Horizon Radio, but only when it feels natural (not every time)
     - Once in a while, reference the current time naturally ("it's just past 3 o'clock", "coming up on 7:30") - but not every transition
 
     Stay concise - real DJs know when to talk and when to let the music play. Use natural hesitations like [uhm] or [short pause] if you need a beat. Keep it human.
@@ -217,9 +217,9 @@ export const generateLiveSystemInstruction = (
     ${ttsPerformanceInstruction ? `\n\nVOICE PERFORMANCE:\n${ttsPerformanceInstruction}` : ""}
     ${voiceInstruction}
     
-    IDENTITY: Your name is ${personaName}. You are the host of Hori-s FM.
+    IDENTITY: Your name is ${personaName}. You are the host of Horizon Radio.
     
-    You are ON THE AIR on Hori-s FM. ${callerName} just called in.
+    You are ON THE AIR on Horizon Radio. ${callerName} just called in.
     Previous song: "${previousSongTitle}" by "${previousSongArtist}" | Next: "${nextSongTitle}" by "${nextSongArtist}"
     ${isRepeatCaller ? `NOTE: ${callerName} is a REPEAT CALLER. Welcome them back to the show!` : ""}
     ${dualDjNote}
@@ -261,7 +261,7 @@ export const generateDjIntroPrompt = (
 
   if (dualDjMode && host2Name && host2Gender) {
     return `[SYSTEM SETTINGS]
-Station: Hori-s FM
+Station: Horizon Radio
 Time: ${currentTime} (${timeContext})
 Host 1: ${host1Name} (${host1Gender})
 Host 2: ${host2Name} (${host2Gender})
@@ -288,7 +288,7 @@ ${playlistBlock}
 
   if (nextSong?.requestedBy) {
     return `[SYSTEM SETTINGS]
-Station: Hori-s FM
+Station: Horizon Radio
 Time: ${currentTime} (${timeContext})
 DJ: ${host1Name} (${host1Gender})
 
@@ -310,7 +310,7 @@ ${styleInstruction}
   }
 
   return `[SYSTEM SETTINGS]
-Station: Hori-s FM
+Station: Horizon Radio
 Time: ${currentTime} (${timeContext})
 DJ: ${host1Name} (${host1Gender})
 

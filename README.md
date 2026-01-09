@@ -1,8 +1,8 @@
-# <p align="center"><img src="public/banner.png" alt="Hori-s.FM Banner" width="100%"></p>
+# <p align="center"><img src="public/banner.png" alt="Horizon Radio Banner" width="100%"></p>
 
-# 🎙️ Hori-s.FM: The AI Radio Revolution
+# 🎙️ Horizon Radio: The AI Radio Revolution
 
-**Hori-s.FM** is a premium Chrome Extension that transforms your YouTube Music experience into a live, professional radio broadcast. Powered by Google's cutting-edge **Gemini 2.5** models, Hori-s.FM acts as your personal AI Radio Host/DJ, providing context-aware intros, charismatic banter, and seamless transitions between your favorite tracks.
+**Horizon Radio** is a premium Chrome Extension that transforms your YouTube Music experience into a live, professional radio broadcast. Powered by Google's cutting-edge **Gemini 2.5** models, Horizon Radio acts as your personal AI Radio Host/DJ, providing context-aware intros, charismatic banter, and seamless transitions between your favorite tracks.
 
 ---
 
@@ -50,8 +50,8 @@ The project consists of three main components:
 
 1.  **Clone the Repo**:
     ```bash
-    git clone https://github.com/H0ri69/Hori-s.FM.git
-    cd Hori-s.FM
+    git clone https://github.com/H0ri69/Horizon-Radio.git
+    cd Horizon-Radio
     ```
 
 2.  **Install Dependencies**:
