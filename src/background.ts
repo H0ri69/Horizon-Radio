@@ -167,6 +167,7 @@ chrome.runtime.onConnect.addListener((port) => {
 
     let ws: WebSocket | null = null;
     const RELAY_URL = import.meta.env.VITE_RELAY_URL || "ws://127.0.0.1:8765";
+    console.log('[Background] Using Relay URL:', RELAY_URL);
 
     try {
         ws = new WebSocket(RELAY_URL);
