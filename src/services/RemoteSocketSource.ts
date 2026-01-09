@@ -161,8 +161,9 @@ export class RemoteSocketSource implements ILiveInputSource {
         if (this.port) {
             logger.debug('[RemoteSocketSource] Sending END_CALL signal');
             this.port.postMessage({ type: 'SEND_TEXT', payload: { type: 'END_CALL' } });
-            this.port.disconnect(); // Actually close the port too
-            this.port = null;
+            // We DO NOT close the port here, because we want to remain online for the next call.
+            // this.port.disconnect(); 
+            // this.port = null;
         }
 
         this.propagateAudio = null;
