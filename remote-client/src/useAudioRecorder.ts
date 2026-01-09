@@ -55,7 +55,9 @@ export function useAudioRecorder(onAudioData: (blob: Blob) => void) {
     }
     if (sourceRef.current) sourceRef.current.disconnect();
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
-    if (audioContextRef.current) audioContextRef.current.close();
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(e => console.error("Error closing AudioContext", e));
+    }
 
     setIsRecording(false);
   };

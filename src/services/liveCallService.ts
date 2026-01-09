@@ -25,6 +25,11 @@ export interface ILiveInputSource {
      * Stop and cleanup resources.
      */
     disconnect(): void;
+
+    /**
+     * Optional: Register a callback to be notified when the source disconnects unexpectedly (e.g. remote user hung up).
+     */
+    setOnDisconnect?(callback: () => void): void;
 }
 
 export class LocalMicSource implements ILiveInputSource {
@@ -81,6 +86,15 @@ export class LocalMicSource implements ILiveInputSource {
         if (this.stream) {
             this.stream.getTracks().forEach(track => track.stop());
             this.stream = null;
+        }
+    }
+
+    setOnDisconnect(callback: () => void): void {
+        // Local mic usually doesn't "disconnect" in a way that needs external handling 
+        // unless permissions are revoked, which is handled in onprocess error usually.
+        // We could listen to stream.onended?
+        if (this.stream) {
+             (this.stream as any).oninactive = callback;
         }
     }
 }
@@ -227,6 +241,19 @@ export class LiveCallService {
                 // Notify error and return
                 this.config.onUnrecoverableError();
                 return;
+            }
+
+            // Monitor Input Source Disconnection (e.g. Remote caller hung up)
+            if (this.inputSource.setOnDisconnect) {
+                this.inputSource.setOnDisconnect(() => {
+                    console.log(`[Hori-s] Input source #${sessionId} disconnected unexpectedly. Ending session.`);
+                    // We assume the caller left, so we should clean up.
+                    // Depending on UX, we might want Gemini to say "Goodbye" or just cut it.
+                    // For now, let's just cut it gracefully.
+                    if (this.isLiveActive) {
+                        this.cleanupSession(true);
+                    }
+                });
             }
 
             // Session will be stored once connected

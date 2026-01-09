@@ -115,6 +115,12 @@ export class RemoteSocketSource implements ILiveInputSource {
         }
     }
 
+    private onDisconnectCallback: (() => void) | null = null;
+    
+    public setOnDisconnect(callback: () => void) {
+        this.onDisconnectCallback = callback;
+    }
+
     private handleControlMessage(msg: any) {
         if (msg.type === 'GUEST_CONNECTED') {
             console.log('[RemoteSocketSource] Guest Connected:', msg.callerName);
@@ -123,6 +129,7 @@ export class RemoteSocketSource implements ILiveInputSource {
         else if (msg.type === 'GUEST_DISCONNECTED') {
             console.log('[RemoteSocketSource] Guest Disconnected');
             this.onStatusChange('WAITING_FOR_CALL');
+            if (this.onDisconnectCallback) this.onDisconnectCallback();
         }
         else if (msg.type === 'CALL_REQUEST') {
             console.log('[RemoteSocketSource] Call Request:', msg);
