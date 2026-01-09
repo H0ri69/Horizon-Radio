@@ -193,6 +193,11 @@ export const URLS = {
    * GOOGLE_FONTS_CSS: Google Fonts CSS URL for Inter font family
    */
   GOOGLE_FONTS_CSS: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
+
+  /**
+   * REMOTE_WEB_APP: URL for the Remote Client Web App
+   */
+  REMOTE_WEB_APP: 'https://horizon.matejpesl.cz',
 } as const;
 
 // ============================================================================

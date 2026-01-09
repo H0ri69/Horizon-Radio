@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Mic, Wifi, WifiOff, Loader2, Radio, MessageSquare, Clock } from 'lucide-react';
 import { useAudioRecorder } from './useAudioRecorder';
 import clsx from 'clsx';
@@ -18,6 +18,15 @@ function App() {
   const [status, setStatus] = useState<ConnectionStatus>('IDLE');
   const [mode, setMode] = useState<AppMode>('LOGIN');
   const [ws, setWs] = useState<WebSocket | null>(null);
+
+  // Auto-fill Host ID from URL query param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (code) {
+      setHostId(code);
+    }
+  }, []);
   
   // Audio Handling
   const { isRecording, startRecording, stopRecording } = useAudioRecorder((pcmBlob) => {
