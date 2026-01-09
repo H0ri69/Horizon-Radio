@@ -155,8 +155,25 @@ browser.runtime.onMessage.addListener((message: any, sender, sendResponse): any 
       });
 
     return true;
-  }
+  } else if (msg.type === "PROXY_FETCH_IMAGE") {
+    const url = msg.data.url;
+    fetch(url)
+      .then(response => response.arrayBuffer())
+      .then(buffer => {
+        const base64 = arrayBufferToBase64(buffer);
+        // Determine mime type from URL or default to image/jpeg
+        let mime = "image/jpeg";
+        if (url.includes(".png")) mime = "image/png";
+        else if (url.includes(".webp")) mime = "image/webp";
 
+        sendResponse({ dataUrl: `data:${mime};base64,${base64}` });
+      })
+      .catch(err => {
+        console.error("[Hori-s:Background] ❌ Image proxy fetch failed:", err);
+        sendResponse({ error: err.message });
+      });
+    return true;
+  }
 });
 
 // --- REMOTE SOCKET PROXY ---
