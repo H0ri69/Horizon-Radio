@@ -27,9 +27,7 @@ export default defineConfig(({ mode }) => {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'process.env.TARGET_BROWSER': JSON.stringify(browser),
       'import.meta.env.VITE_RELAY_URL': JSON.stringify(
-        mode === 'production' 
-          ? 'wss://horizon-api.matejpesl.cz' 
-          : 'ws://127.0.0.1:8765'
+        env.VITE_RELAY_URL || (mode === 'production' ? 'wss://horizon-api.matejpesl.cz' : 'ws://127.0.0.1:8765')
       ),
     },
     resolve: {

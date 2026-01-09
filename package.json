@@ -4,9 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "start": "concurrently \"pnpm start:relay\" \"pnpm start:app\" \"pnpm dev\"",
+    "start": "concurrently \"pnpm start:relay\" \"pnpm start:app\" \"pnpm start:extension\"",
     "start:relay": "cd relay-server && pnpm start",
     "start:app": "cd remote-client && pnpm dev",
+    "start:extension": "vite",
     "dev": "vite",
     "dev:firefox": "cross-env TARGET_BROWSER=firefox vite",
     "build:chrome": "vite build",

@@ -60,10 +60,18 @@ let remoteSource: RemoteSocketSource | null = null;
 
 // Initialize once
 chrome.storage.local.get(["horisHostId", "horisFmSettings"], (result) => {
-    const hostId = result.horisHostId as string;
+    let hostId = result.horisHostId as string;
     const settings = (result as any).horisFmSettings || {};
+
+    // Generate Host ID if missing
+    if (!hostId) {
+        const segment = () => Math.random().toString(36).substring(2, 5).toUpperCase();
+        hostId = `${segment()}-${segment()}`;
+        console.log("[Hori-s] 🆕 Generated new Host ID:", hostId);
+        chrome.storage.local.set({ horisHostId: hostId });
+    }
     
-    // Only connect if we have a HostID
+    // Connect with HostID
     if (hostId) {
         console.log("[Hori-s] 📡 Initializing Remote Source for Host:", hostId);
         remoteSource = new RemoteSocketSource(
