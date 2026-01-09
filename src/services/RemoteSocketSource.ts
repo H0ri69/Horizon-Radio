@@ -140,10 +140,26 @@ export class RemoteSocketSource implements ILiveInputSource {
     }
 
     disconnect(): void {
+        // We DO NOT disconnect the port here, because this source is persistent 
+        // and needs to listen for future calls even after the current session ends.
+        
+        /* 
         if (this.port) {
             this.port.disconnect();
             this.port = null;
-        }
+        } 
+        */
+       
         this.propagateAudio = null;
+    }
+
+    /**
+     * Call this if you strictly want to close the connection (e.g. settings change)
+     */
+    public destroy() {
+         if (this.port) {
+            this.port.disconnect();
+            this.port = null;
+        }
     }
 }
