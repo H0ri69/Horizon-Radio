@@ -459,7 +459,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 <div className="p-4 rounded-2xl border border-white/5 bg-white/5 flex flex-col justify-center">
                   <div className="text-xs font-bold text-white/50 mb-2 uppercase tracking-wider">How to Connect</div>
                   <p className="text-sm text-white/80 leading-relaxed">
-                    Open <span className="text-indigo-400 font-mono">remote.horis.fm</span> on your phone and enter this code to join as a guest caller.
+                    Open <span className="text-indigo-400 font-mono">https://horizon.matejpesl.cz/</span> on your phone and enter this code to join as a guest caller.
                   </p>
                 </div>
               </div>
