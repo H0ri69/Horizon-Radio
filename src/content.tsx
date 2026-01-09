@@ -20,64 +20,52 @@ import { liveCallService } from "./services/liveCallService";
 import { RemoteSocketSource } from "./services/RemoteSocketSource";
 import { YtmApiService } from "./services/ytmApiService";
 
-// --- YTM INJECTION BRIDGE ---
-const injectYtmInterceptor = () => {
-  const script = document.createElement('script');
-  script.textContent = `
-    (function() {
-        function broadcastContext() {
-            try {
-                if (window.ytcfg && window.ytcfg.data_) {
-                    window.dispatchEvent(new CustomEvent("HORIS_YTM_CONTEXT", { 
-                        detail: {
-                            apiKey: window.ytcfg.data_.INNERTUBE_API_KEY,
-                            context: window.ytcfg.data_.INNERTUBE_CONTEXT,
-                            clientVersion: window.ytcfg.data_.INNERTUBE_CLIENT_VERSION
-                        }
-                    }));
-                }
-            } catch(e) { console.error("[Hori-s] Context broadcast failed", e); }
-        }
-        
-        // Initial try and retry
-        setTimeout(broadcastContext, 1000);
-        setTimeout(broadcastContext, 3000);
-        setTimeout(broadcastContext, 10000);
+// --- YTM INJECTION BRIDGE (FALLBACK FOR FIREFOX) ---
+// Note: In Chrome (MV3), we use world: "MAIN" in manifest.json for src/inject.ts 
+// which is much safer and avoids CSP violations.
+if (process.env.TARGET_BROWSER === 'firefox') {
+  const injectYtmInterceptor = () => {
+    const script = document.createElement('script');
+    script.textContent = `
+      (function() {
+          function broadcastContext() {
+              try {
+                  if (window.ytcfg && window.ytcfg.data_) {
+                      window.dispatchEvent(new CustomEvent("HORIS_YTM_CONTEXT", { 
+                          detail: JSON.stringify({
+                              apiKey: window.ytcfg.data_.INNERTUBE_API_KEY,
+                              context: window.ytcfg.data_.INNERTUBE_CONTEXT,
+                              clientVersion: window.ytcfg.data_.INNERTUBE_CLIENT_VERSION
+                          })
+                      }));
+                  }
+              } catch(e) { console.error("[Hori-s] Context broadcast failed", e); }
+          }
+          
+          setTimeout(broadcastContext, 1000);
+          setTimeout(broadcastContext, 3000);
+          setTimeout(broadcastContext, 10000);
 
-        window.addEventListener("HORIS_CMD_PLAY_NEXT", (e) => {
-             // Parse detail (might be stringified for boundary crossing)
-             let data = e.detail;
-             try {
-                if (typeof data === 'string') data = JSON.parse(data);
-             } catch(err) { console.error("Parse error", err); }
-
-             const videoId = data?.videoId;
-             if(!videoId) return;
-             
-             console.log("[Hori-s] Requesting Play Next for:", videoId);
-             
-             try {
-                // Method 1: Try accessing the Queue Service via DOM (Fragile)
-                const queue = document.querySelector("ytmusic-player-queue");
-                if (queue && queue.dispatch) {
-                    queue.dispatch({ type: "ADD", payload: videoId }); 
-                } else {
-                     // Method 2: Navigation Fallback (Guaranteed to play)
-                     // If we can't unobtrusively queue, we just play it.
-                     // The user is "calling in" to request it, so playing it now is acceptable contextually.
-                     console.log("[Hori-s] Standard queue access failed. Switching to direct navigation.");
-                     window.location.href = "/watch?v=" + videoId;
-                }
-             } catch(err) { 
-                 console.error("[Hori-s] Play action failed", err);
-             }
-        });
-    })();
-  `;
-  (document.head || document.documentElement).appendChild(script);
-};
-
-injectYtmInterceptor();
+          window.addEventListener("HORIS_CMD_PLAY_NEXT", (e) => {
+               let data = e.detail;
+               try { if (typeof data === 'string') data = JSON.parse(data); } catch(err) {}
+               const videoId = data?.videoId;
+               if(!videoId) return;
+               try {
+                  const queue = document.querySelector("ytmusic-player-queue");
+                  if (queue && (queue as any).dispatch) {
+                      (queue as any).dispatch({ type: "ADD", payload: videoId }); 
+                  } else {
+                       window.location.href = "/watch?v=" + videoId;
+                  }
+               } catch(err) { console.error("[Hori-s] Play action failed", err); }
+          });
+      })();
+    `;
+    (document.head || document.documentElement).appendChild(script);
+  };
+  injectYtmInterceptor();
+}
 
 // --- TYPES & STATE ---
 type DJState = "IDLE" | "GENERATING" | "READY" | "PLAYING" | "COOLDOWN" | "LIVE_CALL";

@@ -7,8 +7,14 @@ let ytmContext: any = null;
 if (typeof window !== "undefined") {
     window.addEventListener("HORIS_YTM_CONTEXT", (event: any) => {
         if (event.detail) {
-            ytmContext = event.detail;
-            // logger.debug("[Hori-s] YTM Context received via EventBus");
+            let data = event.detail;
+            try {
+                if (typeof data === 'string') data = JSON.parse(data);
+                ytmContext = data;
+                // logger.debug("[Hori-s] YTM Context received and parsed");
+            } catch (e) {
+                console.error("[Hori-s] Failed to parse YTM context", e);
+            }
         }
     });
 }
