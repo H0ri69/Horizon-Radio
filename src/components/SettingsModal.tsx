@@ -93,6 +93,11 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         }
       });
       setCachedVoices(cached);
+
+      // Load Host ID
+      if (result.horisHostId) {
+          setSettings((prev) => ({ ...prev, horisHostId: result.horisHostId } as any));
+      }
     });
 
     // Handle ESC key
@@ -434,6 +439,26 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 <p className="text-xs text-white/60 leading-relaxed font-medium">
                   <span className="text-white">Pro Models</span> offer richer personality and nuance, but may take longer to generate.
                 </p>
+              </div>
+            </SettingsSection>
+
+            {/* 06 REMOTE CONNECTION */}
+            <SettingsSection icon={Radio} title="Remote Studio Connection">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <SettingsCard
+                        selected={false}
+                        onClick={() => {}}
+                        label="Host Pairing Code"
+                        subLabel={(settings as any).horisHostId || "LOADING..."}
+                        className="cursor-default"
+                        labelClassName="text-indigo-400"
+                  />
+                  <div className="p-4 rounded-2xl border border-white/5 bg-white/5 flex flex-col justify-center">
+                      <div className="text-xs font-bold text-white/50 mb-2 uppercase tracking-wider">How to Connect</div>
+                      <p className="text-sm text-white/80 leading-relaxed">
+                          Open <span className="text-indigo-400 font-mono">remote.horis.fm</span> on your phone and enter this code to join as a guest caller.
+                      </p>
+                  </div>
               </div>
             </SettingsSection>
 
