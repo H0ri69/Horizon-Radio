@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "strict": true,
+    "strict": true, 
     "target": "ES2022",
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
