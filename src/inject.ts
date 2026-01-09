@@ -1,12 +1,13 @@
 (function () {
     function broadcastContext() {
         try {
-            if (window.ytcfg && window.ytcfg.data_) {
+            const win = window as any;
+            if (win.ytcfg && win.ytcfg.data_) {
                 window.dispatchEvent(new CustomEvent("HORIS_YTM_CONTEXT", {
                     detail: JSON.stringify({
-                        apiKey: window.ytcfg.data_.INNERTUBE_API_KEY,
-                        context: window.ytcfg.data_.INNERTUBE_CONTEXT,
-                        clientVersion: window.ytcfg.data_.INNERTUBE_CLIENT_VERSION
+                        apiKey: win.ytcfg.data_.INNERTUBE_API_KEY,
+                        context: win.ytcfg.data_.INNERTUBE_CONTEXT,
+                        clientVersion: win.ytcfg.data_.INNERTUBE_CLIENT_VERSION
                     })
                 }));
             }
