@@ -7,11 +7,7 @@ import { Blob as GenAIBlob } from '@google/genai';
 export class RemoteSocketSource implements ILiveInputSource {
     public name = "Remote Caller";
     private port: chrome.runtime.Port | null = null;
-    private hostId: string;
-    // Relay URL is now managed by Background, but we keep it in constructor signature for compatibility (?)
-    // Actually, background hardcodes it or we could pass it via connect info? 
-    // For now, Background hardcodes it to keep architecture simple as per plan.
-    private relayUrl: string; 
+    private hostId: string; 
     private onStatusChange: (status: string) => void;
     
     private onCallRequest: ((data: { name: string; message: string }) => void) | null = null;
@@ -21,12 +17,10 @@ export class RemoteSocketSource implements ILiveInputSource {
 
     constructor(
         hostId: string, 
-        relayUrl: string, 
         onStatusChange: (s: string) => void,
         onCallRequest?: (data: { name: string; message: string }) => void
     ) {
         this.hostId = hostId;
-        this.relayUrl = relayUrl;
         this.onStatusChange = onStatusChange;
         if (onCallRequest) this.onCallRequest = onCallRequest;
     }
