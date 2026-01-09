@@ -1,3 +1,5 @@
+import browser from "webextension-polyfill";
+
 export class SongSearchService {
     /**
      * Searches for songs using YouTube's suggestion API (public).
@@ -8,13 +10,9 @@ export class SongSearchService {
         if (!query || query.length < 2) return [];
 
         try {
-            const response: any = await new Promise((resolve) => {
-                chrome.runtime.sendMessage({
-                    type: "SEARCH_SONGS",
-                    data: { query }
-                }, (response) => {
-                    resolve(response);
-                });
+            const response: any = await browser.runtime.sendMessage({
+                type: "SEARCH_SONGS",
+                data: { query }
             });
 
             if (response.error) throw new Error(response.error);

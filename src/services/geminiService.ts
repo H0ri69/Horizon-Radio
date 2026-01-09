@@ -1,3 +1,4 @@
+import browser from "webextension-polyfill";
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 import { Song, DJVoice, AppLanguage } from "../types";
 import {
@@ -59,8 +60,8 @@ interface SpeechConfig {
 
 const getClient = async () => {
   const apiKey = await new Promise<string>((resolve) => {
-    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.get(["horisFmSettings"], (result) => {
+    if (typeof browser !== "undefined" && browser.storage && browser.storage.local) {
+      browser.storage.local.get(["horisFmSettings"]).then((result) => {
         const settings = result.horisFmSettings as { apiKey?: string } | undefined;
         resolve(settings?.apiKey || process.env.API_KEY || "");
       });
@@ -230,8 +231,8 @@ const speakText = async (
         ai.models.generateContent({
           model: modelOverride || DEFAULT_TTS_MODEL,
           contents: [{ parts: [{ text: finalTextInput }] }],
-          config: { 
-            responseModalities: [Modality.AUDIO], 
+          config: {
+            responseModalities: [Modality.AUDIO],
             speechConfig,
             systemInstruction: style ? DJ_STYLE_TTS_SYSTEM_PROMPTS[style] : undefined
           },
@@ -258,7 +259,7 @@ export const testVoice = async (voice: DJVoice, language: string): Promise<Array
     const phrase = TEST_PHRASES[language] || TEST_PHRASES.en;
     const ai = await getClient();
     const profile = VOICE_PROFILES.find(p => p.id === voice);
-    
+
     const response = await callWithRetry(
       () =>
         ai.models.generateContent({
@@ -368,30 +369,30 @@ export const generateDJIntro = async (
 
     let longMessageTheme = "";
     if (isLongMessage) {
-        const themeSelection = selectTheme(recentThemeIndices, debugSettings?.enabledThemes || [true, true, true, true, true, true], debugSettings?.forceTheme ?? null, debugSettings?.verboseLogging || false, themeUsageHistory);
-        selectedThemeIndex = themeSelection.index;
-        longMessageTheme = themeSelection.theme.replaceAll("${location}", userTimezone);
+      const themeSelection = selectTheme(recentThemeIndices, debugSettings?.enabledThemes || [true, true, true, true, true, true], debugSettings?.forceTheme ?? null, debugSettings?.verboseLogging || false, themeUsageHistory);
+      selectedThemeIndex = themeSelection.index;
+      longMessageTheme = themeSelection.theme.replaceAll("${location}", userTimezone);
     }
 
 
     const prompt = generateDjIntroPrompt(
-        host1Name,
-        host1Gender,
-        currentSong.title,
-        nextSong?.title || "Next Song",
-        styleInstruction,
-        isLongMessage,
-        longMessageTheme,
-        historyBlock,
-        playlistBlock,
-        dynamicMarkupGuidance,
-        langInstruction,
-        timeString,
-        context,
-        dualDjMode,
-        host2Name,
-        host2Gender,
-        nextSong ? { requestedBy: nextSong.requestedBy, requestMessage: nextSong.requestMessage, title: nextSong.title } : undefined
+      host1Name,
+      host1Gender,
+      currentSong.title,
+      nextSong?.title || "Next Song",
+      styleInstruction,
+      isLongMessage,
+      longMessageTheme,
+      historyBlock,
+      playlistBlock,
+      dynamicMarkupGuidance,
+      langInstruction,
+      timeString,
+      context,
+      dualDjMode,
+      host2Name,
+      host2Gender,
+      nextSong ? { requestedBy: nextSong.requestedBy, requestMessage: nextSong.requestMessage, title: nextSong.title } : undefined
     );
 
 

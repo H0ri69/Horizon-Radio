@@ -1,3 +1,4 @@
+import browser from "webextension-polyfill";
 import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -77,12 +78,12 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    chrome.storage.local.get(null, (result) => {
+    browser.storage.local.get(null).then((result) => {
       // Load settings
       if (result.horisFmSettings) {
         setSettings((prev) => ({ ...prev, ...(result.horisFmSettings as Settings) }));
       }
-      
+
       // Load cached voice status
       const cached = new Set<string>();
       Object.keys(result).forEach(key => {
@@ -112,7 +113,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
   const saveSettings = (newSettings: Settings) => {
     setSettings(newSettings);
-    chrome.storage.local.set({ horisFmSettings: newSettings }, () => {
+    browser.storage.local.set({ horisFmSettings: newSettings }).then(() => {
       setStatus("Saved");
       setTimeout(() => setStatus(""), 2000);
     });
@@ -132,25 +133,25 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
       stopVoice();
       return;
     }
-    
+
     // Stop any currently playing voice
     stopVoice();
-    
+
     // Don't allow multiple loading at once
     if (loadingVoiceId) return;
-    
+
     setLoadingVoiceId(voiceId);
     try {
-      const response = await chrome.runtime.sendMessage({
+      const response = await browser.runtime.sendMessage({
         type: "TEST_VOICE",
         data: { voice: voiceId, language: settings.language }
-      });
+      }) as any;
       if (response?.audio) {
         // Track if this voice was cached
         if (response.fromCache) {
           setCachedVoices(prev => new Set(prev).add(`${voiceId}_${settings.language}`));
         }
-        
+
         const binaryString = atob(response.audio);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
@@ -161,7 +162,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         audioRef.current = audioEl;
         setPlayingVoiceId(voiceId);
         setLoadingVoiceId(null);
-        
+
         audioEl.onended = () => {
           setPlayingVoiceId(null);
           audioRef.current = null;
@@ -182,7 +183,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
   const clearVoiceCache = async () => {
     try {
-      const response = await chrome.runtime.sendMessage({ type: "CLEAR_VOICE_CACHE" });
+      const response = await browser.runtime.sendMessage({ type: "CLEAR_VOICE_CACHE" }) as any;
       if (response?.cleared !== undefined) {
         setStatus(`Cleared ${response.cleared} cached samples`);
         setTimeout(() => setStatus(""), 3000);
@@ -312,7 +313,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
-                    <SettingsTextArea 
+                    <SettingsTextArea
                       value={settings.customStylePrompt || ""}
                       onChange={(val) => saveSettings({ ...settings, customStylePrompt: val })}
                       placeholder="Define personality (e.g., 'Sarcastic AI from the 80s')..."
@@ -341,22 +342,22 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 onChange={(enabled) => saveSettings({ ...settings, dualDjMode: enabled })}
                 icon={<Radio className="w-6 h-6" />}
               >
-                  <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] mb-6">Select Co-Host Persona</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {VOICE_PROFILES.filter((p) => p.id !== settings.djVoice).map((profile) => (
-                      <VoiceCard
-                        key={profile.id}
-                        profile={profile}
-                        isSelected={settings.secondaryDjVoice === profile.id}
-                        onSelect={() => saveSettings({ ...settings, secondaryDjVoice: profile.id })}
-                        playingVoiceId={playingVoiceId}
-                        loadingVoiceId={loadingVoiceId}
-                        cachedVoices={cachedVoices}
-                        language={settings.language}
-                        onTest={testVoice}
-                      />
-                    ))}
-                  </div>
+                <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] mb-6">Select Co-Host Persona</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {VOICE_PROFILES.filter((p) => p.id !== settings.djVoice).map((profile) => (
+                    <VoiceCard
+                      key={profile.id}
+                      profile={profile}
+                      isSelected={settings.secondaryDjVoice === profile.id}
+                      onSelect={() => saveSettings({ ...settings, secondaryDjVoice: profile.id })}
+                      playingVoiceId={playingVoiceId}
+                      loadingVoiceId={loadingVoiceId}
+                      cachedVoices={cachedVoices}
+                      language={settings.language}
+                      onTest={testVoice}
+                    />
+                  ))}
+                </div>
               </SettingsToggle>
             </SettingsSection>
 
@@ -392,18 +393,18 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                   <label className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] block ml-1">Script Generation</label>
                   <div className="grid grid-cols-2 gap-3">
                     <SettingsCard
-                        selected={settings.textModel === "FLASH"}
-                        onClick={() => saveSettings({ ...settings, textModel: "FLASH" })}
-                        label="Gemini Flash"
-                        subLabel="Standard"
-                        className="py-3 px-4"
+                      selected={settings.textModel === "FLASH"}
+                      onClick={() => saveSettings({ ...settings, textModel: "FLASH" })}
+                      label="Gemini Flash"
+                      subLabel="Standard"
+                      className="py-3 px-4"
                     />
                     <SettingsCard
-                        selected={settings.textModel === "PRO"}
-                        onClick={() => saveSettings({ ...settings, textModel: "PRO" })}
-                        label="Gemini Pro"
-                        subLabel="Reasoning"
-                        className="py-3 px-4"
+                      selected={settings.textModel === "PRO"}
+                      onClick={() => saveSettings({ ...settings, textModel: "PRO" })}
+                      label="Gemini Pro"
+                      subLabel="Reasoning"
+                      className="py-3 px-4"
                     />
                   </div>
                 </div>
@@ -413,18 +414,18 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                   <label className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] block ml-1">Voice Generation (TTS)</label>
                   <div className="grid grid-cols-2 gap-3">
                     <SettingsCard
-                        selected={settings.ttsModel === "FLASH"}
-                        onClick={() => saveSettings({ ...settings, ttsModel: "FLASH" })}
-                        label="Gemini Flash"
-                        subLabel="Standard"
-                        className="py-3 px-4"
+                      selected={settings.ttsModel === "FLASH"}
+                      onClick={() => saveSettings({ ...settings, ttsModel: "FLASH" })}
+                      label="Gemini Flash"
+                      subLabel="Standard"
+                      className="py-3 px-4"
                     />
                     <SettingsCard
-                        selected={settings.ttsModel === "PRO"}
-                        onClick={() => saveSettings({ ...settings, ttsModel: "PRO" })}
-                        label="Gemini Pro"
-                        subLabel="HD Voice"
-                        className="py-3 px-4"
+                      selected={settings.ttsModel === "PRO"}
+                      onClick={() => saveSettings({ ...settings, ttsModel: "PRO" })}
+                      label="Gemini Pro"
+                      subLabel="HD Voice"
+                      className="py-3 px-4"
                     />
                   </div>
                 </div>
@@ -500,8 +501,8 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                         RUN MANIFEST NOW
                         <Zap className="w-6 h-6 group-hover:scale-125 transition-transform" />
                       </button>
-                      
-                       <SettingsSlider 
+
+                      <SettingsSlider
                         label="Trigger Schedule"
                         description=""
                         value={settings.debug?.triggerPoint || 0.25}
@@ -509,23 +510,23 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                         min={0.1}
                         max={0.9}
                         step={0.05}
-                       />
+                      />
                     </div>
                   </section>
 
                   {/* Call History Limit */}
                   <section className="space-y-6">
                     <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">Live Call Memory</h3>
-                    <SettingsSlider 
-                        label="Caller History Limit"
-                        description="How many callers the DJ remembers"
-                        value={settings.debug?.callHistoryLimit || 5}
-                        onChange={(val) => saveSettings({ ...settings, debug: { ...settings.debug!, callHistoryLimit: val } })}
-                        min={1}
-                        max={15}
-                        step={1}
-                        formatValue={(val) => val.toString()}
-                       />
+                    <SettingsSlider
+                      label="Caller History Limit"
+                      description="How many callers the DJ remembers"
+                      value={settings.debug?.callHistoryLimit || 5}
+                      onChange={(val) => saveSettings({ ...settings, debug: { ...settings.debug!, callHistoryLimit: val } })}
+                      min={1}
+                      max={15}
+                      step={1}
+                      formatValue={(val) => val.toString()}
+                    />
                   </section>
 
                   {/* Clear Voice Cache */}
