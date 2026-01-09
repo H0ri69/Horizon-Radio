@@ -15,6 +15,7 @@ import { LocalMicSource } from '../services/liveCallService';
 interface CallModalProps {
     onClose: () => void;
     onSubmit: (data: { name: string; song: any; message: string; useRemote?: boolean; remoteSource?: RemoteSocketSource }) => void;
+    getRemoteSource?: () => RemoteSocketSource | null;
 }
 
 const containerVariants = {
@@ -35,7 +36,7 @@ const itemVariants = {
     visible: { opacity: 1, y: 0 }
 };
 
-export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
+export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit, getRemoteSource }) => {
     // Mode State
     const [mode, setMode] = useState<'LOCAL' | 'REMOTE'>('LOCAL');
 
@@ -54,54 +55,45 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
     const [remoteSource, setRemoteSource] = useState<RemoteSocketSource | null>(null);
     const isSubmitting = useRef(false);
 
-    // Initialize Host ID
+    // Initialize Host ID and Listeners
     useEffect(() => {
+        // 1. Get Host ID
         chrome.storage.local.get(['horisHostId'], (result) => {
             let id = result.horisHostId as string;
-            if (!id) {
-                // Determine a short user-friendly code (e.g. 3 chars - 3 chars)
-                const segment = () => Math.random().toString(36).substring(2, 5).toUpperCase();
-                id = `${segment()}-${segment()}`;
-                chrome.storage.local.set({ horisHostId: id });
-            }
             setHostId(id);
         });
-    }, []);
 
-    // Handle Remote Connection Logic - Always connect to listen
-    useEffect(() => {
-        if (!hostId) return;
-        if (remoteSource) return;
+        // 2. Attach to existing Remote Source if available
+        const source = getRemoteSource ? getRemoteSource() : null;
+        if (source) {
+            setRemoteSource(source);
 
-        const source = new RemoteSocketSource(
-            hostId,
-            (status) => {
+            // Define Listeners
+            const statusListener = (status: string) => {
                 setRemoteStatus(status);
-                // If caller connects, switch mode automatically
                 if (status.startsWith('CALLER:')) {
                     setMode('REMOTE');
                 }
-            },
-            (data) => {
-                // On Call Request (Name/Message received)
+            };
+
+            const callListener = (data: { name: string; message: string }) => {
                 setName(data.name);
                 setMessage(data.message);
                 setMode('REMOTE');
-            }
-        );
+            };
 
-        // Auto Connect to WS
-        source.connect(null as any, () => { });
-        setRemoteSource(source);
+            // Subscribe
+            source.addStatusListener(statusListener);
+            source.addCallRequestListener(callListener);
 
-        return () => {
-            // Only disconnect if we are NOT submitting (transferring ownership)
-            if (!isSubmitting.current) {
-                source.disconnect();
-            }
-            setRemoteSource(null);
-        };
-    }, [hostId]);
+            // Cleanup: Unsubscribe
+            return () => {
+                source.removeStatusListener(statusListener);
+                source.removeCallRequestListener(callListener);
+                setRemoteSource(null);
+            };
+        }
+    }, [getRemoteSource]);
 
 
     useEffect(() => {

@@ -3,6 +3,7 @@ import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type, St
 import { decodeAudio, decodeAudioData, createPcmBlob, downsampleTo16k } from './liveAudioUtils';
 import { DJVoice, AppLanguage } from '../types';
 import { MODEL_MAPPING, VOICE_PROFILES, DJStyle, AUDIO, generateLiveSystemInstruction } from "@/config";
+import { logger } from "../utils/Logger";
 
 // --- Input Source Abstraction ---
 
@@ -161,9 +162,10 @@ export class LiveCallService {
 
         // Use custom input source if provided (for Remote Calls), otherwise default to LocalMic
         if (config.inputSource) {
-            console.log(`[Hori-s] Using custom input source: ${config.inputSource.name}`);
+            logger.debug(`[Hori-s] Using custom input source: ${config.inputSource.name}`);
             this.inputSource = config.inputSource;
         } else {
+            logger.debug(`[Hori-s] Using default Local Microphone source`);
             // ensure fresh instance for fresh stream
             this.inputSource = new LocalMicSource();
         }
@@ -192,7 +194,7 @@ export class LiveCallService {
             const ai = new GoogleGenAI({ apiKey: config.apiKey });
             const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
 
-            console.log(`[Hori-s] Creating audio contexts for session #${sessionId}`);
+            logger.debug(`[Hori-s] Creating audio contexts for session #${sessionId}`);
 
             // CLEANUP: Close existing contexts if they were left open
             if (this.liveInputContext) {
@@ -204,9 +206,14 @@ export class LiveCallService {
                 this.liveOutputContext = null;
             }
 
-            this.liveInputContext = new AudioCtx();
-            this.liveOutputContext = new AudioCtx();
-            console.log(`[Hori-s] Input context state: ${this.liveInputContext.state}, Output context state: ${this.liveOutputContext.state}`);
+            try {
+                this.liveInputContext = new AudioCtx();
+                this.liveOutputContext = new AudioCtx();
+                logger.debug(`[Hori-s] Contexts created. Input: ${this.liveInputContext.state}, Output: ${this.liveOutputContext.state}`);
+            } catch (ctxError) {
+                console.error("[Hori-s] CRITICAL: Failed to create AudioContext!", ctxError);
+                throw ctxError;
+            }
 
             // Output Node
             const outputNode = this.liveOutputContext.createGain();
@@ -219,7 +226,9 @@ export class LiveCallService {
 
             // Initialize Input Source (e.g. Mic Permissions)
             try {
+                logger.debug(`[Hori-s] Initializing input source...`);
                 await this.inputSource.initialize(this.liveInputContext);
+                logger.debug(`[Hori-s] Input source initialized successfully.`);
             } catch (inputError) {
                 console.error('[Hori-s] Input source initialization failed:', inputError);
                 if (inputError instanceof Error && (inputError.name === 'NotAllowedError' || inputError.name === 'PermissionDeniedError')) {
@@ -332,7 +341,7 @@ export class LiveCallService {
                             return;
                         }
 
-                        console.log(`[Hori-s] Connecting input source for session #${sessionId}`);
+                        logger.debug(`[Hori-s] Connecting input source for session #${sessionId}`);
 
                         // Connect Input Source
                         this.inputSource.connect(this.liveInputContext, (pcmBlob) => {
@@ -472,6 +481,7 @@ export class LiveCallService {
         }
 
         // Cleanup Input Source
+        logger.debug(`[Hori-s] Disconnecting input source: ${this.inputSource.name}`);
         this.inputSource.disconnect();
 
         // Close input context

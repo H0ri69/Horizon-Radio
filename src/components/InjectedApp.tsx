@@ -9,9 +9,10 @@ import { eventBus } from "../services/eventBus";
 
 interface InjectedAppProps {
   ducker: any; // Type as WebAudioDucker if exported
+  getRemoteSource: () => any;
 }
 
-export const InjectedApp: React.FC<InjectedAppProps> = ({ ducker }) => {
+export const InjectedApp: React.FC<InjectedAppProps> = ({ ducker, getRemoteSource }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCallModalOpen, setIsCallModalOpen] = useState(false);
   const [visualTheme, setVisualTheme] = useState("Standard");
@@ -60,6 +61,7 @@ export const InjectedApp: React.FC<InjectedAppProps> = ({ ducker }) => {
         <CallModal
           onClose={() => setIsCallModalOpen(false)}
           onSubmit={handleCallSubmit}
+          getRemoteSource={getRemoteSource}
         />
       )}
     </>
