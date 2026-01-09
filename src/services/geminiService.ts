@@ -19,7 +19,8 @@ import {
   VOICE_PROFILES,
   LONG_MESSAGE_THEMES,
   SHORT_MESSAGE_INSTRUCTION,
-  generateDjIntroPrompt
+  generateDjIntroPrompt,
+  MINIMAL_MARKUP_GUIDANCE
 } from "../config";
 import { GeminiModelTier } from "../types";
 
@@ -112,6 +113,30 @@ const concatenateBuffers = (buffer1: ArrayBuffer, buffer2: ArrayBuffer): ArrayBu
   return tmp.buffer;
 };
 
+const applyFadeIn = (pcmData: Uint8Array, durationMs: number = 50, sampleRate: number = AUDIO.SAMPLE_RATE_OUTPUT): void => {
+  const bytesPerSample = 2; // 16-bit
+  const numSamplesToFade = Math.floor((durationMs / 1000) * sampleRate);
+
+  // Create a DataView for easier reading/writing of 16-bit integers
+  const view = new DataView(pcmData.buffer, pcmData.byteOffset, pcmData.byteLength);
+
+  // Ensure we don't go out of bounds if the audio is shorter than the fade
+  const limit = Math.min(numSamplesToFade, Math.floor(pcmData.length / bytesPerSample));
+
+  for (let i = 0; i < limit; i++) {
+    const offset = i * bytesPerSample;
+    // Little-endian is standard for WAV PCM
+    const sample = view.getInt16(offset, true);
+
+    // Linear fade-in: 0.0 -> 1.0
+    // Using simple linear interpolation is usually sufficient for de-clicking
+    const gain = i / limit;
+
+    const newSample = Math.round(sample * gain);
+    view.setInt16(offset, newSample, true);
+  }
+};
+
 const processAudioResponse = (response: AudioResponseData): ArrayBuffer | null => {
   const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
   if (!base64Audio) return null;
@@ -121,6 +146,10 @@ const processAudioResponse = (response: AudioResponseData): ArrayBuffer | null =
   for (let i = 0; i < len; i++) {
     pcmData[i] = binaryString.charCodeAt(i);
   }
+
+  // Apply a short fade-in to prevent initial audio spike/pop
+  applyFadeIn(pcmData);
+
   const header = createWavHeader(pcmData.length);
   return concatenateBuffers(header, pcmData.buffer);
 };
@@ -226,6 +255,7 @@ const speakText = async (
         }
         : { voiceConfig: { prebuiltVoiceConfig: { voiceName: host1Profile?.geminiVoiceName || voice } } };
 
+    console.log(`[Hori-s] 🔊 TTS Input: "${finalTextInput}"`);
     const response = await callWithRetry(
       () =>
         ai.models.generateContent({
@@ -333,7 +363,7 @@ export const generateDJIntro = async (
   debugSettings?: { enabledThemes: boolean[]; skipTTS: boolean; forceTheme: number | null; verboseLogging: boolean; },
   themeUsageHistory: Record<number, number> = {},
   textModelTier: GeminiModelTier = "FLASH",
-  ttsModelTier: GeminiModelTier = "PRO"
+  ttsModelTier: GeminiModelTier = "FLASH"
 ): Promise<{ audio: ArrayBuffer | null; themeIndex: number | null; script?: string }> => {
   try {
     const langInstruction = getLanguageInstruction(language);
@@ -342,11 +372,11 @@ export const generateDJIntro = async (
     const { context } = getTimeOfDay();
 
     const textModel = MODEL_MAPPING.TEXT[textModelTier] || DEFAULT_TEXT_MODEL;
-    const ttsModelTierToUse = ttsModelTier || "PRO";
+    const ttsModelTierToUse = ttsModelTier || "FLASH";
     const ttsModel = MODEL_MAPPING.TTS[ttsModelTierToUse] || DEFAULT_TTS_MODEL;
-    const dynamicMarkupGuidance = getMarkupTagGuidance(ttsModelTierToUse);
+    const dynamicMarkupGuidance = isLongMessage ? getMarkupTagGuidance(ttsModelTierToUse) : MINIMAL_MARKUP_GUIDANCE;
 
-    console.log(`[Hori-s] 🧠 Models: Text=${textModel}, TTS=${ttsModel}`);
+    console.log(`[Hori-s] 🧠 Models: Text=${textModel}, TTS=${ttsModel} | Type: ${isLongMessage ? "LONG" : "SHORT"}`);
 
     let styleInstruction = "";
     if (style === DJStyle.CUSTOM) {
@@ -356,7 +386,6 @@ export const generateDJIntro = async (
       styleInstruction = (DJ_STYLE_PROMPTS[style] as string) || DEFAULT_DJ_STYLE;
     }
 
-    const historyBlock = history.length > 0 ? `PREVIOUS VOICEOVERS: \n${history.join("\n")}` : "";
     const playlistBlock = playlistContext.length > 0 ? `PLAYLIST CONTEXT: \n${playlistContext.join("\n")}` : "";
 
     let selectedThemeIndex: number | null = null;
@@ -384,7 +413,6 @@ export const generateDJIntro = async (
       styleInstruction,
       isLongMessage,
       longMessageTheme,
-      historyBlock,
       playlistBlock,
       dynamicMarkupGuidance,
       langInstruction,
@@ -397,13 +425,21 @@ export const generateDJIntro = async (
     );
 
 
+    if (debugSettings?.verboseLogging) {
+      console.log(`[Hori-s] 🤖 Prompt: "${prompt}"`);
+    }
+    const scriptStartTime = performance.now();
     const script = await generateScript(prompt, textModel);
+    const scriptEndTime = performance.now();
     if (!script) return { audio: null, themeIndex: null };
 
-    console.log(`[Hori-s] 📝 Script: "${script}"`);
+    console.log(`[Hori-s] 📝 Script: "${script}" (Generated in ${((scriptEndTime - scriptStartTime) / 1000).toFixed(2)}s)`);
 
     if (debugSettings?.skipTTS) return { audio: null, themeIndex: selectedThemeIndex, script };
+    const ttsStartTime = performance.now();
     const audio = await speakText(script, voice, undefined, undefined, undefined, style, ttsModel);
+    const ttsEndTime = performance.now();
+    console.log(`[Hori-s] 🔊 TTS Generated in ${((ttsEndTime - ttsStartTime) / 1000).toFixed(2)}s`);
     return { audio, themeIndex: selectedThemeIndex, script };
   } catch (e) {
     console.error("[Hori-s] Intro generation failed", e);

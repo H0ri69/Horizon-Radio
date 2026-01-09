@@ -66,7 +66,8 @@ export const DJ_STYLE_PROMPTS = {
     Example: "[whispering] That was so peaceful. Now something equally gentle"
   `,
   [DJStyle.CUSTOM]: (customPrompt: string) => `
-    INSTRUCTION: ${customPrompt ? customPrompt : "Be a standard DJ."}
+    STRICT STYLE CONSTRAINT: ${customPrompt ? customPrompt.toUpperCase() : "BE A STANDARD DJ."}
+    YOU MUST ADOPT THIS PERSONA COMPLETELY.
   `,
   [DJStyle.DRUNK]: `
     You're tipsy, walking home alone at night with headphones in. You're not blackout drunk - you have moments of clarity mixed with rambling, emotional tangents. Think "3-4 drinks in" not "completely wasted."
@@ -115,6 +116,8 @@ IMPORTANT: Only use VOCALIZATION tags (sounds you can hear). NEVER use visual cu
 Use these naturally, not in every sentence. Real humans don't telegraph every emotion.
 `;
 };
+
+export const MINIMAL_MARKUP_GUIDANCE = "IMPORTANT: Output speech ONLY. Do NOT use visual cues like [smile], [wink] or [nod]. Do NOT use 'timing control' tags.";
 
 export const DEFAULT_DJ_STYLE = "ROLE: Standard Radio DJ. Be professional and smooth.";
 
@@ -165,7 +168,7 @@ export const LONG_MESSAGE_THEMES = [
   "Briefly mention a local News headline relevant to the country where ${location} is located. USE GOOGLE SEARCH. Interpret the timezone as a country, not a specific city. Deliver it as a casual radio update, not a robotic headline read.",
 ];
 
-export const SHORT_MESSAGE_INSTRUCTION = "Keep it extremely concise. 2-3 sentences max. Focus strictly on the transition (Song A to Song B).";
+export const SHORT_MESSAGE_INSTRUCTION = "STRICT INSTRUCTION: KEEP IT BRIEF. 1-2 SENTENCES MAX. DELIVER A QUICK, SMOOTH TRANSITION FROM THE PREVIOUS SONG TO THE NEXT ONE. DO NOT EXCEED 2 SENTENCES.";
 
 export const DEFAULT_VOICE_INSTRUCTION = "Speak naturally and clearly.";
 
@@ -243,7 +246,6 @@ export const generateDjIntroPrompt = (
   styleInstruction: string,
   isLongMessage: boolean,
   longMessageTheme: string,
-  historyBlock: string,
   playlistBlock: string,
   dynamicMarkupGuidance: string,
   langInstruction: string,
@@ -258,12 +260,75 @@ export const generateDjIntroPrompt = (
   const lengthRule = isLongMessage ? LENGTH_CONSTRAINT : SHORT_MESSAGE_INSTRUCTION;
 
   if (dualDjMode && host2Name && host2Gender) {
-    return `TWO Radio DJs covering Hori-s FM shift. HOST 1: ${host1Name} (${host1Gender}), HOST 2: ${host2Name} (${host2Gender}). ${timeInfo} Ending: ${currentSongTitle}, Starting: ${nextSongTitle}. Tone: ${styleInstruction}. ${isLongMessage ? `Theme: ${longMessageTheme}` : ""}. ${historyBlock} ${playlistBlock} ${dynamicMarkupGuidance} Write banter script using correct gendered grammar. Prefix lines with "${host1Name}: " or "${host2Name}: ". Output ONLY dialogue. ${lengthRule} ${langInstruction}`;
+    return `[SYSTEM SETTINGS]
+Station: Hori-s FM
+Time: ${currentTime} (${timeContext})
+Host 1: ${host1Name} (${host1Gender})
+Host 2: ${host2Name} (${host2Gender})
+
+[TRANSITION]
+Last Song: ${currentSongTitle}
+Next Song: ${nextSongTitle}
+
+[STYLE & TONE]
+${styleInstruction}
+
+[CONTENT DETAILS]
+${isLongMessage ? `Primary Theme: ${longMessageTheme}` : ""}
+${playlistBlock}
+
+[OUTPUT RULES]
+1. Rewrite using correct gendered grammar.
+2. Prefix lines with "${host1Name}: " or "${host2Name}: ".
+3. Output ONLY dialogue.
+4. ${lengthRule}
+5. ${langInstruction}
+6. ${dynamicMarkupGuidance}`;
   }
 
   if (nextSong?.requestedBy) {
-    return `DJ ${host1Name} (${host1Gender}) on Hori-s FM. ${timeInfo} Listener ${nextSong.requestedBy} requested ${nextSong.title}. Message: ${nextSong.requestMessage}. Shout out listener. Use correct gendered grammar. ${lengthRule} ${dynamicMarkupGuidance} ${langInstruction}`;
+    return `[SYSTEM SETTINGS]
+Station: Hori-s FM
+Time: ${currentTime} (${timeContext})
+DJ: ${host1Name} (${host1Gender})
+
+[TRANSITION/REQUEST]
+Last Song: ${currentSongTitle}
+Next Song: ${nextSong.title} (Requested by: ${nextSong.requestedBy})
+Request Message: ${nextSong.requestMessage || "No message provided."}
+
+[STYLE & TONE]
+${styleInstruction}
+
+[OUTPUT RULES]
+1. Shout out listener ${nextSong.requestedBy}.
+2. Use correct gendered grammar.
+3. Output ONLY spoken words.
+4. ${lengthRule}
+5. ${langInstruction}
+6. ${dynamicMarkupGuidance}`;
   }
 
-  return `DJ ${host1Name} (${host1Gender}) on Hori-s FM. ${timeInfo} Ending: ${currentSongTitle}, Starting: ${nextSongTitle}. Tone: ${styleInstruction}. ${isLongMessage ? `Theme: ${longMessageTheme}` : ""}. ${historyBlock} ${playlistBlock} ${dynamicMarkupGuidance} Write using correct gendered grammar. Output ONLY spoken words. ${lengthRule} ${langInstruction}`;
+  return `[SYSTEM SETTINGS]
+Station: Hori-s FM
+Time: ${currentTime} (${timeContext})
+DJ: ${host1Name} (${host1Gender})
+
+[TRANSITION]
+Last Song: ${currentSongTitle}
+Next Song: ${nextSongTitle}
+
+[STYLE & TONE]
+${styleInstruction}
+
+[CONTENT DETAILS]
+${isLongMessage ? `Primary Theme: ${longMessageTheme}` : ""}
+${playlistBlock}
+
+[OUTPUT RULES]
+1. Use correct gendered grammar.
+2. Output ONLY spoken words (no stage directions unless in brackets).
+3. ${lengthRule}
+4. ${langInstruction}
+5. ${dynamicMarkupGuidance}`;
 };

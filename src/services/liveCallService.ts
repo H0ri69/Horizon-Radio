@@ -94,7 +94,7 @@ export class LocalMicSource implements ILiveInputSource {
         // unless permissions are revoked, which is handled in onprocess error usually.
         // We could listen to stream.onended?
         if (this.stream) {
-             (this.stream as any).oninactive = callback;
+            (this.stream as any).oninactive = callback;
         }
     }
 }
