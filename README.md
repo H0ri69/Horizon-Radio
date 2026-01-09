@@ -59,11 +59,13 @@ The project consists of three main components:
     pnpm install
     ```
 
-3.  **Setup Environment**:
-    Create a `.env` file in the root:
-    ```env
-    GEMINI_API_KEY=your_key_here
-    ```
+3.  **Configure API Key**:
+    You have two options to set your Google Gemini API Key:
+    - **In Settings**: After loading the extension, click the ⚙️ icon on the YouTube Music page and paste your key into the settings modal.
+    - **Via Environment Variables**: Create a `.env` file in the root:
+      ```env
+      GEMINI_API_KEY=your_key_here
+      ```
 
 ### Running the Ecosystem
 
