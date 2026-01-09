@@ -93,8 +93,6 @@ eventBus.on("HORIS_CALL_SUBMITTED", (detail) => {
   if (detail) {
     console.log("[Hori-s] 📞 Local Call Received:", detail);
     state.pendingCall = detail;
-<<<<<<< HEAD
-=======
 
     // If it's a remote call, we might want to update the status callback to something persistent
     // because the Modal is gone.
@@ -104,7 +102,6 @@ eventBus.on("HORIS_CALL_SUBMITTED", (detail) => {
         // Optionally broadcast this status to UI if we had a persistent status bar
       });
     }
->>>>>>> refs/remotes/origin/main
   }
 });
 
