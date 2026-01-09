@@ -32,6 +32,16 @@
                 "https://music.youtube.com/*"
             ],
             "js": [
+                "src/inject.ts"
+            ],
+            "world": "MAIN",
+            "run_at": "document_start"
+        },
+        {
+            "matches": [
+                "https://music.youtube.com/*"
+            ],
+            "js": [
                 "src/content.tsx"
             ],
             "run_at": "document_idle"
