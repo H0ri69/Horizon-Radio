@@ -14,6 +14,7 @@ export interface Song {
   file: File;
   duration: number;
   cover?: string;
+  album?: string;
   introBuffer?: ArrayBuffer;
   introSourceId?: string;
   introVoice?: DJVoice;

@@ -48,6 +48,7 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit, getRemo
     const [selectedSong, setSelectedSong] = useState<any>(null);
     const [isSearching, setIsSearching] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const searchContainerRef = useRef<HTMLDivElement>(null);
 
     // Remote State
     const [hostId, setHostId] = useState('');
@@ -111,12 +112,25 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit, getRemo
                 }
             } else {
                 setSuggestions([]);
-                setDropdownOpen(false);
+                // Only auto-close if query is too short
+                if (songQuery.length <= 2) {
+                    setDropdownOpen(false);
+                }
             }
         }, 500);
 
         return () => clearTimeout(timer);
     }, [songQuery, selectedSong]);
+
+    // Handle Suggestion Behavior
+    const handleBlur = () => {
+        // Small delay so that a click on a suggestion can still register
+        setTimeout(() => setDropdownOpen(false), 200);
+    };
+
+    const handleFocus = () => {
+        if (suggestions.length > 0) setDropdownOpen(true);
+    };
 
     const handleSelectSong = (song: any) => {
         setSelectedSong(song);
@@ -224,7 +238,7 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit, getRemo
                                     <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/50 mb-6 flex items-center gap-3">
                                         <Music className="w-4 h-4 text-[var(--ts-accent-color)]" /> Song Request
                                     </h2>
-                                    <div className="modal-section rounded-3xl p-6 border border-white/5 group focus-within:border-[var(--ts-accent-color-alpha-30)] transition-colors relative">
+                                    <div ref={searchContainerRef} className="modal-section rounded-3xl p-6 border border-white/5 group focus-within:border-[var(--ts-accent-color-alpha-30)] transition-colors relative">
                                         <label className="block text-xs font-black uppercase tracking-widest text-white/40 mb-3 ml-1">
                                             Search YouTube Music
                                         </label>
@@ -234,6 +248,8 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit, getRemo
                                                 type="text"
                                                 value={songQuery}
                                                 onChange={(e) => { setSongQuery(e.target.value); setSelectedSong(null); }}
+                                                onFocus={handleFocus}
+                                                onBlur={handleBlur}
                                                 placeholder="Track or Artist name..."
                                                 className={`w-full modal-input transition-all rounded-2xl p-3 pl-12 text-white placeholder-white/10 focus:outline-none ${selectedSong ? 'border-green-500/50 ring-1 ring-green-500/30' : ''}`}
                                             />
@@ -273,7 +289,9 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit, getRemo
                                                                 )}
                                                                 <div className="flex-1 min-w-0">
                                                                     <div className="text-white font-bold text-sm truncate group-hover:text-[var(--ts-accent-color)] transition-colors uppercase tracking-tight">{song.title}</div>
-                                                                    <div className="text-white/40 text-[10px] font-black uppercase tracking-wider truncate">{song.artist}</div>
+                                                                    <div className="text-white/40 text-[10px] font-black uppercase tracking-wider truncate">
+                                                                        {song.artist} {song.album ? `• ${song.album}` : ''}
+                                                                    </div>
                                                                 </div>
                                                             </motion.button>
                                                         ))}

@@ -59,59 +59,114 @@ export const YtmApiService = {
 function parseSearchResponse(data: any): any[] {
     const results: any[] = [];
     try {
-        const sections = data.contents?.tabbedSearchResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents;
+        // 1. Find the content sections - handle multiple response types
+        let sections = data.contents?.tabbedSearchResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents
+            || data.contents?.sectionListRenderer?.contents
+            || data.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents;
+
+        if (!sections) {
+            // Try to find ANY sectionListRenderer in the tree
+            const findSectionList = (obj: any): any => {
+                if (!obj || typeof obj !== 'object') return null;
+                if (obj.sectionListRenderer?.contents) return obj.sectionListRenderer.contents;
+                for (const key in obj) {
+                    const found: any = findSectionList(obj[key]);
+                    if (found) return found;
+                }
+                return null;
+            };
+            sections = findSectionList(data);
+        }
+
         if (!sections) return [];
 
         for (const section of sections) {
-            const shelf = section.musicShelfRenderer;
-            if (!shelf) continue;
+            // Find the shelf (musicShelfRenderer is typical for songs)
+            let shelf = section.musicShelfRenderer;
+
+            // Sometimes it's wrapped in an itemSectionRenderer
+            if (!shelf && section.itemSectionRenderer?.contents) {
+                shelf = section.itemSectionRenderer.contents.find((c: any) => c.musicShelfRenderer)?.musicShelfRenderer;
+            }
+
+            if (!shelf || !shelf.contents) continue;
 
             for (const item of shelf.contents) {
                 const mrlir = item.musicResponsiveListItemRenderer;
                 if (!mrlir) continue;
 
                 // Extract Video ID
-                // Try playlistItemData first (common in search results)
                 let videoId = mrlir.playlistItemData?.videoId;
-                // Fallback to nav endpoint
                 if (!videoId) {
-                    videoId = mrlir.doubleTapCommand?.watchEndpoint?.videoId;
+                    videoId = mrlir.navigationEndpoint?.watchEndpoint?.videoId ||
+                        mrlir.doubleTapCommand?.watchEndpoint?.videoId;
                 }
-                // Fallback to menu items if needed (rare)
 
                 if (!videoId) continue;
 
                 // Extract Title
                 const title = mrlir.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || "Unknown";
 
-                // Extract Artist
-                // Artist is usually in the second column.
-                // Format: "Artist" or "Artist • Album • Duration"
+                // Extract Artist & Album
+                // Format is usually: "Song • Artist • Album • Duration" OR "Artist • Album"
                 const artistRuns = mrlir.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
-                let artist = "Unknown";
 
-                // Find the artist run. It's usually the first one, but sometimes there are "Explicit" badges or bullets.
-                // We assume the first text run that isn't a separator is the artist.
-                const artistRun = artistRuns.find((r: any) =>
-                    r.text &&
-                    r.text !== "•" &&
-                    r.text.trim().length > 0 &&
-                    !["Song", "Video", "Single", "EP", "Album"].includes(r.text)
-                );
-                if (artistRun) artist = artistRun.text;
+                // Split runs by the bullet "•" separator to get segments
+                const segments: any[][] = [[]];
+                for (const run of artistRuns) {
+                    if (run.text?.trim() === "•") {
+                        segments.push([]);
+                    } else {
+                        segments[segments.length - 1].push(run);
+                    }
+                }
+
+                // Filter out labels and empty segments
+                const typeLabels = ["Song", "Video", "Single", "EP", "Album"];
+                const cleanSegments = segments.filter(seg => {
+                    if (seg.length === 0) return false;
+                    const text = seg.map(r => r.text).join("").trim();
+                    return !typeLabels.includes(text);
+                });
+
+                let artist = "Unknown Artist";
+                let album = "";
+
+                if (cleanSegments.length >= 1) {
+                    // First non-label segment is the Artist
+                    artist = cleanSegments[0].map(r => r.text).join("").trim();
+                }
+
+                if (cleanSegments.length >= 2) {
+                    // Second non-label segment is usually the Album
+                    album = cleanSegments[1].map(r => r.text).join("").trim();
+
+                    // If the "album" segment looks like a duration (e.g. 3:45), it's not an album
+                    if (/^\d+:\d+$/.test(album)) {
+                        album = "";
+                    }
+                }
 
                 // Extract Cover
                 const thumbnails = mrlir.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
                 let cover = "";
                 if (thumbnails && thumbnails.length > 0) {
-                    // Get the largest one (usually last)
-                    cover = thumbnails[thumbnails.length - 1].url;
+                    // Get a reasonably sized one (usually index 1 or 2 is good for list display)
+                    // Or just the last one and ensure it's not too small
+                    const bestThumb = thumbnails[thumbnails.length - 1];
+                    cover = bestThumb.url;
+
+                    // Rewrite URL to be higher quality if it's a standard YTM thumb
+                    if (cover.includes("lh3.googleusercontent.com") || cover.includes("yt3.ggpht.com")) {
+                        cover = cover.replace(/=w\d+-h\d+/, "=w120-h120");
+                    }
                 }
 
                 results.push({
                     id: videoId,
                     title,
-                    artist,
+                    artist: artist.trim(),
+                    album,
                     cover,
                     duration: 0
                 });
