@@ -3,7 +3,7 @@ trigger: always_on
 ---
 
 - Always use pnpm as package manager.
-- Always make sure the code is suitable for both chrome and firefox extension
+- Always make sure the code is suitable for both chrome and firefox extensions
 - If you are unsure about a potential big change to functionality (whether the user actually wants to perform that change etc.), bring it up as a question to the user rather than making potentially breaking changes that the user didn't intend in their request and risking that they miss it and then are confused why the behavior changed or why some functionality broke.
 - After finishing big tasks, feel free to sparingly run `pnpm build:chrome` to ensure the changes didn't cause any errors (if you deem it useful).
 - Try to avoid sprinkling magic values and configurations across the codebase. Make sure to centralize stuff into configs if possible and sensible.
