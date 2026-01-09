@@ -28,22 +28,32 @@ AI Radio Host extension for YouTube Music. This project uses React, Vite, and th
 
 ## Running the Project
 
-1.  **Start the development server**:
-    ```bash
-    pnpm dev
-    ```
-    This will start the Vite development server. The project is configured to use `@crxjs/vite-plugin` for Chrome extension development.
+### Full Ecosystem (Extension + Remote Call)
+To start everything required for remote live calls:
+```bash
+pnpm start
+```
+This command uses `concurrently` to launch:
+- **Relay Server**: (Port 8765) Handles communication between remote guests and the extension.
+- **Remote Client**: (Vite dev server) The web platform for phone callers.
+- **Extension**: (Vite + CRXJS) Watches extension files and builds into `dist/`.
 
-2.  **Load the extension in Chrome**:
-    - Open Chrome and navigate to `chrome://extensions/`.
-    - Enable **Developer mode** (toggle in the top right).
-    - Click **Load unpacked**.
-    - Select the `dist` folder generated in the project directory after running the dev server.
+### Individual Components
+- **Extension Only**: `pnpm dev`
+- **Relay Server Only**: `pnpm start:relay`
+- **Remote Client Only**: `pnpm start:app`
 
-3.  **Usage**:
-    - Navigate to [YouTube Music](https://music.youtube.com/).
-    - The extension will inject its components into the page.
-    - Interact with the AI DJ via the popup or content script interface.
+## Loading the Extension
+1.  **Open Chrome** and navigate to `chrome://extensions/`.
+2.  Enable **Developer mode** (top right).
+3.  Click **Load unpacked**.
+4.  Select the `dist` folder in the project directory.
+
+## Usage
+- Navigate to [YouTube Music](https://music.youtube.com/).
+- The extension will inject its components into the page.
+- **Remote Calls**: Copy your **Host Pairing Code** from the extension settings and give it to guests to use in the Remote Client.
+- **Local Studio**: Use the "Call Studio" button to talk directly through your PC microphone.
 
 ## Build
 
