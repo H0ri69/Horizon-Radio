@@ -227,7 +227,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
             </div>
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-white mb-1">System Settings</h1>
-              <p className="text-base text-white/60">Configure your Hori-s.FM workspace</p>
+              <p className="text-base text-white/60">Configure your Horizon Radio workspace</p>
             </div>
           </div>
 
