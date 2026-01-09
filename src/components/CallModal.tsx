@@ -79,9 +79,9 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
             const source = new RemoteSocketSource(hostId, RELAY_URL, (status) => {
                 setRemoteStatus(status);
             });
-            
+
             // Auto Connect to WS
-            source.connect(null as any, () => {}); 
+            source.connect(null as any, () => { });
             setRemoteSource(source);
 
             return () => {
@@ -131,9 +131,9 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         isSubmitting.current = true;
-        onSubmit({ 
-            name, 
-            song: selectedSong, 
+        onSubmit({
+            name,
+            song: selectedSong,
             message,
             useRemote: mode === 'REMOTE',
             remoteSource: mode === 'REMOTE' && remoteSource ? remoteSource : undefined

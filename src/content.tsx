@@ -61,31 +61,31 @@ let remoteSource: RemoteSocketSource | null = null;
 
 // Initialize once
 chrome.storage.local.get(["horisHostId", "horisFmSettings"], (result) => {
-    const hostId = result.horisHostId as string;
-    const settings = (result as any).horisFmSettings || {};
-    
-    // Only connect if we have a HostID
-    if (hostId) {
-        console.log("[Hori-s] 📡 Initializing Remote Source for Host:", hostId);
-        remoteSource = new RemoteSocketSource(
-            hostId, 
-            RELAY_URL,
-            (status) => console.log(`[Hori-s] [Remote] ${status}`),
-            (callData) => {
-                console.log("[Hori-s] 📞 Incoming Call Request:", callData);
-                state.pendingCall = {
-                    name: callData.name,
-                    message: callData.message,
-                    song: null, // No song request in simplified flow
-                    inputSource: remoteSource
-                };
-                
-                // TODO: Optional UI interaction (Toast notification?)
-            }
-        );
-        // Connect immediately (AudioContext is null initially, but that's fine for control messages)
-        remoteSource.connect(null as any, () => {});
-    }
+  const hostId = result.horisHostId as string;
+  const settings = (result as any).horisFmSettings || {};
+
+  // Only connect if we have a HostID
+  if (hostId) {
+    console.log("[Hori-s] 📡 Initializing Remote Source for Host:", hostId);
+    remoteSource = new RemoteSocketSource(
+      hostId,
+      RELAY_URL,
+      (status) => console.log(`[Hori-s] [Remote] ${status}`),
+      (callData) => {
+        console.log("[Hori-s] 📞 Incoming Call Request:", callData);
+        state.pendingCall = {
+          name: callData.name,
+          message: callData.message,
+          song: null, // No song request in simplified flow
+          inputSource: remoteSource
+        };
+
+        // TODO: Optional UI interaction (Toast notification?)
+      }
+    );
+    // Connect immediately (AudioContext is null initially, but that's fine for control messages)
+    remoteSource.connect(null as any, () => { });
+  }
 });
 
 // --- EVENT BUS LISTENER ---
@@ -511,10 +511,10 @@ const startLiveCall = async () => {
         setTimeout(() => updateStatus("IDLE"), TIMING.COOLDOWN_PERIOD);
       },
       onSessionStart: () => {
-          // Send GO LIVE signal to remote client
-          if (callData.inputSource instanceof RemoteSocketSource) {
-              callData.inputSource.sendGoLive();
-          }
+        // Send GO LIVE signal to remote client
+        if (callData.inputSource instanceof RemoteSocketSource) {
+          callData.inputSource.sendGoLive();
+        }
       }
     });
   });
