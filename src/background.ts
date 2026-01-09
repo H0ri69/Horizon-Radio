@@ -54,7 +54,7 @@ browser.runtime.onMessage.addListener((message: any, sender, sendResponse): any 
         debugSettings,
         themeUsageHistory || {},
         textModel || "FLASH",
-        ttsModel || "PRO"
+        ttsModel || "FLASH"
       )
         .then((result) => {
           if (result.audio) {
@@ -157,7 +157,14 @@ browser.runtime.onMessage.addListener((message: any, sender, sendResponse): any 
     return true;
   } else if (msg.type === "PROXY_FETCH_IMAGE") {
     const url = msg.data.url;
-    console.log("[Hori-s:Background] Proxy fetching image:", url);
+
+    // Check verbose logging setting
+    browser.storage.local.get("horisFmSettings").then((result) => {
+      const settings = (result as any).horisFmSettings;
+      if (settings?.debug?.verboseLogging) {
+        console.log("[Hori-s:Background] Proxy fetching image:", url);
+      }
+    });
 
     fetch(url, {
       referrerPolicy: "no-referrer",

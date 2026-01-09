@@ -99,7 +99,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
       // Load Host ID
       if (result.horisHostId) {
-          setSettings((prev) => ({ ...prev, horisHostId: result.horisHostId } as any));
+        setSettings((prev) => ({ ...prev, horisHostId: result.horisHostId } as any));
       }
     });
 
@@ -448,20 +448,20 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
             {/* 06 REMOTE CONNECTION */}
             <SettingsSection icon={Radio} title="Remote Studio Connection">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <SettingsCard
-                        selected={false}
-                        onClick={() => {}}
-                        label="Host Pairing Code"
-                        subLabel={(settings as any).horisHostId || "LOADING..."}
-                        className="cursor-default"
-                        labelClassName="text-indigo-400"
-                  />
-                  <div className="p-4 rounded-2xl border border-white/5 bg-white/5 flex flex-col justify-center">
-                      <div className="text-xs font-bold text-white/50 mb-2 uppercase tracking-wider">How to Connect</div>
-                      <p className="text-sm text-white/80 leading-relaxed">
-                          Open <span className="text-indigo-400 font-mono">remote.horis.fm</span> on your phone and enter this code to join as a guest caller.
-                      </p>
-                  </div>
+                <SettingsCard
+                  selected={false}
+                  onClick={() => { }}
+                  label="Host Pairing Code"
+                  subLabel={(settings as any).horisHostId || "LOADING..."}
+                  className="cursor-default"
+                  labelClassName="text-indigo-400"
+                />
+                <div className="p-4 rounded-2xl border border-white/5 bg-white/5 flex flex-col justify-center">
+                  <div className="text-xs font-bold text-white/50 mb-2 uppercase tracking-wider">How to Connect</div>
+                  <p className="text-sm text-white/80 leading-relaxed">
+                    Open <span className="text-indigo-400 font-mono">remote.horis.fm</span> on your phone and enter this code to join as a guest caller.
+                  </p>
+                </div>
               </div>
             </SettingsSection>
 
@@ -538,29 +538,24 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                         </button>
                       </div>
 
-                      {/* Manual Trigger */}
-                      <section className="space-y-6">
-                        <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">Force Execution</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                          <button
-                            onClick={() => window.dispatchEvent(new CustomEvent("HORIS_MANUAL_TRIGGER"))}
-                            className="flex items-center justify-between p-6 bg-indigo-500 text-white rounded-3xl font-black text-lg transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-indigo-500/20 group"
-                          >
-                            RUN MANIFEST NOW
-                            <Zap className="w-6 h-6 group-hover:scale-125 transition-transform" />
-                          </button>
-
-                          <SettingsSlider
-                            label="Trigger Schedule"
-                            description=""
-                            value={settings.debug?.triggerPoint || 0.25}
-                            onChange={(val) => saveSettings({ ...settings, debug: { ...settings.debug!, triggerPoint: val } })}
-                            min={0.1}
-                            max={0.9}
-                            step={0.05}
-                          />
+                      {/* Verbose Logging */}
+                      <div className="flex items-center justify-between p-8 bg-indigo-500/5 border border-indigo-500/20 rounded-3xl">
+                        <div className="flex items-center gap-6">
+                          <div className="p-4 bg-indigo-500/10 rounded-2xl border border-indigo-500/20 text-indigo-400">
+                            <Zap className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <div className="text-white font-bold text-xl">Verbose Logging</div>
+                            <div className="text-lg text-white/60 mt-1 font-medium">Show full prompt details in console</div>
+                          </div>
                         </div>
-                      </section>
+                        <SettingsToggle
+                          label=""
+                          description=""
+                          enabled={settings.debug?.verboseLogging || false}
+                          onChange={(val) => saveSettings({ ...settings, debug: { ...settings.debug!, verboseLogging: val } })}
+                        />
+                      </div>
 
                       {/* Call History Limit */}
                       <section className="space-y-6">
