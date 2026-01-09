@@ -441,40 +441,6 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
             </SettingsSection>
 
 
-            {/* 06 REMOTE CONNECTION */}
-            <SettingsSection icon={Radio} title="Remote Studio Connection">
-              <div className="flex flex-col md:flex-row gap-8 items-start">
-                  <div className="flex-1 space-y-4">
-                      <SettingsCard
-                        selected={false}
-                        onClick={() => {}}
-                        label="Host Pairing Code"
-                        subLabel={(settings as any).horisHostId || "LOADING..."}
-                        className="py-4 px-6 cursor-text select-text"
-                      />
-                      <p className="text-xs text-white/50 leading-relaxed font-medium">
-                        Scan the code or enter the ID on the remote client to pair your phone as a guest.
-                      </p>
-                  </div>
-                  
-                  {/* QR CODE */}
-                  <div className="p-4 bg-white rounded-2xl shrink-0">
-                      {(settings as any).horisHostId ? (
-                         <div className="space-y-2">
-                             <QRCode 
-                                value={`${URLS.REMOTE_WEB_APP}?code=${(settings as any).horisHostId}`}
-                                size={120}
-                                style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                                viewBox={`0 0 256 256`}
-                             />
-                         </div>
-                      ) : (
-                          <div className="w-[120px] h-[120px] bg-gray-100 animate-pulse rounded-lg" />
-                      )}
-                  </div>
-              </div>
-            </SettingsSection>
-
             {/* 07 API CONFIGURATION */}
             <SettingsSection icon={Key} title="Secure Keys">
               <SettingsInput
