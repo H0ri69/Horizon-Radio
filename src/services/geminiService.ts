@@ -234,7 +234,8 @@ const speakText = async (
           config: {
             responseModalities: [Modality.AUDIO],
             speechConfig,
-            systemInstruction: style ? DJ_STYLE_TTS_SYSTEM_PROMPTS[style] : undefined
+            // DO NOT ENABLE, IS BROKEN IN GOOGLE GEMINI API
+            //systemInstruction: style ? DJ_STYLE_TTS_SYSTEM_PROMPTS[style] : undefined
           },
         }),
       2,
