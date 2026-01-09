@@ -11,9 +11,6 @@ import { liveCallService } from '../services/liveCallService';
 import { RemoteSocketSource } from '../services/RemoteSocketSource';
 import { LocalMicSource } from '../services/liveCallService';
 
-// Change for prod
-const RELAY_URL = 'ws://127.0.0.1:8765';
-
 interface CallModalProps {
     onClose: () => void;
     onSubmit: (data: { name: string; song: any; message: string; useRemote?: boolean; remoteSource?: RemoteSocketSource }) => void;
@@ -76,7 +73,7 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit }) => {
             // Instantiate Source
             if (remoteSource) return;
 
-            const source = new RemoteSocketSource(hostId, RELAY_URL, (status) => {
+            const source = new RemoteSocketSource(hostId, (status) => {
                 setRemoteStatus(status);
             });
 

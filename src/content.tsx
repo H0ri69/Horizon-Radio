@@ -56,7 +56,6 @@ window.addEventListener("HORIS_MANUAL_TRIGGER", () => {
 // --- EVENT BUS LISTENER ---
 
 // --- REMOTE HOST CONNECTION (PASSIVE) ---
-const RELAY_URL = "ws://127.0.0.1:8765"; // Prod: "wss://relay.horis.fm" ?
 let remoteSource: RemoteSocketSource | null = null;
 
 // Initialize once
@@ -69,9 +68,8 @@ chrome.storage.local.get(["horisHostId", "horisFmSettings"], (result) => {
     console.log("[Hori-s] 📡 Initializing Remote Source for Host:", hostId);
     remoteSource = new RemoteSocketSource(
       hostId,
-      RELAY_URL,
       (status) => console.log(`[Hori-s] [Remote] ${status}`),
-      (callData) => {
+      (callData: { name: string; message: string }) => {
         console.log("[Hori-s] 📞 Incoming Call Request:", callData);
         state.pendingCall = {
           name: callData.name,
