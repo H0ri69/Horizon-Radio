@@ -25,7 +25,12 @@ export default defineConfig(({ mode }) => {
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.TARGET_BROWSER': JSON.stringify(browser)
+      'process.env.TARGET_BROWSER': JSON.stringify(browser),
+      'import.meta.env.VITE_RELAY_URL': JSON.stringify(
+        mode === 'production' 
+          ? 'wss://horizon-api.matejpesl.cz' 
+          : 'ws://127.0.0.1:8765'
+      ),
     },
     resolve: {
       alias: {
