@@ -102,11 +102,12 @@ export function PaletteExtractor() {
                         data: { url: imgSrc }
                     }) as { dataUrl?: string; error?: string };
 
-                    if (response && response.dataUrl) {
+                    if (response && response.dataUrl && response.dataUrl.startsWith("data:image/")) {
                         if (verbose.current) console.log("[Palette] Successfully proxied image via background");
                         targetSrc = response.dataUrl;
-                    } else if (response && response.error) {
-                        if (verbose.current) console.warn("[Palette] Proxy fetch failed:", response.error);
+                    } else {
+                        if (verbose.current) console.warn("[Palette] Proxy fetch failed or returned non-image:", response?.error);
+                        return; // Stop to avoid fallback CORS errors on direct fetch
                     }
                 } catch (proxyErr) {
                     console.error("[Palette] Failed to communicate with background proxy:", proxyErr);

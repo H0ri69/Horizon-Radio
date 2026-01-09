@@ -174,6 +174,13 @@ browser.runtime.onMessage.addListener((message: any, sender, sendResponse): any 
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
         const contentType = response.headers.get("content-type") || "image/jpeg";
+
+        if (!contentType.startsWith("image/")) {
+          // console.warn("[Hori-s:Background] Proxy fetched non-image:", contentType);
+          sendResponse({ error: "Result was not an image" });
+          return;
+        }
+
         const buffer = await response.arrayBuffer();
         const base64 = arrayBufferToBase64(buffer);
 
@@ -193,6 +200,7 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name === 'remote-socket-proxy') {
     console.log('[Background] 🔌 Remote Socket Proxy connected');
 
+    let isPortConnected = true;
     let ws: WebSocket | null = null;
     const RELAY_URL = import.meta.env.VITE_RELAY_URL || "ws://127.0.0.1:8765";
     console.log('[Background] Using Relay URL:', RELAY_URL);
@@ -203,10 +211,18 @@ chrome.runtime.onConnect.addListener((port) => {
 
       ws.onopen = () => {
         console.log('[Background] WS Connected to Relay');
-        port.postMessage({ type: 'PROXY_STATUS', status: 'OPEN' });
+        if (isPortConnected) {
+          try {
+            port.postMessage({ type: 'PROXY_STATUS', status: 'OPEN' });
+          } catch (e) {
+            console.warn('[Background] Failed to post OPEN status:', e);
+          }
+        }
       };
 
       ws.onmessage = (event) => {
+        if (!isPortConnected) return;
+
         // Forward message to Content Script
         if (event.data instanceof ArrayBuffer) {
           // Forward binary audio directly (Structured Clone handles ArrayBuffer)
@@ -234,18 +250,36 @@ chrome.runtime.onConnect.addListener((port) => {
 
       ws.onerror = (e) => {
         console.error('[Background] WS Error:', e);
-        port.postMessage({ type: 'PROXY_ERROR', error: 'WebSocket Error' });
+        if (isPortConnected) {
+          try {
+            port.postMessage({ type: 'PROXY_ERROR', error: 'WebSocket Error' });
+          } catch (err) {
+            console.warn('[Background] Failed to post ERROR:', err);
+          }
+        }
       };
 
       ws.onclose = (event) => {
         console.log('[Background] WS Closed:', event.code);
-        port.postMessage({ type: 'PROXY_STATUS', status: 'CLOSED', code: event.code });
-        port.disconnect(); // Close port if WS dies
+        if (isPortConnected) {
+          try {
+            port.postMessage({ type: 'PROXY_STATUS', status: 'CLOSED', code: event.code });
+            port.disconnect(); // Close port if WS dies and port is still open
+            isPortConnected = false;
+          } catch (err) {
+            console.warn('[Background] Failed to post CLOSED status:', err);
+          }
+        }
       };
 
     } catch (e) {
       console.error('[Background] Failed to create WS:', e);
-      port.disconnect();
+      if (isPortConnected) {
+        try {
+          port.disconnect();
+        } catch (err) { /* ignore */ }
+        isPortConnected = false;
+      }
     }
 
     // Handle messages FROM Content Script
@@ -262,6 +296,7 @@ chrome.runtime.onConnect.addListener((port) => {
 
     port.onDisconnect.addListener(() => {
       console.log('[Background] Proxy Port disconnected. Closing WS.');
+      isPortConnected = false;
       if (ws) ws.close();
     });
   }
