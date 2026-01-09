@@ -11,6 +11,7 @@ import { SongSearchService } from '../services/songSearchService';
 import { liveCallService } from '../services/liveCallService';
 import { RemoteSocketSource } from '../services/RemoteSocketSource';
 import { LocalMicSource } from '../services/liveCallService';
+import { cn } from "@sglara/cn";
 
 interface CallModalProps {
     onClose: () => void;
@@ -216,7 +217,7 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit, getRemo
                                         <User className="w-4 h-4 text-[var(--ts-accent-color)]" /> Caller Identity
                                     </h2>
                                     <div className="modal-section rounded-3xl p-6 border border-white/5 group focus-within:border-[var(--ts-accent-color-alpha-30)] transition-colors">
-                                        <label className="block text-xs font-black uppercase tracking-widest text-white/40 mb-3 ml-1">
+                                        <label className="block text-xs font-black uppercase tracking-widest text-white/70 mb-3 ml-1">
                                             Broadcast Name
                                         </label>
                                         <div className="relative">
@@ -226,7 +227,7 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit, getRemo
                                                 value={name}
                                                 onChange={(e) => setName(e.target.value)}
                                                 placeholder="Enter your name..."
-                                                className="w-full modal-input rounded-2xl p-3 pl-12 text-white placeholder-white/10 focus:outline-none transition-all"
+                                                className="w-full modal-input rounded-2xl p-3 pl-12 text-white placeholder-white/40 focus:outline-none transition-all"
                                                 required={mode === 'LOCAL'} // Only required if manual
                                             />
                                         </div>
@@ -239,7 +240,7 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit, getRemo
                                         <Music className="w-4 h-4 text-[var(--ts-accent-color)]" /> Song Request
                                     </h2>
                                     <div ref={searchContainerRef} className="modal-section rounded-3xl p-6 border border-white/5 group focus-within:border-[var(--ts-accent-color-alpha-30)] transition-colors relative">
-                                        <label className="block text-xs font-black uppercase tracking-widest text-white/40 mb-3 ml-1">
+                                        <label className="block text-xs font-black uppercase tracking-widest text-white/70 mb-3 ml-1">
                                             Search YouTube Music
                                         </label>
                                         <div className="relative">
@@ -251,7 +252,10 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit, getRemo
                                                 onFocus={handleFocus}
                                                 onBlur={handleBlur}
                                                 placeholder="Track or Artist name..."
-                                                className={`w-full modal-input transition-all rounded-2xl p-3 pl-12 text-white placeholder-white/10 focus:outline-none ${selectedSong ? 'border-green-500/50 ring-1 ring-green-500/30' : ''}`}
+                                                className={cn(
+                                                    "w-full modal-input transition-all rounded-2xl p-3 pl-12 text-white placeholder-white/40 focus:outline-none",
+                                                    selectedSong && "border-green-500/50 ring-1 ring-green-500/30"
+                                                )}
                                             />
                                             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                                 {selectedSong && (
@@ -269,7 +273,7 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit, getRemo
                                                     initial={{ opacity: 0, y: 10, scale: 0.98 }}
                                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                                     exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                                                    className="absolute top-full left-0 right-0 mt-4 modal-dropdown border border-white/10 rounded-3xl shadow-2xl overflow-hidden z-50 p-2"
+                                                    className="absolute top-full left-0 right-0 mt-4 modal-dropdown bg-[#121214] border border-white/20 rounded-3xl shadow-2xl overflow-hidden z-50 p-2 backdrop-blur-3xl"
                                                 >
                                                     <div className="max-h-60 overflow-y-auto custom-scrollbar">
                                                         {suggestions.map((song, i) => (
@@ -280,7 +284,7 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit, getRemo
                                                                 key={song.id}
                                                                 type="button"
                                                                 onClick={() => handleSelectSong(song)}
-                                                                className="w-full text-left p-3 hover:bg-white/5 flex items-center gap-4 transition-colors rounded-2xl group"
+                                                                className="w-full text-left p-3 hover:bg-white/10 flex items-center gap-4 transition-colors rounded-2xl group"
                                                             >
                                                                 {song.cover ? (
                                                                     <img src={song.cover} alt="" className="w-10 h-10 rounded-lg object-cover shadow-lg" />
@@ -289,7 +293,7 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit, getRemo
                                                                 )}
                                                                 <div className="flex-1 min-w-0">
                                                                     <div className="text-white font-bold text-sm truncate group-hover:text-[var(--ts-accent-color)] transition-colors uppercase tracking-tight">{song.title}</div>
-                                                                    <div className="text-white/40 text-[10px] font-black uppercase tracking-wider truncate">
+                                                                    <div className="text-white/60 text-[10px] font-black uppercase tracking-wider truncate">
                                                                         {song.artist} {song.album ? `• ${song.album}` : ''}
                                                                     </div>
                                                                 </div>
@@ -308,14 +312,14 @@ export const CallModal: React.FC<CallModalProps> = ({ onClose, onSubmit, getRemo
                                         <MessageSquare className="w-4 h-4 text-[var(--ts-accent-color)]" /> Conversation Starter
                                     </h2>
                                     <div className="modal-section rounded-3xl p-6 border border-white/5 group focus-within:border-[var(--ts-accent-color-alpha-30)] transition-colors">
-                                        <label className="block text-xs font-black uppercase tracking-widest text-white/40 mb-3 ml-1">
+                                        <label className="block text-xs font-black uppercase tracking-widest text-white/70 mb-3 ml-1">
                                             Message for the DJ
                                         </label>
                                         <textarea
                                             value={message}
                                             onChange={(e) => setMessage(e.target.value)}
                                             placeholder="Tell the host why you're calling..."
-                                            className="w-full h-32 modal-input rounded-2xl p-4 text-white placeholder-white/10 focus:outline-none transition-all resize-none"
+                                            className="w-full h-32 modal-input rounded-2xl p-4 text-white placeholder-white/40 focus:outline-none transition-all resize-none"
                                         />
                                     </div>
                                 </motion.section>
