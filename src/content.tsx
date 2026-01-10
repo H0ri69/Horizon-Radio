@@ -3,7 +3,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { InjectedApp } from "./components/InjectedApp";
 import { Song, DJVoice, AppLanguage } from "./types";
-import { DJStyle, DJ_PERSONA_NAMES, TIMING, AUDIO, DEFAULT_SCHEDULER_SETTINGS } from "./config";
+import { DJStyle, DJ_PERSONA_NAMES, TIMING, AUDIO, DEFAULT_SCHEDULER_SETTINGS, SCHEDULER } from "./config";
 import type { SchedulerState, TransitionPlan, SchedulerSettings } from "./config";
 import { eventBus } from "./services/eventBus";
 import { logger } from "./utils/Logger";
@@ -1062,6 +1062,7 @@ const mainLoop = setInterval(() => {
               debugSettings: settings.debug,
               textModel: settings.textModel,
               ttsModel: settings.ttsModel,
+              newsHistory: state.scheduler.recentNewsSummaries || [],
             },
           }).then((response: any) => {
             if (state.currentSongSig !== sig) return;
@@ -1072,6 +1073,17 @@ const mainLoop = setInterval(() => {
 
               if (response.script) {
                 console.log(`[Hori-s] 🤖 Script: "${response.script}"`);
+
+                // If this was a NEWS segment, save the summary to history to avoid repetition
+                if (plan.segment === 'NEWS') {
+                  const currentHistory = state.scheduler.recentNewsSummaries || [];
+                  const limit = settings.scheduler?.maxNewsHistory || DEFAULT_SCHEDULER_SETTINGS.maxNewsHistory;
+                  const newHistory = [response.script, ...currentHistory]
+                    .slice(0, limit);
+                  
+                  state.scheduler.recentNewsSummaries = newHistory;
+                  console.log(`[Hori-s] 📰 History updated, count: ${newHistory.length}`);
+                }
               }
               if (settings.debug?.verboseLogging && response.prompt) {
                 console.log(`[Hori-s] 🤖 Prompt: "${response.prompt}"`);

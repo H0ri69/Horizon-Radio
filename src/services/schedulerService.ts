@@ -299,7 +299,8 @@ export function logSchedulerConfig(settings: SchedulerSettings = DEFAULT_SCHEDUL
 ╠═══════════════════════════════════════════════════════════════╣
 ║ LIMITS                                                        ║
 ║   Max consecutive SILENCE: ${SCHEDULER.MAX_CONSECUTIVE_SILENCE}                                  
-║   Max consecutive SHORT_INTRO: ${SCHEDULER.MAX_CONSECUTIVE_SHORT}                               
+║   Max consecutive SHORT_INTRO: ${SCHEDULER.MAX_CONSECUTIVE_SHORT}
+║   Max News History: ${settings.maxNewsHistory}
 ╚═══════════════════════════════════════════════════════════════╝
   `);
 }

@@ -439,6 +439,16 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     step={30}
                     formatValue={(val) => `${val} min`}
                   />
+                  <SettingsSlider
+                    label="Max News History"
+                    description="How many recent news stories to remember (to prevent repetition)"
+                    value={settings.scheduler?.maxNewsHistory ?? 3}
+                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), maxNewsHistory: val } })}
+                    min={1}
+                    max={5}
+                    step={1}
+                    formatValue={(val) => `${val} items`}
+                  />
                 </div>
               </div>
             </SettingsSection>
