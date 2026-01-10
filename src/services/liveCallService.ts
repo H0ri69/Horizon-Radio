@@ -1,5 +1,5 @@
 import browser from "webextension-polyfill";
-import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type, StartSensitivity, EndSensitivity, Blob } from "@google/genai";
+import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type, StartSensitivity, EndSensitivity, Blob, ActivityHandling } from "@google/genai";
 import { decodeAudio, decodeAudioData, createPcmBlob, downsampleTo16k } from './liveAudioUtils';
 import { DJVoice, AppLanguage } from '../types';
 import { MODEL_MAPPING, VOICE_PROFILES, DJStyle, AUDIO, generateLiveSystemInstruction } from "@/config";
@@ -286,7 +286,7 @@ export class LiveCallService {
 
             const addPlayNextTool: FunctionDeclaration = {
                 name: 'addPlayNext',
-                description: 'Searches for a song by name and adds it to the queue as the next song to play. Use when the caller requests a specific song.',
+                description: 'Searches for a song by name and adds it to the queue as the next song to play. MAKE SURE TO USE THIS WHEN THE CALLER REQUESTS A SONG!',
                 parameters: {
                     type: Type.OBJECT,
                     properties: {
@@ -322,7 +322,8 @@ export class LiveCallService {
             console.log(`[Hori-s] 🎙️ Live Call Style: ${config.style}${config.style === DJStyle.CUSTOM && config.customPrompt ? ` (Custom: "${config.customPrompt}")` : ""}`);
 
 
-            const sessionConfig = {
+            // Connect
+            const sessionPromise = ai.live.connect({
                 model: MODEL_MAPPING.LIVE.PRO,
                 config: {
                     responseModalities: [Modality.AUDIO],
@@ -330,19 +331,15 @@ export class LiveCallService {
                     systemInstruction,
                     tools: [{ googleSearch: {} }, { functionDeclarations: [endCallTool, addPlayNextTool] }],
                     realtimeInputConfig: {
+                        activityHandling: ActivityHandling.NO_INTERRUPTION,
                         automaticActivityDetection: {
                             disabled: false,
-                            silenceDurationMs: 500,
+                            silenceDurationMs: 1000,
                             startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
                             endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
                         }
                     }
                 },
-            };
-
-            // Connect
-            const sessionPromise = ai.live.connect({
-                ...sessionConfig,
                 callbacks: {
                     onopen: async () => {
                         console.log(`[Hori-s] WebSocket opened for session #${sessionId}`);
