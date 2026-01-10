@@ -1,6 +1,6 @@
 # GEMINI.md
 
-This file serves as a comprehensive guide for the Gemini agent working on the Hori-s.FM project.
+This file serves as a comprehensive guide for the Gemini agent working on the Horizon project.
 
 ## Project Overview
 

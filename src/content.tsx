@@ -40,7 +40,7 @@ if (window !== window.top) {
 log.log("Content Script Loaded (v2.6 - Clean Logs)");
 
 import { liveCallService } from "./services/liveCallService";
-import { RemoteSocketSource } from "./services/RemoteSocketSource";
+import { RemoteSocketSource } from "./services/remoteSocketSource";
 import { YtmApiService } from "./services/ytmApiService";
 import {
   getPendingDomAction,
