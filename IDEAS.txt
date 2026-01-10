@@ -1,3 +1,6 @@
 - [x] Make two types of voiceover:
     1. Songs are not stopped, the DJ voiceover is short
     2. Less often, the DJ voiceover will be long, like minute or two, but we have to stop the song before we start the next one
+    
+
+- Schedule: long message, short message, filler, sweeper, tools...?
