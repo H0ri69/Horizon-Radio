@@ -1084,11 +1084,11 @@ const mainLoop = setInterval(() => {
           }).catch((err) => {
             console.error("[Hori-s] sendMessage error:", err);
             updateStatus("IDLE");
-            state.generatedForSig = null;
+            // Do NOT reset generatedForSig - if it failed, we skip this song to prevent infinite loops
           });
         } catch (e) {
           state.status = "IDLE";
-          state.generatedForSig = null;
+          // Do NOT reset generatedForSig
         }
       });
     }
