@@ -10,6 +10,9 @@
 
 import { logger } from "./Logger";
 
+const log = logger.withContext("DOM");
+
+
 /** Delay helper for async operations */
 const delay = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
 
@@ -27,7 +30,7 @@ const delay = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms))
  */
 export function searchYtMusic(queryText: string): boolean {
     if (!queryText || queryText.trim() === "") {
-        logger.error("[ytmDomUtils] Search query is empty.");
+        log.error("Search query is empty.");
         return false;
     }
 
@@ -35,12 +38,12 @@ export function searchYtMusic(queryText: string): boolean {
         const encodedQuery = encodeURIComponent(queryText.trim());
         const searchUrl = `https://music.youtube.com/search?q=${encodedQuery}`;
 
-        logger.debug(`[ytmDomUtils] Navigating to search: "${queryText}"`);
+        log.debug(`Navigating to search: "${queryText}"`);
         window.location.href = searchUrl;
 
         return true;
     } catch (e) {
-        logger.error("[ytmDomUtils] Unexpected error during search:", e);
+        log.error("Unexpected error during search:", e);
         return false;
     }
 }
@@ -58,7 +61,7 @@ export function searchYtMusic(queryText: string): boolean {
  */
 export function searchYtMusicInPlace(queryText: string): boolean {
     if (!queryText || queryText.trim() === "") {
-        logger.error("[ytmDomUtils] Search query is empty.");
+        log.error("Search query is empty.");
         return false;
     }
 
@@ -66,7 +69,7 @@ export function searchYtMusicInPlace(queryText: string): boolean {
         // 1. Find the search box component
         const searchBox = document.querySelector('ytmusic-search-box');
         if (!searchBox) {
-            logger.error("[ytmDomUtils] YT Music search box not found");
+            log.error("YT Music search box not found");
             return false;
         }
 
@@ -74,7 +77,7 @@ export function searchYtMusicInPlace(queryText: string): boolean {
         const searchRoot = searchBox.shadowRoot ?? searchBox;
         const input = searchRoot.querySelector('input#input') as HTMLInputElement | null;
         if (!input) {
-            logger.error("[ytmDomUtils] Search input field not found inside search box");
+            log.error("Search input field not found inside search box");
             return false;
         }
 
@@ -103,10 +106,10 @@ export function searchYtMusicInPlace(queryText: string): boolean {
         input.dispatchEvent(new KeyboardEvent('keypress', enterEventParams));
         input.dispatchEvent(new KeyboardEvent('keyup', enterEventParams));
 
-        logger.debug(`[ytmDomUtils] Submitted in-place search for: "${queryText}"`);
+        log.debug(`Submitted in-place search for: "${queryText}"`);
         return true;
     } catch (e) {
-        logger.error("[ytmDomUtils] Unexpected error during in-place search:", e);
+        log.error("Unexpected error during in-place search:", e);
         return false;
     }
 }
@@ -129,7 +132,7 @@ export function searchYtMusicInPlace(queryText: string): boolean {
  * @returns true if action was successful, false otherwise
  */
 export async function playFirstResultNext(): Promise<boolean> {
-    logger.debug("[ytmDomUtils] Starting 'Play Next' sequence...");
+    log.debug("Starting 'Play Next' sequence...");
 
     try {
         // 1. Find the first song - check for featured card first, then fall back to list items
@@ -142,7 +145,7 @@ export async function playFirstResultNext(): Promise<boolean> {
         let menuButton: HTMLElement | null = null;
 
         if (featuredCard) {
-            logger.debug("[ytmDomUtils] Found featured 'Top Result' card, using it...");
+            log.debug("Found featured 'Top Result' card, using it...");
             targetElement = featuredCard;
 
             // Featured cards have a different menu structure:
@@ -156,7 +159,7 @@ export async function playFirstResultNext(): Promise<boolean> {
                     menuRenderer.querySelector('yt-icon-button')) as HTMLElement | null;
             }
         } else if (listItem) {
-            logger.debug("[ytmDomUtils] No featured card found, using first list item...");
+            log.debug("No featured card found, using first list item...");
             targetElement = listItem;
 
             // Standard list items - original logic
@@ -165,7 +168,7 @@ export async function playFirstResultNext(): Promise<boolean> {
         }
 
         if (!targetElement) {
-            logger.error("[ytmDomUtils] No songs found in the results! Neither featured card nor list items present.");
+            log.error("No songs found in the results! Neither featured card nor list items present.");
             return false;
         }
 
@@ -196,12 +199,12 @@ export async function playFirstResultNext(): Promise<boolean> {
         }
 
         if (!menuButton) {
-            logger.error("[ytmDomUtils] Could not find the menu button on the target element.");
-            logger.debug("[ytmDomUtils] Target element HTML:", targetElement.outerHTML.substring(0, 500));
+            log.error("Could not find the menu button on the target element.");
+            log.debug("Target element HTML:", targetElement.outerHTML.substring(0, 500));
             return false;
         }
 
-        logger.debug("[ytmDomUtils] Clicking menu button...");
+        log.debug("Clicking menu button...");
         menuButton.click();
 
         // 4. Wait for the popup menu to appear (it's attached to body, not the song row)
@@ -216,9 +219,9 @@ export async function playFirstResultNext(): Promise<boolean> {
         );
 
         if (menuItems.length === 0) {
-            logger.warn("[ytmDomUtils] Menu opened but found no items. The popup might not have rendered in time.");
+            log.warn("Menu opened but found no items. The popup might not have rendered in time.");
         } else {
-            logger.debug(`[ytmDomUtils] Found ${menuItems.length} menu items.`);
+            log.debug(`Found ${menuItems.length} menu items.`);
         }
 
         const playNextLocalizations = [
@@ -235,14 +238,14 @@ export async function playFirstResultNext(): Promise<boolean> {
         });
 
         if (playNextOption) {
-            logger.debug("[ytmDomUtils] Found 'Play Next' option. Clicking...");
+            log.debug("Found 'Play Next' option. Clicking...");
             (playNextOption as HTMLElement).click();
-            logger.debug("[ytmDomUtils] Success! Song queued.");
+            log.debug("Success! Song queued.");
             return true;
         } else {
-            logger.error("[ytmDomUtils] Could not find 'Play Next' option in the menu.");
-            logger.debug(
-                "[ytmDomUtils] Available options were:",
+            log.error("Could not find 'Play Next' option in the menu.");
+            log.debug(
+                "Available options were:",
                 menuItems.map(i => i.textContent?.trim() || "Empty")
             );
             // Close the menu by clicking elsewhere if we failed
@@ -250,7 +253,7 @@ export async function playFirstResultNext(): Promise<boolean> {
             return false;
         }
     } catch (e) {
-        logger.error("[ytmDomUtils] Unexpected error in 'Play Next' sequence:", e);
+        log.error("Unexpected error in 'Play Next' sequence:", e);
         return false;
     }
 }
@@ -283,7 +286,7 @@ export const PENDING_DOM_ACTION_KEY = 'horisPendingDomAction';
  */
 export async function searchAndPlayNext(query: string): Promise<boolean> {
     if (!query || query.trim() === "") {
-        logger.error("[ytmDomUtils] Search query is empty.");
+        log.error("Search query is empty.");
         return false;
     }
 
@@ -296,7 +299,7 @@ export async function searchAndPlayNext(query: string): Promise<boolean> {
         };
 
         await chrome.storage.local.set({ [PENDING_DOM_ACTION_KEY]: pendingAction });
-        logger.debug(`[ytmDomUtils] Stored pending action for: "${query}"`);
+        log.debug(`Stored pending action for: "${query}"`);
 
         // 2. Navigate to search (this will reload the page)
         const searchSuccess = searchYtMusic(query);
@@ -310,7 +313,7 @@ export async function searchAndPlayNext(query: string): Promise<boolean> {
         // The content script will handle the pending action on the new page.
         return true;
     } catch (e) {
-        logger.error("[ytmDomUtils] Error in searchAndPlayNext:", e);
+        log.error("Error in searchAndPlayNext:", e);
         return false;
     }
 }
@@ -330,12 +333,12 @@ export async function searchAndPlayNext(query: string): Promise<boolean> {
  */
 export async function searchAndPlayNextInPlace(query: string, waitForResults = 2500): Promise<boolean> {
     if (!query || query.trim() === "") {
-        logger.error("[ytmDomUtils] Search query is empty.");
+        log.error("Search query is empty.");
         return false;
     }
 
     try {
-        logger.debug(`[ytmDomUtils] Starting in-place search for: "${query}"`);
+        log.debug(`Starting in-place search for: "${query}"`);
 
         // 1. Use keyboard-based search (doesn't navigate)
         const searchSuccess = searchYtMusicInPlace(query);
@@ -349,7 +352,7 @@ export async function searchAndPlayNextInPlace(query: string, waitForResults = 2
         // 3. Queue the first result
         return await playFirstResultNext();
     } catch (e) {
-        logger.error("[ytmDomUtils] Error in searchAndPlayNextInPlace:", e);
+        log.error("Error in searchAndPlayNextInPlace:", e);
         return false;
     }
 }
@@ -360,7 +363,7 @@ export async function searchAndPlayNextInPlace(query: string, waitForResults = 2
  */
 export async function clearPendingDomAction(): Promise<void> {
     await chrome.storage.local.remove(PENDING_DOM_ACTION_KEY);
-    logger.debug("[ytmDomUtils] Cleared pending DOM action.");
+    log.debug("Cleared pending DOM action.");
 }
 
 /**
@@ -376,7 +379,7 @@ export async function getPendingDomAction(): Promise<PendingDomAction | null> {
     // Expire actions older than 30 seconds (prevents stale actions from executing)
     const MAX_ACTION_AGE_MS = 30_000;
     if (Date.now() - action.timestamp > MAX_ACTION_AGE_MS) {
-        logger.debug("[ytmDomUtils] Pending action expired, clearing.");
+        log.debug("Pending action expired, clearing.");
         await clearPendingDomAction();
         return null;
     }
@@ -402,11 +405,11 @@ export function ensurePlayerMaximized(): boolean {
         const isMaximized = playerPage?.hasAttribute('player-page-open') ?? false;
 
         if (isMaximized) {
-            logger.debug("[ytmDomUtils] Player is already maximized. No action needed.");
+            log.debug("Player is already maximized. No action needed.");
             return true;
         }
 
-        logger.debug("[ytmDomUtils] Player is minimized. Expanding now...");
+        log.debug("Player is minimized. Expanding now...");
 
         // 2. Find the toggle button by matching its SVG path
         // This is more robust than class names which can change
@@ -420,14 +423,14 @@ export function ensurePlayerMaximized(): boolean {
 
         if (toggleButton) {
             toggleButton.click();
-            logger.debug("[ytmDomUtils] Player expanded.");
+            log.debug("Player expanded.");
             return true;
         } else {
-            logger.error("[ytmDomUtils] Could not find the player toggle button.");
+            log.error("Could not find the player toggle button.");
             return false;
         }
     } catch (e) {
-        logger.error("[ytmDomUtils] Unexpected error in ensurePlayerMaximized:", e);
+        log.error("Unexpected error in ensurePlayerMaximized:", e);
         return false;
     }
 }
