@@ -212,7 +212,7 @@ browser.runtime.onMessage.addListener((message: any, _sender: browser.Runtime.Me
 
 // --- REMOTE SOCKET PROXY ---
 // Bridges Content Script (Secure Context) <-> Relay Server (Insecure WebSocket)
-chrome.runtime.onConnect.addListener((port) => {
+browser.runtime.onConnect.addListener((port: any) => {
   if (port.name === 'remote-socket-proxy') {
     log.log('🔌 Remote Socket Proxy connected');
 
@@ -299,7 +299,7 @@ chrome.runtime.onConnect.addListener((port) => {
     }
 
     // Handle messages FROM Content Script
-    port.onMessage.addListener((msg) => {
+    port.onMessage.addListener((msg: any) => {
       if (ws && ws.readyState === WebSocket.OPEN) {
         // Check if we need to send binary or text
         // Implementation currently only sends Text control messages (REGISTER, GO_LIVE)

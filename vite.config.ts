@@ -5,7 +5,7 @@ import { crx } from '@crxjs/vite-plugin';
 import manifestChrome from './manifest.json';
 import manifestFirefox from './manifest.firefox.json';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, '.', '');
   const browser = process.env.TARGET_BROWSER || 'chrome';
   const manifest = browser === 'firefox' ? manifestFirefox : manifestChrome;
@@ -13,8 +13,9 @@ export default defineConfig(({ mode }) => {
   return {
     build: {
       outDir: browser === 'firefox' ? 'dist/firefox' : 'dist/chrome',
+      emptyOutDir: true,
     },
-    server: {
+    server: (browser === 'firefox' && command === 'build') ? undefined : {
       port: browser === 'firefox' ? 3001 : 3000,
       host: '0.0.0.0',
     },

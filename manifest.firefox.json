@@ -19,7 +19,11 @@
         "*://*.ytimg.com/*",
         "*://*.googleusercontent.com/*",
         "*://*.ggpht.com/*",
-        "*://localhost:*/*",
+        "http://localhost/*",
+        "https://localhost/*",
+        "ws://localhost/*",
+        "http://127.0.0.1/*",
+        "ws://127.0.0.1/*",
         "wss://horizon-api.matejpesl.cz/*"
     ],
     "web_accessible_resources": [
@@ -28,7 +32,9 @@
                 "assets/*",
                 "src/assets/sweepers/*/*.mp3"
             ],
-            "matches": ["https://music.youtube.com/*"]
+            "matches": [
+                "https://music.youtube.com/*"
+            ]
         }
     ],
     "background": {
@@ -53,5 +59,8 @@
             "id": "{b310998f-712a-4173-9158-ecd97539f6a6}",
             "strict_min_version": "109.0"
         }
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
     }
 }
