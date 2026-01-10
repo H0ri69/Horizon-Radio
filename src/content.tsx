@@ -15,10 +15,10 @@ if (window !== window.top) {
 
 console.log("Hori-s.FM Content Script Loaded (v2.6 - Clean Logs)");
 
-// --- TYPES & STATE ---
 import { liveCallService } from "./services/liveCallService";
 import { RemoteSocketSource } from "./services/RemoteSocketSource";
 import { YtmApiService } from "./services/ytmApiService";
+import { getPendingDomAction, clearPendingDomAction, playFirstResultNext } from "./utils/ytmDomUtils";
 
 // --- YTM INJECTION BRIDGE (FALLBACK FOR FIREFOX) ---
 // Note: In Chrome (MV3), we use world: "MAIN" in manifest.json for src/inject.ts 
@@ -92,6 +92,36 @@ browser.storage.local.get(["recentThemes", "themeUsageHistory"]).then((result) =
     state.themeUsageHistory = result.themeUsageHistory as Record<number, number>;
   }
 });
+
+// --- PENDING DOM ACTION HANDLER ---
+// Check if there's a pending action from searchAndPlayNext() that navigated to this page
+(async () => {
+  // Only process on search results pages
+  if (!window.location.href.includes('/search?q=')) return;
+
+  const pendingAction = await getPendingDomAction();
+  if (!pendingAction) return;
+
+  console.log(`[Hori-s] 📋 Found pending action: ${pendingAction.type} for "${pendingAction.query}"`);
+
+  // Clear the action immediately to prevent re-execution on refresh
+  await clearPendingDomAction();
+
+  // Wait for search results to render
+  const WAIT_FOR_RESULTS_MS = 2500;
+  await new Promise(resolve => setTimeout(resolve, WAIT_FOR_RESULTS_MS));
+
+  // Execute the action
+  if (pendingAction.type === 'PLAY_FIRST_RESULT_NEXT') {
+    console.log(`[Hori-s] 🎵 Executing queued action: Play first result next`);
+    const success = await playFirstResultNext();
+    if (success) {
+      console.log(`[Hori-s] ✅ Successfully queued song from search: "${pendingAction.query}"`);
+    } else {
+      console.error(`[Hori-s] ❌ Failed to queue song from search: "${pendingAction.query}"`);
+    }
+  }
+})();
 
 
 // --- MANUAL TRIGGER LISTENER ---

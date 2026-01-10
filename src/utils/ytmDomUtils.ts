@@ -14,17 +14,49 @@ import { logger } from "./Logger";
 const delay = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
 
 /**
+ * Searches YouTube Music by navigating to the search URL.
+ * 
+ * This function uses direct URL navigation instead of keyboard event simulation,
+ * which is more reliable across different browser/extension contexts.
+ * 
+ * NOTE: This causes a page reload! Do NOT use during live calls.
+ * For live calls, use searchYtMusicInPlace() instead.
+ * 
+ * @param queryText - The search query to enter
+ * @returns true if navigation was initiated successfully, false otherwise
+ */
+export function searchYtMusic(queryText: string): boolean {
+    if (!queryText || queryText.trim() === "") {
+        logger.error("[ytmDomUtils] Search query is empty.");
+        return false;
+    }
+
+    try {
+        const encodedQuery = encodeURIComponent(queryText.trim());
+        const searchUrl = `https://music.youtube.com/search?q=${encodedQuery}`;
+
+        logger.debug(`[ytmDomUtils] Navigating to search: "${queryText}"`);
+        window.location.href = searchUrl;
+
+        return true;
+    } catch (e) {
+        logger.error("[ytmDomUtils] Unexpected error during search:", e);
+        return false;
+    }
+}
+
+/**
  * Searches YouTube Music by programmatically interacting with the search box.
  * 
- * This function:
- * 1. Finds the search box component (handles Shadow DOM)
- * 2. Focuses and sets the search query
- * 3. Dispatches input and keyboard events to trigger the search
+ * This function uses keyboard event simulation which does NOT cause page navigation.
+ * Safe to use during live calls where page refresh would kill the session.
+ * 
+ * NOTE: This approach may be less reliable than URL navigation in some scenarios.
  * 
  * @param queryText - The search query to enter
  * @returns true if search was submitted successfully, false otherwise
  */
-export function searchYtMusic(queryText: string): boolean {
+export function searchYtMusicInPlace(queryText: string): boolean {
     if (!queryText || queryText.trim() === "") {
         logger.error("[ytmDomUtils] Search query is empty.");
         return false;
@@ -71,10 +103,10 @@ export function searchYtMusic(queryText: string): boolean {
         input.dispatchEvent(new KeyboardEvent('keypress', enterEventParams));
         input.dispatchEvent(new KeyboardEvent('keyup', enterEventParams));
 
-        logger.debug(`[ytmDomUtils] Submitted search for: "${queryText}"`);
+        logger.debug(`[ytmDomUtils] Submitted in-place search for: "${queryText}"`);
         return true;
     } catch (e) {
-        logger.error("[ytmDomUtils] Unexpected error during search:", e);
+        logger.error("[ytmDomUtils] Unexpected error during in-place search:", e);
         return false;
     }
 }
@@ -82,8 +114,12 @@ export function searchYtMusic(queryText: string): boolean {
 /**
  * Clicks "Play Next" on the first song in search results.
  * 
- * This function:
- * 1. Finds the first song in search results
+ * This function handles two types of search result layouts:
+ * 1. Featured "Top Result" card (ytmusic-card-shelf-renderer) - appears for popular searches
+ * 2. Regular list items (ytmusic-responsive-list-item-renderer) - standard song results
+ * 
+ * The function:
+ * 1. Finds the first song (prioritizing featured cards)
  * 2. Hovers over it to trigger the menu button to appear
  * 3. Opens the action menu
  * 4. Finds and clicks the "Play Next" option
@@ -96,29 +132,72 @@ export async function playFirstResultNext(): Promise<boolean> {
     logger.debug("[ytmDomUtils] Starting 'Play Next' sequence...");
 
     try {
-        // 1. Find the first song in the list
-        const firstSong = document.querySelector('ytmusic-responsive-list-item-renderer');
-        if (!firstSong) {
-            logger.error("[ytmDomUtils] No songs found in the results!");
+        // 1. Find the first song - check for featured card first, then fall back to list items
+        // Featured cards appear at the top of search results for popular songs
+        const featuredCard = document.querySelector('ytmusic-card-shelf-renderer');
+        const listItem = document.querySelector('ytmusic-responsive-list-item-renderer');
+
+        // Determine which element to use and how to find its menu button
+        let targetElement: Element | null = null;
+        let menuButton: HTMLElement | null = null;
+
+        if (featuredCard) {
+            logger.debug("[ytmDomUtils] Found featured 'Top Result' card, using it...");
+            targetElement = featuredCard;
+
+            // Featured cards have a different menu structure:
+            // The menu button can be found via ytmusic-menu-renderer or directly via aria-label
+            const menuRenderer = featuredCard.querySelector('ytmusic-menu-renderer');
+            if (menuRenderer) {
+                // Try multiple selectors for the menu button - YTM sometimes uses different structures
+                menuButton = (menuRenderer.querySelector('button[aria-label="Action menu"]') ??
+                    menuRenderer.querySelector('yt-button-shape button') ??
+                    menuRenderer.querySelector('button') ??
+                    menuRenderer.querySelector('yt-icon-button')) as HTMLElement | null;
+            }
+        } else if (listItem) {
+            logger.debug("[ytmDomUtils] No featured card found, using first list item...");
+            targetElement = listItem;
+
+            // Standard list items - original logic
+            menuButton = (listItem.querySelector('ytmusic-menu-renderer button') ??
+                listItem.querySelector('ytmusic-menu-renderer yt-icon-button')) as HTMLElement | null;
+        }
+
+        if (!targetElement) {
+            logger.error("[ytmDomUtils] No songs found in the results! Neither featured card nor list items present.");
             return false;
         }
 
         // 2. Trigger hover (crucial - the menu button is often lazy-loaded/hidden until hover)
-        firstSong.dispatchEvent(new MouseEvent('mouseover', {
+        targetElement.dispatchEvent(new MouseEvent('mouseover', {
+            view: window,
+            bubbles: true,
+            cancelable: true
+        }));
+        targetElement.dispatchEvent(new MouseEvent('mouseenter', {
             view: window,
             bubbles: true,
             cancelable: true
         }));
 
         // Small delay to let the UI react to the hover
-        await delay(200);
+        await delay(300);
 
-        // 3. Find the "Action Menu" button (three dots)
-        const menuButton = firstSong.querySelector('ytmusic-menu-renderer button') as HTMLButtonElement | null ??
-                           firstSong.querySelector('ytmusic-menu-renderer yt-icon-button') as HTMLElement | null;
+        // Re-check for menu button after hover (it might be lazy-loaded)
+        if (!menuButton && targetElement) {
+            const menuRenderer = targetElement.querySelector('ytmusic-menu-renderer');
+            if (menuRenderer) {
+                menuButton = (menuRenderer.querySelector('button[aria-label="Action menu"]') ??
+                    menuRenderer.querySelector('yt-button-shape button') ??
+                    menuRenderer.querySelector('button') ??
+                    menuRenderer.querySelector('yt-icon-button')) as HTMLElement | null;
+            }
+        }
 
         if (!menuButton) {
-            logger.error("[ytmDomUtils] Could not find the menu button on the first song instance.");
+            logger.error("[ytmDomUtils] Could not find the menu button on the target element.");
+            logger.debug("[ytmDomUtils] Target element HTML:", targetElement.outerHTML.substring(0, 500));
             return false;
         }
 
@@ -129,12 +208,17 @@ export async function playFirstResultNext(): Promise<boolean> {
         await delay(500);
 
         // 5. Find the "Play Next" option (supports multiple languages)
+        // Look specifically within the popup menu that just opened
+        const menuPopup = document.querySelector('ytmusic-menu-popup-renderer');
         const menuItems = Array.from(
+            menuPopup?.querySelectorAll('ytmusic-menu-service-item-renderer, ytmusic-menu-navigation-item-renderer') ??
             document.querySelectorAll('ytmusic-menu-service-item-renderer, ytmusic-menu-navigation-item-renderer')
         );
 
         if (menuItems.length === 0) {
-             logger.warn("[ytmDomUtils] Menu opened but found no items. The popup might not have rendered in time.");
+            logger.warn("[ytmDomUtils] Menu opened but found no items. The popup might not have rendered in time.");
+        } else {
+            logger.debug(`[ytmDomUtils] Found ${menuItems.length} menu items.`);
         }
 
         const playNextLocalizations = [
@@ -161,6 +245,8 @@ export async function playFirstResultNext(): Promise<boolean> {
                 "[ytmDomUtils] Available options were:",
                 menuItems.map(i => i.textContent?.trim() || "Empty")
             );
+            // Close the menu by clicking elsewhere if we failed
+            document.body.click();
             return false;
         }
     } catch (e) {
@@ -170,28 +256,132 @@ export async function playFirstResultNext(): Promise<boolean> {
 }
 
 /**
+ * Pending action interface for cross-page workflows.
+ * Stored in chrome.storage and picked up by content script on page load.
+ */
+export interface PendingDomAction {
+    type: 'PLAY_FIRST_RESULT_NEXT';
+    query: string;
+    timestamp: number;
+}
+
+/**
+ * Storage key for pending DOM actions.
+ */
+export const PENDING_DOM_ACTION_KEY = 'horisPendingDomAction';
+
+/**
  * Convenience function to search for a song and queue the first result.
- * Combines searchYtMusic and playFirstResultNext with appropriate delays.
+ * 
+ * This uses a cross-page workflow since URL navigation causes page reload:
+ * 1. Stores a pending action in chrome.storage
+ * 2. Navigates to the search results page
+ * 3. Content script checks for pending actions on load and executes playFirstResultNext()
  * 
  * @param query - The search query
- * @param waitForResults - Time (ms) to wait for search results to load. Default: 2000
- * @returns true if both search and queue actions succeeded
+ * @returns true if navigation was initiated (actual queueing happens after page load)
  */
-export async function searchAndPlayNext(query: string, waitForResults = 2000): Promise<boolean> {
+export async function searchAndPlayNext(query: string): Promise<boolean> {
+    if (!query || query.trim() === "") {
+        logger.error("[ytmDomUtils] Search query is empty.");
+        return false;
+    }
+
     try {
+        // 1. Store the pending action
+        const pendingAction: PendingDomAction = {
+            type: 'PLAY_FIRST_RESULT_NEXT',
+            query: query.trim(),
+            timestamp: Date.now(),
+        };
+
+        await chrome.storage.local.set({ [PENDING_DOM_ACTION_KEY]: pendingAction });
+        logger.debug(`[ytmDomUtils] Stored pending action for: "${query}"`);
+
+        // 2. Navigate to search (this will reload the page)
         const searchSuccess = searchYtMusic(query);
+        if (!searchSuccess) {
+            // Clean up if navigation failed
+            await chrome.storage.local.remove(PENDING_DOM_ACTION_KEY);
+            return false;
+        }
+
+        // Note: Code after this won't execute because the page navigates away.
+        // The content script will handle the pending action on the new page.
+        return true;
+    } catch (e) {
+        logger.error("[ytmDomUtils] Error in searchAndPlayNext:", e);
+        return false;
+    }
+}
+
+/**
+ * Search for a song and queue the first result WITHOUT page navigation.
+ * 
+ * This uses keyboard event simulation which doesn't reload the page.
+ * SAFE TO USE DURING LIVE CALLS where page refresh would kill the session.
+ * 
+ * Note: This approach may be less reliable than URL navigation but is 
+ * necessary when we can't afford to lose the current page state.
+ * 
+ * @param query - The search query
+ * @param waitForResults - Time (ms) to wait for search results to load. Default: 2500
+ * @returns true if song was successfully queued, false otherwise
+ */
+export async function searchAndPlayNextInPlace(query: string, waitForResults = 2500): Promise<boolean> {
+    if (!query || query.trim() === "") {
+        logger.error("[ytmDomUtils] Search query is empty.");
+        return false;
+    }
+
+    try {
+        logger.debug(`[ytmDomUtils] Starting in-place search for: "${query}"`);
+
+        // 1. Use keyboard-based search (doesn't navigate)
+        const searchSuccess = searchYtMusicInPlace(query);
         if (!searchSuccess) {
             return false;
         }
 
-        // Wait for search results to load
+        // 2. Wait for search results to load
         await delay(waitForResults);
 
+        // 3. Queue the first result
         return await playFirstResultNext();
     } catch (e) {
-        logger.error("[ytmDomUtils] Error in combined searchAndPlayNext sequence:", e);
+        logger.error("[ytmDomUtils] Error in searchAndPlayNextInPlace:", e);
         return false;
     }
+}
+
+/**
+ * Clears any pending DOM action from storage.
+ * Called after successfully executing a pending action.
+ */
+export async function clearPendingDomAction(): Promise<void> {
+    await chrome.storage.local.remove(PENDING_DOM_ACTION_KEY);
+    logger.debug("[ytmDomUtils] Cleared pending DOM action.");
+}
+
+/**
+ * Retrieves and validates a pending DOM action.
+ * Returns null if no action exists or if it's expired (older than 30 seconds).
+ */
+export async function getPendingDomAction(): Promise<PendingDomAction | null> {
+    const result = await chrome.storage.local.get(PENDING_DOM_ACTION_KEY);
+    const action = result[PENDING_DOM_ACTION_KEY] as PendingDomAction | undefined;
+
+    if (!action) return null;
+
+    // Expire actions older than 30 seconds (prevents stale actions from executing)
+    const MAX_ACTION_AGE_MS = 30_000;
+    if (Date.now() - action.timestamp > MAX_ACTION_AGE_MS) {
+        logger.debug("[ytmDomUtils] Pending action expired, clearing.");
+        await clearPendingDomAction();
+        return null;
+    }
+
+    return action;
 }
 
 /** SVG path used by the player toggle button (same for both UP and DOWN states) */

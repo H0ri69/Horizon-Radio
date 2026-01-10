@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Settings, Radio, Globe, Mic,
   Palette, Zap, Cpu, Key, AlertTriangle,
-  ChevronDown, CheckCircle2, Sliders, Trash2
+  ChevronDown, CheckCircle2, Sliders, Trash2, Search
 } from "lucide-react";
 import { DJStyle, VOICE_PROFILES } from "../config";
 import type { AppLanguage } from "../types";
@@ -14,6 +14,7 @@ import { SettingsSection } from "./settings/SettingsSection";
 import { SettingsCard } from "./settings/SettingsCard";
 import { SettingsToggle, SettingsSlider, SettingsInput, SettingsTextArea } from "./settings/SettingsControls";
 import { cn } from "@sglara/cn";
+import { searchAndPlayNextInPlace } from "../utils/ytmDomUtils";
 
 interface Settings {
   enabled: boolean;
@@ -77,6 +78,8 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
   const [loadingVoiceId, setLoadingVoiceId] = useState<string | null>(null);
   const [cachedVoices, setCachedVoices] = useState<Set<string>>(new Set());
   const [isDebugOpen, setIsDebugOpen] = useState(false);
+  const [testSongQuery, setTestSongQuery] = useState("");
+  const [testingSong, setTestingSong] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -565,6 +568,53 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                           Clear Cached Voice Samples
                         </button>
                         <p className="text-xs text-white/50 text-center">Clears all stored test voices (regenerates on next use, max 30-day cache)</p>
+                      </section>
+
+                      {/* Song Search Test */}
+                      <section className="space-y-6">
+                        <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">Song Search & Queue Test</h3>
+                        <div className="flex gap-3">
+                          <div className="flex-1 relative">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                            <input
+                              type="text"
+                              value={testSongQuery}
+                              onChange={(e) => setTestSongQuery(e.target.value)}
+                              placeholder="Enter song name (e.g., Eto - Spit in my face)"
+                              className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-all"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && testSongQuery.trim() && !testingSong) {
+                                  setTestingSong(true);
+                                  searchAndPlayNextInPlace(testSongQuery.trim()).finally(() => {
+                                    setTestingSong(false);
+                                  });
+                                }
+                              }}
+                            />
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (!testSongQuery.trim() || testingSong) return;
+                              setTestingSong(true);
+                              searchAndPlayNextInPlace(testSongQuery.trim()).finally(() => {
+                                setTestingSong(false);
+                              });
+                            }}
+                            disabled={!testSongQuery.trim() || testingSong}
+                            className={cn(
+                              "px-6 py-4 rounded-2xl font-bold transition-all flex items-center gap-2",
+                              testSongQuery.trim() && !testingSong
+                                ? "bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30 hover:scale-[1.02] active:scale-[0.98]"
+                                : "bg-white/5 border border-white/10 text-white/30 cursor-not-allowed"
+                            )}
+                          >
+                            <Search className="w-5 h-5" />
+                            {testingSong ? "Searching..." : "Test Queue"}
+                          </button>
+                        </div>
+                        <p className="text-xs text-white/50 text-center">
+                          Tests the search & queue flow: navigates to search, finds first result, and clicks "Play Next"
+                        </p>
                       </section>
                     </div>
                   </motion.div>

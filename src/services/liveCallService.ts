@@ -4,7 +4,7 @@ import { decodeAudio, decodeAudioData, createPcmBlob, downsampleTo16k } from './
 import { DJVoice, AppLanguage } from '../types';
 import { MODEL_MAPPING, VOICE_PROFILES, DJStyle, AUDIO, generateLiveSystemInstruction } from "@/config";
 import { logger } from "../utils/Logger";
-import { searchAndPlayNext, ensurePlayerMaximized } from "../utils/ytmDomUtils";
+import { searchAndPlayNextInPlace, ensurePlayerMaximized } from "../utils/ytmDomUtils";
 
 // --- Input Source Abstraction ---
 
@@ -336,7 +336,7 @@ export class LiveCallService {
                         activityHandling: ActivityHandling.NO_INTERRUPTION,
                         automaticActivityDetection: {
                             disabled: false,
-                            silenceDurationMs: 1000,
+                            silenceDurationMs: 700,
                             startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
                             endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
                         }
@@ -422,7 +422,8 @@ export class LiveCallService {
                                     if (songQuery) {
                                         logger.debug(`[Hori-s] 🎵 AI requested to queue song: "${songQuery}"`);
                                         // Execute DOM manipulation (runs in content script context)
-                                        searchAndPlayNext(songQuery).then(success => {
+                                        // Use searchAndPlayNextInPlace to avoid page navigation during live call
+                                        searchAndPlayNextInPlace(songQuery).then(success => {
                                             if (success) {
                                                 // Maximize player to show the queued song
                                                 ensurePlayerMaximized();
