@@ -7,8 +7,8 @@
  * ```typescript
  * import { logger } from '@/utils/Logger';
  * 
- * logger.log('App started');           // [Horizon] App started
- * logger.error('Failed to load', err); // [Horizon] Failed to load <error>
+ * logger.log('App started');           // [22:30:15.3][Horizon] App started
+ * logger.error('Failed to load', err); // [22:30:15.3][Horizon] Failed to load <error>
  * ```
  * 
  * ## Context Usage (Recommended for Modules/Services)
@@ -18,8 +18,8 @@
  * const log = logger.withContext('Scheduler');
  * 
  * // Later in the file
- * log.info('Decision made');    // [Horizon][Scheduler] Decision made
- * log.error('Failed', err);     // [Horizon][Scheduler] Failed <error>
+ * log.info('Decision made');    // [22:30:15.3][Horizon][Scheduler] Decision made
+ * log.error('Failed', err);     // [22:30:15.3][Horizon][Scheduler] Failed <error>
  * ```
  * 
  * ## When to Use Context
@@ -33,11 +33,23 @@
  * ## Nested Contexts (Advanced)
  * ```typescript
  * const log = logger.withContext('Background').withContext('API');
- * log.info('Request sent');  // [Horizon][Background][API] Request sent
+ * log.info('Request sent');  // [22:30:15.3][Horizon][Background][API] Request sent
  * ```
  */
 
 const BASE_PREFIX = '[Horizon]';
+
+/**
+ * Get current timestamp in hh:mm:ss.m format (1 decimal for tenths of a second)
+ */
+function getTimestamp(): string {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const tenths = Math.floor(now.getMilliseconds() / 100); // 0-9
+    return `${hours}:${minutes}:${seconds}.${tenths}`;
+}
 
 class Logger {
     private contexts: string[] = [];
@@ -53,11 +65,11 @@ class Logger {
      * ```typescript
      * // In schedulerService.ts
      * const log = logger.withContext('Scheduler');
-     * log.info('Planning transition');  // [Horizon][Scheduler] Planning transition
+     * log.info('Planning transition');  // [22:30:15.3][Horizon][Scheduler] Planning transition
      * 
      * // In geminiService.ts
      * const log = logger.withContext('Gemini');
-     * log.debug('Generating script');   // [Horizon][Gemini] Generating script
+     * log.debug('Generating script');   // [22:30:15.3][Horizon][Gemini] Generating script
      * ```
      */
     withContext(context: string): Logger {
@@ -67,84 +79,118 @@ class Logger {
     }
 
     /**
-     * Build the full prefix including all contexts
+     * Build the styled prefix with %c directives for console styling
+     * Returns both the formatted text and the corresponding CSS styles
      */
-    private buildPrefix(): string {
-        if (this.contexts.length === 0) {
-            return BASE_PREFIX;
-        }
-        return [BASE_PREFIX, ...this.contexts.map(c => `[${c}]`)].join(' ');
+    private buildStyledPrefix(): { text: string; styles: string[] } {
+        const grayStyle = 'color: #bfbfbf'; // Subtle gray for prefixes
+        const resetStyle = ''; // Reset to default console color
+        
+        const timestamp = `%c[${getTimestamp()}]`;
+        const horizonPrefix = `%c${BASE_PREFIX}`;
+        const contextPrefixes = this.contexts.map(c => `%c[${c}]`).join('');
+        const reset = '%c'; // Reset color for the actual message
+        
+        const text = timestamp + horizonPrefix + contextPrefixes + reset;
+        
+        // Each %c directive needs a corresponding CSS style
+        const styles = [
+            grayStyle, // timestamp
+            grayStyle, // BASE_PREFIX
+            ...this.contexts.map(() => grayStyle), // each context
+            resetStyle // reset to default for message content
+        ];
+        
+        return { text, styles };
     }
 
     /**
-     * Log a standard message
+     * Log a standard message.
+     * Returns a bound function so devtools shows the caller's location.
      */
-    log(...args: any[]) {
-        console.log(this.buildPrefix(), ...args);
+    get log() {
+        const { text, styles } = this.buildStyledPrefix();
+        return console.log.bind(console, text, ...styles);
     }
 
     /**
-     * Log a debug message
+     * Log a debug message.
+     * Returns a bound function so devtools shows the caller's location.
      */
-    debug(...args: any[]) {
-        console.debug(this.buildPrefix(), ...args);
+    get debug() {
+        const { text, styles } = this.buildStyledPrefix();
+        return console.debug.bind(console, text, ...styles);
     }
 
     /**
-     * Log an info message
+     * Log an info message.
+     * Returns a bound function so devtools shows the caller's location.
      */
-    info(...args: any[]) {
-        console.info(this.buildPrefix(), ...args);
+    get info() {
+        const { text, styles } = this.buildStyledPrefix();
+        return console.info.bind(console, text, ...styles);
     }
 
     /**
-     * Log a warning message
+     * Log a warning message.
+     * Returns a bound function so devtools shows the caller's location.
      */
-    warn(...args: any[]) {
-        console.warn(this.buildPrefix(), ...args);
+    get warn() {
+        const { text, styles } = this.buildStyledPrefix();
+        return console.warn.bind(console, text, ...styles);
     }
 
     /**
-     * Log an error message
+     * Log an error message.
+     * Returns a bound function so devtools shows the caller's location.
      */
-    error(...args: any[]) {
-        console.error(this.buildPrefix(), ...args);
+    get error() {
+        const { text, styles } = this.buildStyledPrefix();
+        return console.error.bind(console, text, ...styles);
     }
 
     /**
-     * Log a table
+     * Log a table (cannot use getter pattern due to signature)
      */
     table(data: any, columns?: string[]) {
-        console.log(this.buildPrefix(), 'Table:');
+        const { text, styles } = this.buildStyledPrefix();
+        console.log(text, ...styles, 'Table:');
         console.table(data, columns);
     }
 
     /**
-     * Start a timer
+     * Start a timer (cannot use getter pattern - requires label storage)
      */
     time(label?: string) {
-        console.time(`${this.buildPrefix()} ${label || 'Timer'}`);
+        // Note: console.time doesn't support %c styling, so we use plain text
+        const plainPrefix = `[${getTimestamp()}]${BASE_PREFIX}${this.contexts.map(c => `[${c}]`).join('')}`;
+        console.time(`${plainPrefix} ${label || 'Timer'}`);
     }
 
     /**
      * End a timer
      */
     timeEnd(label?: string) {
-        console.timeEnd(`${this.buildPrefix()} ${label || 'Timer'}`);
+        const plainPrefix = `[${getTimestamp()}]${BASE_PREFIX}${this.contexts.map(c => `[${c}]`).join('')}`;
+        console.timeEnd(`${plainPrefix} ${label || 'Timer'}`);
     }
 
     /**
-     * Start a console group
+     * Start a console group.
+     * Returns a bound function so devtools shows the caller's location.
      */
-    group(...args: any[]) {
-        console.group(this.buildPrefix(), ...args);
+    get group() {
+        const { text, styles } = this.buildStyledPrefix();
+        return console.group.bind(console, text, ...styles);
     }
 
     /**
-     * Start a collapsed console group
+     * Start a collapsed console group.
+     * Returns a bound function so devtools shows the caller's location.
      */
-    groupCollapsed(...args: any[]) {
-        console.groupCollapsed(this.buildPrefix(), ...args);
+    get groupCollapsed() {
+        const { text, styles } = this.buildStyledPrefix();
+        return console.groupCollapsed.bind(console, text, ...styles);
     }
 
     /**
@@ -155,10 +201,12 @@ class Logger {
     }
 
     /**
-     * Log a stack trace
+     * Log a stack trace.
+     * Returns a bound function so devtools shows the caller's location.
      */
-    trace(...args: any[]) {
-        console.trace(this.buildPrefix(), ...args);
+    get trace() {
+        const { text, styles } = this.buildStyledPrefix();
+        return console.trace.bind(console, text, ...styles);
     }
 }
 
@@ -169,11 +217,11 @@ class Logger {
  * @example
  * ```typescript
  * // Simple usage
- * logger.log('Hello world');  // [Horizon] Hello world
+ * logger.log('Hello world');  // [22:30:15.3][Horizon] Hello world
  * 
  * // With context (recommended for modules)
  * const log = logger.withContext('MyModule');
- * log.info('Started');  // [Horizon][MyModule] Started
+ * log.info('Started');  // [22:30:15.3][Horizon][MyModule] Started
  * ```
  */
 export const logger = new Logger();
