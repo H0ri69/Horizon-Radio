@@ -1,20 +1,41 @@
-import browser from "webextension-polyfill";
-import React, { useEffect, useState, useRef } from "react";
-import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  X, Settings, Radio, Globe, Mic,
-  Palette, Zap, Cpu, Key, AlertTriangle,
-  ChevronDown, CheckCircle2, Sliders, Trash2, Search
-} from "lucide-react";
-import { DJStyle, VOICE_PROFILES, DEFAULT_SCHEDULER_SETTINGS, type SchedulerSettings } from "../config";
-import type { AppLanguage } from "../types";
-import { VoiceCard } from "./settings/VoiceCard";
-import { SettingsSection } from "./settings/SettingsSection";
-import { SettingsCard } from "./settings/SettingsCard";
-import { SettingsToggle, SettingsSlider, SettingsInput, SettingsTextArea } from "./settings/SettingsControls";
 import { cn } from "@sglara/cn";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  Cpu,
+  Globe,
+  Key,
+  Mic,
+  Palette,
+  Radio,
+  Search,
+  Settings,
+  Sliders,
+  Trash2,
+  X,
+  Zap,
+} from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import browser from "webextension-polyfill";
+import {
+  DEFAULT_SCHEDULER_SETTINGS,
+  DJStyle,
+  VOICE_PROFILES,
+  type SchedulerSettings,
+} from "../config";
 import { searchAndPlayNextInPlace } from "../utils/ytmDomUtils";
+import { SettingsCard } from "./settings/SettingsCard";
+import {
+  SettingsInput,
+  SettingsSlider,
+  SettingsTextArea,
+  SettingsToggle,
+} from "./settings/SettingsControls";
+import { SettingsSection } from "./settings/SettingsSection";
+import { VoiceCard } from "./settings/VoiceCard";
 
 interface Settings {
   enabled: boolean;
@@ -43,10 +64,12 @@ interface Settings {
 const containerVariants = {
   hidden: { opacity: 0, scale: 0.95, y: 20 },
   visible: {
-    opacity: 1, scale: 1, y: 0,
-    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1], staggerChildren: 0.05 }
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1], staggerChildren: 0.05 },
   },
-  exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }
+  exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } },
 } as any;
 
 export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -91,7 +114,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
       // Load cached voice status
       const cached = new Set<string>();
-      Object.keys(result).forEach(key => {
+      Object.keys(result).forEach((key) => {
         if (key.startsWith("voiceTestCache_")) {
           // Format: voiceTestCache_VOICEID_LANG
           const parts = key.replace("voiceTestCache_", "");
@@ -152,14 +175,14 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
     setLoadingVoiceId(voiceId);
     try {
-      const response = await browser.runtime.sendMessage({
+      const response = (await browser.runtime.sendMessage({
         type: "TEST_VOICE",
-        data: { voice: voiceId, language: settings.language }
-      }) as any;
+        data: { voice: voiceId, language: settings.language },
+      })) as any;
       if (response?.audio) {
         // Track if this voice was cached
         if (response.fromCache) {
-          setCachedVoices(prev => new Set(prev).add(`${voiceId}_${settings.language}`));
+          setCachedVoices((prev) => new Set(prev).add(`${voiceId}_${settings.language}`));
         }
 
         const binaryString = atob(response.audio);
@@ -193,7 +216,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
   const clearVoiceCache = async () => {
     try {
-      const response = await browser.runtime.sendMessage({ type: "CLEAR_VOICE_CACHE" }) as any;
+      const response = (await browser.runtime.sendMessage({ type: "CLEAR_VOICE_CACHE" })) as any;
       if (response?.cleared !== undefined) {
         setStatus(`Cleared ${response.cleared} cached samples`);
         setTimeout(() => setStatus(""), 3000);
@@ -237,12 +260,19 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
           <div className="flex items-center gap-4">
             <button
               onClick={() => saveSettings({ ...settings, enabled: !settings.enabled })}
-              className={`shimmer flex items-center gap-3 px-6 py-3 rounded-2xl border transition-all duration-300 ${settings.enabled
-                ? "bg-green-500/10 border-green-500/30 text-green-400"
-                : "bg-red-500/10 border-red-500/30 text-red-400"
-                }`}
+              className={`shimmer flex items-center gap-3 px-6 py-3 rounded-2xl border transition-all duration-300 ${
+                settings.enabled
+                  ? "bg-green-500/10 border-green-500/30 text-green-400"
+                  : "bg-red-500/10 border-red-500/30 text-red-400"
+              }`}
             >
-              <div className={`w-2 h-2 rounded-full ${settings.enabled ? "bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.6)]" : "bg-red-500"}`} />
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  settings.enabled
+                    ? "bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.6)]"
+                    : "bg-red-500"
+                }`}
+              />
               <span className="text-sm font-bold tracking-wider mr-2">
                 {settings.enabled ? "ACTIVE" : "STANDBY"}
               </span>
@@ -260,7 +290,6 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         {/* Scrollable Content */}
         <div className="overflow-y-auto custom-scrollbar flex-1">
           <div className="p-10 md:p-14 space-y-16">
-
             {/* 00 LANGUAGE */}
             <SettingsSection icon={Globe} title="Language & Region">
               <div className="grid grid-cols-3 gap-5">
@@ -338,12 +367,22 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Segment Weights */}
                 <div className="space-y-6">
-                  <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">📊 Segment Weights (Relative)</h3>
+                  <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">
+                    📊 Segment Weights (Relative)
+                  </h3>
                   <SettingsSlider
                     label="Silence Weight"
                     description="How often to play no DJ intro"
                     value={settings.scheduler?.silenceWeight ?? 15}
-                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), silenceWeight: val } })}
+                    onChange={(val) =>
+                      saveSettings({
+                        ...settings,
+                        scheduler: {
+                          ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS),
+                          silenceWeight: val,
+                        },
+                      })
+                    }
                     min={0}
                     max={30}
                     step={1}
@@ -354,7 +393,15 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     label="Short Intro Weight"
                     description="Quick 1-2 sentence transitions"
                     value={settings.scheduler?.shortIntroWeight ?? 50}
-                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), shortIntroWeight: val } })}
+                    onChange={(val) =>
+                      saveSettings({
+                        ...settings,
+                        scheduler: {
+                          ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS),
+                          shortIntroWeight: val,
+                        },
+                      })
+                    }
                     min={0}
                     max={80}
                     step={5}
@@ -365,7 +412,15 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     label="Long Intro Weight"
                     description="Theme-based longer segments (jokes, trivia, stories)"
                     value={settings.scheduler?.longIntroWeight ?? 30}
-                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), longIntroWeight: val } })}
+                    onChange={(val) =>
+                      saveSettings({
+                        ...settings,
+                        scheduler: {
+                          ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS),
+                          longIntroWeight: val,
+                        },
+                      })
+                    }
                     min={0}
                     max={60}
                     step={5}
@@ -376,12 +431,22 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
                 {/* Time-Gated Cooldowns */}
                 <div className="space-y-6">
-                  <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">⏱️ Special Segment Cooldowns</h3>
+                  <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">
+                    ⏱️ Special Segment Cooldowns
+                  </h3>
                   <SettingsSlider
                     label="Weather Cooldown"
                     description="Minimum time between weather reports"
                     value={settings.scheduler?.weatherCooldownMin ?? 60}
-                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), weatherCooldownMin: val } })}
+                    onChange={(val) =>
+                      saveSettings({
+                        ...settings,
+                        scheduler: {
+                          ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS),
+                          weatherCooldownMin: val,
+                        },
+                      })
+                    }
                     min={30}
                     max={180}
                     step={15}
@@ -392,7 +457,15 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     label="News Cooldown"
                     description="Minimum time between news segments"
                     value={settings.scheduler?.newsCooldownMin ?? 120}
-                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), newsCooldownMin: val } })}
+                    onChange={(val) =>
+                      saveSettings({
+                        ...settings,
+                        scheduler: {
+                          ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS),
+                          newsCooldownMin: val,
+                        },
+                      })
+                    }
                     min={60}
                     max={300}
                     step={30}
@@ -403,7 +476,15 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     label="Max News History"
                     description="How many recent news stories to remember (to prevent repetition)"
                     value={settings.scheduler?.maxNewsHistory ?? 3}
-                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), maxNewsHistory: val } })}
+                    onChange={(val) =>
+                      saveSettings({
+                        ...settings,
+                        scheduler: {
+                          ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS),
+                          maxNewsHistory: val,
+                        },
+                      })
+                    }
                     min={1}
                     max={5}
                     step={1}
@@ -414,12 +495,22 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
                 {/* Sweeper Settings */}
                 <div className="space-y-6">
-                  <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">🔊 Sweeper Settings</h3>
+                  <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">
+                    🔊 Sweeper Settings
+                  </h3>
                   <SettingsSlider
                     label="Sweeper Probability"
                     description="Chance of playing a sweeper jingle before DJ segment"
                     value={settings.scheduler?.sweeperProbability ?? 0.2}
-                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), sweeperProbability: val } })}
+                    onChange={(val) =>
+                      saveSettings({
+                        ...settings,
+                        scheduler: {
+                          ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS),
+                          sweeperProbability: val,
+                        },
+                      })
+                    }
                     min={0}
                     max={1}
                     step={0.05}
@@ -430,7 +521,15 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     label="Sweeper Cooldown"
                     description="Minimum time between sweepers"
                     value={settings.scheduler?.sweeperCooldownMin ?? 2}
-                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), sweeperCooldownMin: val } })}
+                    onChange={(val) =>
+                      saveSettings({
+                        ...settings,
+                        scheduler: {
+                          ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS),
+                          sweeperCooldownMin: val,
+                        },
+                      })
+                    }
                     min={1}
                     max={10}
                     step={0.5}
@@ -450,7 +549,9 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 onChange={(enabled) => saveSettings({ ...settings, dualDjMode: enabled })}
                 icon={<Radio className="w-6 h-6" />}
               >
-                <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] mb-6">Select Co-Host Persona</h3>
+                <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] mb-6">
+                  Select Co-Host Persona
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {VOICE_PROFILES.filter((p) => p.id !== settings.djVoice).map((profile) => (
                     <VoiceCard
@@ -477,12 +578,13 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     key={theme}
                     onClick={() => saveSettings({ ...settings, visualTheme: theme })}
                     className={`relative p-8 rounded-3xl border transition-all duration-300 group overflow-hidden text-left
-                                            ${(settings as any).visualTheme === theme
-                        ? (theme === "Apple Music"
-                          ? "bg-gradient-to-br from-pink-500/20 to-purple-500/20 border-pink-500/50 text-white shadow-xl"
-                          : "bg-indigo-500/10 border-indigo-500/50 text-white ring-1 ring-indigo-500/50 shadow-xl")
-                        : "modal-section border-white/5 text-white/60 hover:border-white/10 hover:bg-white/10"
-                      }`}
+                                            ${
+                                              (settings as any).visualTheme === theme
+                                                ? theme === "Apple Music"
+                                                  ? "bg-gradient-to-br from-pink-500/20 to-purple-500/20 border-pink-500/50 text-white shadow-xl"
+                                                  : "bg-indigo-500/10 border-indigo-500/50 text-white ring-1 ring-indigo-500/50 shadow-xl"
+                                                : "modal-section border-white/5 text-white/60 hover:border-white/10 hover:bg-white/10"
+                                            }`}
                   >
                     <div className="relative z-10">
                       <div className="font-bold text-xl mb-1">{theme}</div>
@@ -498,7 +600,9 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Script Generation */}
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] block ml-1">Script Generation</label>
+                  <label className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] block ml-1">
+                    Script Generation
+                  </label>
                   <div className="grid grid-cols-2 gap-3">
                     <SettingsCard
                       selected={settings.textModel === "FLASH"}
@@ -519,7 +623,9 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
                 {/* TTS Engine */}
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] block ml-1">Voice Generation (TTS)</label>
+                  <label className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] block ml-1">
+                    Voice Generation (TTS)
+                  </label>
                   <div className="grid grid-cols-2 gap-3">
                     <SettingsCard
                       selected={settings.ttsModel === "FLASH"}
@@ -541,12 +647,11 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
               <div className="flex gap-3 mt-6 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
                 <Zap className="w-5 h-5 text-indigo-400 shrink-0" />
                 <p className="text-xs text-white/80 leading-relaxed font-medium">
-                  <span className="text-white">Pro Models</span> offer richer personality and nuance, but may take longer to generate.
+                  <span className="text-white">Pro Models</span> offer richer personality and
+                  nuance, but may take longer to generate.
                 </p>
               </div>
             </SettingsSection>
-
-
 
             {/* 06 API CONFIGURATION */}
             <SettingsSection icon={Key} title="Secure Keys">
@@ -560,9 +665,15 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 footer={
                   <div className="flex justify-between items-center mt-6">
                     <div className="flex items-center gap-2 text-[10px] text-white/70 font-bold uppercase tracking-wider">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-500/50" /> Fully Encrypted Locally
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500/50" /> Fully Encrypted
+                      Locally
                     </div>
-                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-indigo-400 hover:text-indigo-300 text-xs font-bold transition-colors">
+                    <a
+                      href="https://aistudio.google.com/app/apikey"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-indigo-400 hover:text-indigo-300 text-xs font-bold transition-colors"
+                    >
                       Acquire New API Key →
                     </a>
                   </div>
@@ -582,7 +693,12 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 <div className="flex items-center gap-3">
                   <AlertTriangle className="w-4 h-4" /> Laboratory Settings
                 </div>
-                <ChevronDown className={cn("w-5 h-5 transition-transform duration-300", isDebugOpen && "rotate-180")} />
+                <ChevronDown
+                  className={cn(
+                    "w-5 h-5 transition-transform duration-300",
+                    isDebugOpen && "rotate-180"
+                  )}
+                />
               </div>
 
               <AnimatePresence>
@@ -603,11 +719,18 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                           </div>
                           <div>
                             <div className="text-white font-bold text-xl">Silent Scripting</div>
-                            <div className="text-lg text-white/70 mt-1 font-medium">Bypass voice generation for text-only debugging</div>
+                            <div className="text-lg text-white/70 mt-1 font-medium">
+                              Bypass voice generation for text-only debugging
+                            </div>
                           </div>
                         </div>
                         <button
-                          onClick={() => saveSettings({ ...settings, debug: { ...settings.debug!, skipTTS: !settings.debug?.skipTTS } })}
+                          onClick={() =>
+                            saveSettings({
+                              ...settings,
+                              debug: { ...settings.debug!, skipTTS: !settings.debug?.skipTTS },
+                            })
+                          }
                           className={cn(
                             "w-14 h-8 rounded-full p-1 transition-colors duration-300 flex items-center bg-white/10",
                             settings.debug?.skipTTS && "bg-red-500"
@@ -629,25 +752,39 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                           </div>
                           <div>
                             <div className="text-white font-bold text-xl">Verbose Logging</div>
-                            <div className="text-lg text-white/70 mt-1 font-medium">Show full prompt details in console</div>
+                            <div className="text-lg text-white/70 mt-1 font-medium">
+                              Show full prompt details in console
+                            </div>
                           </div>
                         </div>
                         <SettingsToggle
                           label=""
                           description=""
                           enabled={settings.debug?.verboseLogging || false}
-                          onChange={(val) => saveSettings({ ...settings, debug: { ...settings.debug!, verboseLogging: val } })}
+                          onChange={(val) =>
+                            saveSettings({
+                              ...settings,
+                              debug: { ...settings.debug!, verboseLogging: val },
+                            })
+                          }
                         />
                       </div>
 
                       {/* Call History Limit */}
                       <section className="space-y-6">
-                        <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">Live Call Memory</h3>
+                        <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">
+                          Live Call Memory
+                        </h3>
                         <SettingsSlider
                           label="Caller History Limit"
                           description="How many callers the DJ remembers"
                           value={settings.debug?.callHistoryLimit || 5}
-                          onChange={(val) => saveSettings({ ...settings, debug: { ...settings.debug!, callHistoryLimit: val } })}
+                          onChange={(val) =>
+                            saveSettings({
+                              ...settings,
+                              debug: { ...settings.debug!, callHistoryLimit: val },
+                            })
+                          }
                           min={1}
                           max={15}
                           step={1}
@@ -657,7 +794,9 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
                       {/* Clear Voice Cache */}
                       <section className="space-y-6">
-                        <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">Voice Test Cache</h3>
+                        <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">
+                          Voice Test Cache
+                        </h3>
                         <button
                           onClick={clearVoiceCache}
                           className="w-full flex items-center justify-center gap-3 p-6 bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded-3xl font-bold transition-all hover:bg-orange-500/20 hover:scale-[1.02] active:scale-[0.98]"
@@ -665,12 +804,16 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                           <Trash2 className="w-5 h-5" />
                           Clear Cached Voice Samples
                         </button>
-                        <p className="text-xs text-white/50 text-center">Clears all stored test voices (regenerates on next use, max 30-day cache)</p>
+                        <p className="text-xs text-white/50 text-center">
+                          Clears all stored test voices (regenerates on next use, max 30-day cache)
+                        </p>
                       </section>
 
                       {/* Song Search Test */}
                       <section className="space-y-6">
-                        <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">Song Search & Queue Test</h3>
+                        <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">
+                          Song Search & Queue Test
+                        </h3>
                         <div className="flex gap-3">
                           <div className="flex-1 relative">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
@@ -681,7 +824,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                               placeholder="Enter song name (e.g., Eto - Spit in my face)"
                               className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-all"
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter' && testSongQuery.trim() && !testingSong) {
+                                if (e.key === "Enter" && testSongQuery.trim() && !testingSong) {
                                   setTestingSong(true);
                                   searchAndPlayNextInPlace(testSongQuery.trim()).finally(() => {
                                     setTestingSong(false);
@@ -711,7 +854,8 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                           </button>
                         </div>
                         <p className="text-xs text-white/50 text-center">
-                          Tests the search & queue flow: navigates to search, finds first result, and clicks "Play Next"
+                          Tests the search & queue flow: navigates to search, finds first result,
+                          and clicks "Play Next"
                         </p>
                       </section>
                     </div>
@@ -725,11 +869,15 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         {/* Footer */}
         <div className="p-8 md:p-10 border-t border-white/5 modal-footer flex justify-between items-center z-20">
           <div className="flex items-center gap-6">
-            <div className="font-mono text-[10px] font-black tracking-[0.4em] text-white/50 uppercase">Core-v1.0.4-Stable</div>
+            <div className="font-mono text-[10px] font-black tracking-[0.4em] text-white/50 uppercase">
+              Core-v1.0.4-Stable
+            </div>
             <div className="h-4 w-px bg-white/10" />
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Network Protocol Active</span>
+              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                Network Protocol Active
+              </span>
             </div>
           </div>
 
@@ -742,7 +890,9 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 px-4 py-2 rounded-xl"
               >
                 <CheckCircle2 className="w-4 h-4 text-green-400" />
-                <span className="text-xs font-black text-green-400 uppercase tracking-widest">Saved</span>
+                <span className="text-xs font-black text-green-400 uppercase tracking-widest">
+                  Saved
+                </span>
               </motion.div>
             )}
           </AnimatePresence>

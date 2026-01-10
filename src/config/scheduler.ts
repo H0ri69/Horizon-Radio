@@ -3,8 +3,6 @@
  * Centralized constants and types for DJ segment scheduling
  */
 
-import type { AppLanguage } from '../types';
-
 // =============================================================================
 // SEGMENT TYPES
 // =============================================================================
@@ -12,29 +10,25 @@ import type { AppLanguage } from '../types';
 /**
  * DJ segment types - determines what content the DJ delivers
  */
-export type DJSegmentType = 
-  | 'SHORT_INTRO'   // Quick 1-2 sentence transition
-  | 'LONG_INTRO'    // Theme-based longer segment
-  | 'WEATHER'       // Weather report (time-gated)
-  | 'NEWS'          // Comprehensive news segment (time-gated)
-  | 'SILENCE';      // No DJ - let music breathe
+export type DJSegmentType =
+  | "SHORT_INTRO" // Quick 1-2 sentence transition
+  | "LONG_INTRO" // Theme-based longer segment
+  | "WEATHER" // Weather report (time-gated)
+  | "NEWS" // Comprehensive news segment (time-gated)
+  | "SILENCE"; // No DJ - let music breathe
 
 /**
  * Themes for LONG_INTRO segments
  */
-export type LongIntroTheme = 
-  | 'JOKE'
-  | 'TRIVIA'
-  | 'QUEUE_PREVIEW'
-  | 'ARTIST_STORY';
+export type LongIntroTheme = "JOKE" | "TRIVIA" | "QUEUE_PREVIEW" | "ARTIST_STORY";
 
 /**
  * The complete transition plan returned by the scheduler
  */
 export interface TransitionPlan {
-  sweeper: string | null;           // Path to sweeper audio, or null if no sweeper
-  segment: DJSegmentType;           // What type of DJ segment
-  longTheme?: LongIntroTheme;       // Only present if segment is LONG_INTRO
+  sweeper: string | null; // Path to sweeper audio, or null if no sweeper
+  segment: DJSegmentType; // What type of DJ segment
+  longTheme?: LongIntroTheme; // Only present if segment is LONG_INTRO
 }
 
 /**
@@ -43,22 +37,22 @@ export interface TransitionPlan {
  */
 export interface SchedulerSettings {
   // Sweeper settings
-  sweeperProbability: number;      // 0-1 (0-100%)
-  sweeperCooldownMin: number;      // minutes
-  
+  sweeperProbability: number; // 0-1 (0-100%)
+  sweeperCooldownMin: number; // minutes
+
   // Segment weights (relative)
-  silenceWeight: number;           // 0-30
-  shortIntroWeight: number;        // 0-80
-  longIntroWeight: number;         // 0-60
-  weatherWeight: number;           // 1-10
-  newsWeight: number;              // 1-10
-  
+  silenceWeight: number; // 0-30
+  shortIntroWeight: number; // 0-80
+  longIntroWeight: number; // 0-60
+  weatherWeight: number; // 1-10
+  newsWeight: number; // 1-10
+
   // Time-gated cooldowns
-  weatherCooldownMin: number;      // 30-180 minutes
-  newsCooldownMin: number;         // 60-300 minutes
-  
+  weatherCooldownMin: number; // 30-180 minutes
+  newsCooldownMin: number; // 60-300 minutes
+
   // History Limits
-  maxNewsHistory: number;          // 1-5 (Default 3)
+  maxNewsHistory: number; // 1-5 (Default 3)
 }
 
 /**
@@ -67,8 +61,8 @@ export interface SchedulerSettings {
 export interface SchedulerState {
   // Sweeper tracking
   lastSweeperTime: number;
-  recentSweeperIndices: number[];   // Last 2 sweeper indices to avoid repeats
-  
+  recentSweeperIndices: number[]; // Last 2 sweeper indices to avoid repeats
+
   // DJ segment tracking
   lastWeatherTime: number;
   lastNewsTime: number;
@@ -86,18 +80,18 @@ export const SCHEDULER = {
   // --- Sweeper Settings ---
   /** Probability of playing a sweeper before DJ segment (0.0 - 1.0) */
   SWEEPER_PROBABILITY: 0.2,
-  
+
   /** Minimum time between sweepers in ms (2 minutes) */
   SWEEPER_COOLDOWN: 2 * 60 * 1000,
-  
+
   /** Gap in ms between sweeper end and DJ start */
   SWEEPER_GAP_MS: 200,
-  
+
   /** Number of recent sweepers to track to avoid repeats */
   SWEEPER_HISTORY_SIZE: 2,
 
   // --- Silence Settings ---
-  
+
   /** Force DJ after this many consecutive silent songs */
   MAX_CONSECUTIVE_SILENCE: 4,
 
@@ -112,7 +106,7 @@ export const SCHEDULER = {
   // --- Time-Gated Segment Cooldowns ---
   /** Minimum time between weather reports (1 hour) */
   WEATHER_COOLDOWN: 60 * 60 * 1000,
-  
+
   /** Minimum time between news segments (2 hours) */
   NEWS_COOLDOWN: 2 * 60 * 60 * 1000,
 
@@ -148,20 +142,20 @@ export const DEFAULT_SCHEDULER_STATE: SchedulerState = {
 
 export const DEFAULT_SCHEDULER_SETTINGS: SchedulerSettings = {
   // Sweeper settings (match current SCHEDULER constants)
-  sweeperProbability: 0.2,           // 20%
-  sweeperCooldownMin: 2,             // 2 minutes
-  
+  sweeperProbability: 0.2, // 20%
+  sweeperCooldownMin: 2, // 2 minutes
+
   // Segment weights (match current SCHEDULER.SEGMENT_BASE_WEIGHTS)
   silenceWeight: 15,
   shortIntroWeight: 50,
   longIntroWeight: 30,
   weatherWeight: 5,
   newsWeight: 3,
-  
+
   // Time-gated cooldowns (match current SCHEDULER cooldowns)
-  weatherCooldownMin: 60,            // 1 hour
-  newsCooldownMin: 120,              // 2 hours
-  
+  weatherCooldownMin: 60, // 1 hour
+  newsCooldownMin: 120, // 2 hours
+
   // History Limits
   maxNewsHistory: 3,
 };
@@ -172,16 +166,19 @@ export const DEFAULT_SCHEDULER_SETTINGS: SchedulerSettings = {
 
 export const LONG_INTRO_THEME_PROMPTS: Record<LongIntroTheme, string> = {
   JOKE: "Tell a short, music-related Joke that flows naturally into the next song.",
-  TRIVIA: "Share a Trivium or Fun Fact about the artist or song - something interesting most listeners wouldn't know.",
-  QUEUE_PREVIEW: "Preview what's coming up next in the queue. Mention the titles and artists of the next 2-3 songs using ONLY the playlist context provided ([UP NEXT +1], [UP NEXT +2], etc). Do NOT invent song titles.",
-  ARTIST_STORY: "Spotlight a brief story about the Artist - their journey, an interesting moment in their career, or what makes them unique.",
+  TRIVIA:
+    "Share a Trivium or Fun Fact about the artist or song - something interesting most listeners wouldn't know.",
+  QUEUE_PREVIEW:
+    "Preview what's coming up next in the queue. Mention the titles and artists of the next 2-3 songs using ONLY the playlist context provided ([UP NEXT +1], [UP NEXT +2], etc). Do NOT invent song titles.",
+  ARTIST_STORY:
+    "Spotlight a brief story about the Artist - their journey, an interesting moment in their career, or what makes them unique.",
 };
 
 // =============================================================================
 // WEATHER & NEWS PROMPTS
 // =============================================================================
 
-export const WEATHER_PROMPT = (timezone: string) => 
+export const WEATHER_PROMPT = (timezone: string) =>
   `Briefly mention current Weather for your listeners, referencing the local country of ${timezone}. USE GOOGLE SEARCH to get actual conditions. Interpret the timezone as a country, not a specific city. Deliver it naturally as a DJ update (e.g., 'A bit chilly here in the UK tonight...'). Use Celsius for temperatures unless location is in USA/Canada, then use Fahrenheit.`;
 
 export const NEWS_PROMPT = (timezone: string) =>
