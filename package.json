@@ -14,7 +14,8 @@
     "build:chrome": "vite build",
     "build:firefox": "cross-env TARGET_BROWSER=firefox vite build",
     "build": "pnpm build:chrome && pnpm build:firefox",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck:watch": "tsc -p tsconfig.json --noEmit --watch"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",
