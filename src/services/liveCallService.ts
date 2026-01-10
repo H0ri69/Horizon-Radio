@@ -4,6 +4,7 @@ import { decodeAudio, decodeAudioData, createPcmBlob, downsampleTo16k } from './
 import { DJVoice, AppLanguage } from '../types';
 import { MODEL_MAPPING, VOICE_PROFILES, DJStyle, AUDIO, generateLiveSystemInstruction } from "@/config";
 import { logger } from "../utils/Logger";
+import { searchAndPlayNext, ensurePlayerMaximized } from "../utils/ytmDomUtils";
 
 // --- Input Source Abstraction ---
 
@@ -276,11 +277,26 @@ export class LiveCallService {
                 this.sessionResolve = resolve;
             });
 
-            // Tool Definition
-            const transitionTool: FunctionDeclaration = {
+            // Tool Definitions
+            const endCallTool: FunctionDeclaration = {
                 name: 'endCall',
                 description: 'Terminates the live broadcast call. MUST be called to hang up the phone and return to music.',
                 parameters: { type: Type.OBJECT, properties: {} },
+            };
+
+            const addPlayNextTool: FunctionDeclaration = {
+                name: 'addPlayNext',
+                description: 'Searches for a song by name and adds it to the queue as the next song to play. Use when the caller requests a specific song.',
+                parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                        songQuery: {
+                            type: Type.STRING,
+                            description: 'The search query for the song (e.g., "Never Gonna Give You Up Rick Astley" or "Bohemian Rhapsody").',
+                        },
+                    },
+                    required: ['songQuery'],
+                },
             };
 
             // Session Configuration
@@ -312,7 +328,7 @@ export class LiveCallService {
                     responseModalities: [Modality.AUDIO],
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceProfile?.geminiVoiceName || config.voice } } },
                     systemInstruction,
-                    tools: [{ googleSearch: {} }, { functionDeclarations: [transitionTool] }],
+                    tools: [{ googleSearch: {} }, { functionDeclarations: [endCallTool, addPlayNextTool] }],
                     realtimeInputConfig: {
                         automaticActivityDetection: {
                             disabled: false,
@@ -389,6 +405,34 @@ export class LiveCallService {
                                         setTimeout(() => this.cleanupSession(true), remaining * 1000 + 1000);
                                     } else {
                                         setTimeout(() => this.cleanupSession(true), 1000);
+                                    }
+                                } else if (fc.name === 'addPlayNext') {
+                                    const songQuery = (fc.args as any)?.songQuery;
+                                    if (songQuery) {
+                                        logger.debug(`[Hori-s] 🎵 AI requested to queue song: "${songQuery}"`);
+                                        // Execute DOM manipulation (runs in content script context)
+                                        searchAndPlayNext(songQuery).then(success => {
+                                            if (success) {
+                                                // Maximize player to show the queued song
+                                                ensurePlayerMaximized();
+                                            }
+                                            const result = success
+                                                ? { status: 'success', message: `Successfully queued a song matching "${songQuery}".` }
+                                                : { status: 'failed', message: `Could not find or queue a song matching "${songQuery}". The search may have failed or no results were found.` };
+                                            if (resolvedSession) {
+                                                resolvedSession.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response: result }] });
+                                            }
+                                        }).catch(err => {
+                                            logger.error(`[Hori-s] Error executing addPlayNext:`, err);
+                                            if (resolvedSession) {
+                                                resolvedSession.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response: { status: 'error', message: 'An unexpected error occurred while trying to queue the song.' } }] });
+                                            }
+                                        });
+                                    } else {
+                                        logger.warn(`[Hori-s] addPlayNext called without songQuery argument.`);
+                                        if (resolvedSession) {
+                                            resolvedSession.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response: { status: 'failed', message: 'No song query was provided.' } }] });
+                                        }
                                     }
                                 }
                             }
