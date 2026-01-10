@@ -30,6 +30,7 @@ browser.runtime.onMessage.addListener((message: any, sender, sendResponse): any 
       debugSettings,
       textModel,
       ttsModel,
+      newsHistory
     } = msg.data;
 
     // Fetch History and generate
@@ -49,7 +50,8 @@ browser.runtime.onMessage.addListener((message: any, sender, sendResponse): any 
         secondaryVoice,
         debugSettings,
         textModel || "FLASH",
-        ttsModel || "FLASH"
+        ttsModel || "FLASH",
+        newsHistory || []
       )
         .then((result) => {
           if (result.audio) {

@@ -56,6 +56,9 @@ export interface SchedulerSettings {
   // Time-gated cooldowns
   weatherCooldownMin: number;      // 30-180 minutes
   newsCooldownMin: number;         // 60-300 minutes
+  
+  // History Limits
+  maxNewsHistory: number;          // 1-5 (Default 3)
 }
 
 /**
@@ -72,6 +75,7 @@ export interface SchedulerState {
   consecutiveShortIntros: number;
   consecutiveSilence: number;
   recentLongThemes: LongIntroTheme[];
+  recentNewsSummaries: string[]; // Track text of recently spoken news to avoid repeats
 }
 
 // =============================================================================
@@ -96,6 +100,10 @@ export const SCHEDULER = {
   
   /** Force DJ after this many consecutive silent songs */
   MAX_CONSECUTIVE_SILENCE: 4,
+
+  // --- News Settings ---
+  /** Number of recent news summaries to track to avoid repeats */
+  MAX_NEWS_HISTORY: 3,
 
   // --- Short Intro Settings ---
   /** Force variety after this many consecutive short intros */
@@ -135,6 +143,7 @@ export const DEFAULT_SCHEDULER_STATE: SchedulerState = {
   consecutiveShortIntros: 0,
   consecutiveSilence: 0,
   recentLongThemes: [],
+  recentNewsSummaries: [],
 };
 
 export const DEFAULT_SCHEDULER_SETTINGS: SchedulerSettings = {
@@ -152,6 +161,9 @@ export const DEFAULT_SCHEDULER_SETTINGS: SchedulerSettings = {
   // Time-gated cooldowns (match current SCHEDULER cooldowns)
   weatherCooldownMin: 60,            // 1 hour
   newsCooldownMin: 120,              // 2 hours
+  
+  // History Limits
+  maxNewsHistory: 3,
 };
 
 // =============================================================================

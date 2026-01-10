@@ -324,7 +324,7 @@ const getTimeOfDay = (): { context: string; greeting: string } => {
 /**
  * Get the theme/content prompt based on the transition plan
  */
-function getContentPromptForPlan(plan: TransitionPlan, timezone: string): { isLong: boolean; themePrompt: string } {
+function getContentPromptForPlan(plan: TransitionPlan, timezone: string, newsHistory?: string[]): { isLong: boolean; themePrompt: string } {
   switch (plan.segment) {
     case 'SILENCE':
       return { isLong: false, themePrompt: '' };
@@ -342,7 +342,11 @@ function getContentPromptForPlan(plan: TransitionPlan, timezone: string): { isLo
       return { isLong: true, themePrompt: WEATHER_PROMPT(timezone) };
     
     case 'NEWS':
-      return { isLong: true, themePrompt: NEWS_PROMPT(timezone) };
+      let newsPrompt = NEWS_PROMPT(timezone);
+      if (newsHistory && newsHistory.length > 0) {
+        newsPrompt += `\n\nRECENTLY COVERED NEWS (DO NOT REPEAT THESE):\n"""\n${newsHistory.join('\n---\n')}\n"""\n\nCRITICAL INSTRUCTION: You MUST NOT repeat the stories listed above. Find DIFFERENT headlines or newer developments. If the above covered "Tech", focus on "Science" or "World News" this time.`;
+      }
+      return { isLong: true, themePrompt: newsPrompt };
     
     default:
       return { isLong: false, themePrompt: '' };
@@ -365,7 +369,8 @@ export const generateDJIntro = async (
   secondaryVoice: DJVoice = "Puck",
   debugSettings?: { skipTTS: boolean; verboseLogging: boolean },
   textModelTier: GeminiModelTier = "FLASH",
-  ttsModelTier: GeminiModelTier = "FLASH"
+  ttsModelTier: GeminiModelTier = "FLASH",
+  newsHistory: string[] = []
 ): Promise<{ audio: ArrayBuffer | null; script?: string; prompt?: string }> => {
   // Handle SILENCE - no generation needed
   if (plan.segment === 'SILENCE') {
@@ -380,7 +385,7 @@ export const generateDJIntro = async (
     const { context } = getTimeOfDay();
 
     // Get content details from the plan
-    const { isLong, themePrompt } = getContentPromptForPlan(plan, userTimezone);
+    const { isLong, themePrompt } = getContentPromptForPlan(plan, userTimezone, newsHistory);
 
     const textModel = MODEL_MAPPING.TEXT[textModelTier] || DEFAULT_TEXT_MODEL;
     const ttsModelTierToUse = ttsModelTier || "FLASH";
