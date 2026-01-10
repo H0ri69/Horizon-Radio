@@ -64,7 +64,12 @@ browser.runtime.onMessage.addListener((message: any, sender, sendResponse): any 
             browser.storage.local.set({ narrativeHistory: updatedHistory });
 
             const base64 = encodeAudio(new Uint8Array(result.audio));
-            sendResponse({ audio: base64, themeIndex: result.themeIndex, script: result.script });
+            sendResponse({
+              audio: base64,
+              themeIndex: result.themeIndex,
+              script: result.script,
+              prompt: result.prompt
+            });
           } else {
             sendResponse({ error: "Failed to generate audio" });
           }

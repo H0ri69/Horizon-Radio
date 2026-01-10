@@ -977,6 +977,9 @@ const mainLoop = setInterval(() => {
               if (response.script) {
                 console.log(`[Hori-s] 🤖 Script: "${response.script}"`);
               }
+              if (settings.debug?.verboseLogging && response.prompt) {
+                console.log(`[Hori-s] 🤖 Prompt: "${response.prompt}"`);
+              }
               console.log(`[Hori-s] ✅ Generation ready`);
               updateStatus("READY");
             } else {

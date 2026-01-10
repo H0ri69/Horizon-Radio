@@ -199,13 +199,13 @@ const generateScript = async (prompt: string, modelOverride?: string): Promise<s
   try {
     const ai = await getClient();
     const modelName = modelOverride || DEFAULT_TEXT_MODEL;
-    const isProModel = modelName.includes("-pro");
+    const isThinkingModel = modelName.includes("thinking");
     const response: GenerateContentResponse = await callWithRetry(() =>
       ai.models.generateContent({
         model: modelName,
         contents: [{ parts: [{ text: prompt }] }],
         config: {
-          thinkingConfig: { thinkingBudget: isProModel ? 1024 : 0 },
+          thinkingConfig: isThinkingModel ? { thinkingBudget: 1024 } : undefined,
           safetySettings: lowestSafetySettings,
           tools: [{ googleSearch: {} }],
         },
@@ -364,7 +364,7 @@ export const generateDJIntro = async (
   themeUsageHistory: Record<number, number> = {},
   textModelTier: GeminiModelTier = "FLASH",
   ttsModelTier: GeminiModelTier = "FLASH"
-): Promise<{ audio: ArrayBuffer | null; themeIndex: number | null; script?: string }> => {
+): Promise<{ audio: ArrayBuffer | null; themeIndex: number | null; script?: string; prompt?: string }> => {
   try {
     const langInstruction = getLanguageInstruction(language);
     const timeString = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -426,7 +426,9 @@ export const generateDJIntro = async (
 
 
     if (debugSettings?.verboseLogging) {
-      console.log(`[Hori-s] 🤖 Prompt: "${prompt}"`);
+      console.log(`[Hori-s] 🤖 Prompt: ${prompt}`);
+    } else {
+      console.log(`[Hori-s] 🤖 Prompt: (Enable Verbose Logging to see full text)`);
     }
     const scriptStartTime = performance.now();
     const script = await generateScript(prompt, textModel);
@@ -440,7 +442,7 @@ export const generateDJIntro = async (
     const audio = await speakText(script, voice, undefined, undefined, undefined, style, ttsModel);
     const ttsEndTime = performance.now();
     console.log(`[Hori-s] 🔊 TTS Generated in ${((ttsEndTime - ttsStartTime) / 1000).toFixed(2)}s`);
-    return { audio, themeIndex: selectedThemeIndex, script };
+    return { audio, themeIndex: selectedThemeIndex, script, prompt };
   } catch (e) {
     console.error("[Hori-s] Intro generation failed", e);
     return { audio: null, themeIndex: null };
