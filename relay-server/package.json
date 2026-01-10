@@ -1,5 +1,5 @@
 {
-  "name": "horis-relay-server",
+  "name": "horizon-relay-server",
   "version": "1.0.0",
   "description": "WebSocket relay server for Horizon Remote Live Calls",
   "main": "src/index.js",
