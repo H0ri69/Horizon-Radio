@@ -159,14 +159,7 @@ export const getGenderInstruction = (gender: "Female" | "Male" | "Robot") => {
       : "IDENTITY: You are a MALE speaker. Use male self-references and male gendered grammar.";
 };
 
-export const LONG_MESSAGE_THEMES = [
-  "Tell a short, music-related Joke",
-  "Share a Trivium or Fun Fact about the artist or song",
-  "Preview upcoming songs in the queue. Mention the titles and artists of the next 2-3 specific songs using ONLY the playlist context provided ([UP NEXT +1], [UP NEXT +2], etc). Do NOT invent song titles or be vague.",
-  "Spotlight a story about the Artist",
-  "Briefly mention current Weather for your listeners, referencing the local country of ${location}. USE GOOGLE SEARCH to get actual conditions. Interpret the timezone as a country, not a specific city. Deliver it naturally as a DJ update (e.g., 'A bit chilly here in the UK tonight...'). Use Celsius for temperatures unless location is in USA/Canada, then use Fahrenheit.",
-  "Briefly mention a local News headline relevant to the country where ${location} is located. USE GOOGLE SEARCH. Interpret the timezone as a country, not a specific city. Deliver it as a casual radio update, not a robotic headline read.",
-];
+// NOTE: LONG_MESSAGE_THEMES has been replaced by LONG_INTRO_THEME_PROMPTS in src/config/scheduler.ts
 
 export const SHORT_MESSAGE_INSTRUCTION = "STRICT INSTRUCTION: KEEP IT BRIEF. 1-2 SENTENCES MAX. DELIVER A QUICK, SMOOTH TRANSITION FROM THE PREVIOUS SONG TO THE NEXT ONE. DO NOT EXCEED 2 SENTENCES.";
 

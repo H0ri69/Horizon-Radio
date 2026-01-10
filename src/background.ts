@@ -1,7 +1,7 @@
 import browser from "webextension-polyfill";
 import { generateDJIntro, testVoice } from "./services/geminiService";
 import { Song, DJVoice } from "./types";
-import { DJStyle } from "./config";
+import { DJStyle, TransitionPlan } from "./config";
 import { EXTENSION_CONFIG } from "./config";
 import { encodeAudio } from "./services/liveAudioUtils";
 
@@ -19,6 +19,7 @@ browser.runtime.onMessage.addListener((message: any, sender, sendResponse): any 
     const {
       currentSong,
       nextSong,
+      plan,  // TransitionPlan from scheduler
       style,
       voice,
       language,
@@ -26,39 +27,33 @@ browser.runtime.onMessage.addListener((message: any, sender, sendResponse): any 
       customPrompt,
       dualDjMode,
       secondaryVoice,
-      recentThemeIndices,
       debugSettings,
-      themeUsageHistory,
       textModel,
       ttsModel,
     } = msg.data;
 
-    // 1. Fetch History
+    // Fetch History and generate
     browser.storage.local.get(["narrativeHistory"]).then((result) => {
       const history = (result as any).narrativeHistory || [];
 
-      // 2. Call Service
       generateDJIntro(
         currentSong as Song,
         nextSong as Song,
+        plan as TransitionPlan,
         style as DJStyle,
         voice as DJVoice,
         language,
         customPrompt,
         playlistContext || [],
-        history,
         dualDjMode,
         secondaryVoice,
-        msg.data.isLongMessage,
-        recentThemeIndices || [],
         debugSettings,
-        themeUsageHistory || {},
         textModel || "FLASH",
         ttsModel || "FLASH"
       )
         .then((result) => {
           if (result.audio) {
-            // 3. Update History
+            // Update History
             const newEntry = `Transitioned: "${currentSong.title}" -> "${nextSong.title}"`;
             const updatedHistory = [newEntry, ...history].slice(0, MAX_HISTORY);
             browser.storage.local.set({ narrativeHistory: updatedHistory });
@@ -66,7 +61,6 @@ browser.runtime.onMessage.addListener((message: any, sender, sendResponse): any 
             const base64 = encodeAudio(new Uint8Array(result.audio));
             sendResponse({
               audio: base64,
-              themeIndex: result.themeIndex,
               script: result.script,
               prompt: result.prompt
             });

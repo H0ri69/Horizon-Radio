@@ -7,7 +7,7 @@ import {
   Palette, Zap, Cpu, Key, AlertTriangle,
   ChevronDown, CheckCircle2, Sliders, Trash2, Search
 } from "lucide-react";
-import { DJStyle, VOICE_PROFILES } from "../config";
+import { DJStyle, VOICE_PROFILES, DEFAULT_SCHEDULER_SETTINGS } from "../config";
 import type { AppLanguage } from "../types";
 import { VoiceCard } from "./settings/VoiceCard";
 import { SettingsSection } from "./settings/SettingsSection";
@@ -27,7 +27,17 @@ interface Settings {
   secondaryDjVoice?: string;
   visualTheme?: string;
   apiKey?: string;
-  longMessageProbability?: number;
+  scheduler?: {
+    sweeperProbability: number;
+    sweeperCooldownMin: number;
+    silenceWeight: number;
+    shortIntroWeight: number;
+    longIntroWeight: number;
+    weatherWeight: number;
+    newsWeight: number;
+    weatherCooldownMin: number;
+    newsCooldownMin: number;
+  };
   debug?: {
     enabledThemes: boolean[];
     skipTTS: boolean;
@@ -61,7 +71,17 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     dualDjMode: false,
     secondaryDjVoice: "sulafat",
     apiKey: "",
-    longMessageProbability: 0.3,
+    scheduler: {
+      sweeperProbability: 0.2,
+      sweeperCooldownMin: 2,
+      silenceWeight: 15,
+      shortIntroWeight: 50,
+      longIntroWeight: 30,
+      weatherWeight: 5,
+      newsWeight: 3,
+      weatherCooldownMin: 60,
+      newsCooldownMin: 120,
+    },
     debug: {
       enabledThemes: [true, true, true, true, true, true],
       skipTTS: false,
@@ -333,14 +353,94 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
               </AnimatePresence>
             </SettingsSection>
 
-            {/* 02b BROADCAST VARIETY */}
-            <SettingsSection icon={Sliders} title="Content Density">
-              <SettingsSlider
-                label="Message Duration"
-                description="Balanced between short intros and long trivia bits."
-                value={settings.longMessageProbability ?? 0.5}
-                onChange={(val) => saveSettings({ ...settings, longMessageProbability: val })}
-              />
+            {/* 02b SCHEDULER SETTINGS */}
+            <SettingsSection icon={Sliders} title="Scheduler Settings">
+              <div className="space-y-8">
+                {/* Sweeper Settings */}
+                <div className="space-y-6">
+                  <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">🔊 Sweeper Settings</h3>
+                  <SettingsSlider
+                    label="Sweeper Probability"
+                    description="Chance of playing a sweeper jingle before DJ segment"
+                    value={settings.scheduler?.sweeperProbability ?? 0.2}
+                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), sweeperProbability: val } })}
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    formatValue={(val) => `${(val * 100).toFixed(0)}%`}
+                  />
+                  <SettingsSlider
+                    label="Sweeper Cooldown"
+                    description="Minimum time between sweepers"
+                    value={settings.scheduler?.sweeperCooldownMin ?? 2}
+                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), sweeperCooldownMin: val } })}
+                    min={1}
+                    max={10}
+                    step={0.5}
+                    formatValue={(val) => `${val} min`}
+                  />
+                </div>
+
+                {/* Segment Weights */}
+                <div className="space-y-6">
+                  <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">📊 Segment Weights (Relative)</h3>
+                  <SettingsSlider
+                    label="Silence Weight"
+                    description="How often to play no DJ intro"
+                    value={settings.scheduler?.silenceWeight ?? 15}
+                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), silenceWeight: val } })}
+                    min={0}
+                    max={30}
+                    step={1}
+                    formatValue={(val) => val.toString()}
+                  />
+                  <SettingsSlider
+                    label="Short Intro Weight"
+                    description="Quick 1-2 sentence transitions"
+                    value={settings.scheduler?.shortIntroWeight ?? 50}
+                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), shortIntroWeight: val } })}
+                    min={10}
+                    max={80}
+                    step={5}
+                    formatValue={(val) => val.toString()}
+                  />
+                  <SettingsSlider
+                    label="Long Intro Weight"
+                    description="Theme-based longer segments (jokes, trivia, stories)"
+                    value={settings.scheduler?.longIntroWeight ?? 30}
+                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), longIntroWeight: val } })}
+                    min={10}
+                    max={60}
+                    step={5}
+                    formatValue={(val) => val.toString()}
+                  />
+                </div>
+
+                {/* Time-Gated Cooldowns */}
+                <div className="space-y-6">
+                  <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">⏱️ Special Segment Cooldowns</h3>
+                  <SettingsSlider
+                    label="Weather Cooldown"
+                    description="Minimum time between weather reports"
+                    value={settings.scheduler?.weatherCooldownMin ?? 60}
+                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), weatherCooldownMin: val } })}
+                    min={30}
+                    max={180}
+                    step={15}
+                    formatValue={(val) => `${val} min`}
+                  />
+                  <SettingsSlider
+                    label="News Cooldown"
+                    description="Minimum time between news segments"
+                    value={settings.scheduler?.newsCooldownMin ?? 120}
+                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), newsCooldownMin: val } })}
+                    min={60}
+                    max={300}
+                    step={30}
+                    formatValue={(val) => `${val} min`}
+                  />
+                </div>
+              </div>
             </SettingsSection>
 
             {/* 03 DUAL DJ MODE */}
