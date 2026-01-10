@@ -79,15 +79,16 @@ interface SettingsSliderProps {
   max?: number;
   step?: number;
   formatValue?: (val: number) => string;
+  className?: string;
 }
 
 export const SettingsSlider: React.FC<SettingsSliderProps> = ({
-  label, description, value, onChange, min = 0, max = 1, step = 0.1, formatValue
+  label, description, value, onChange, min = 0, max = 1, step = 0.1, formatValue, className
 }) => {
   const percentage = ((value - min) / (max - min)) * 100;
 
   return (
-    <div className="bg-white/5 rounded-3xl p-8 border border-white/5">
+    <div className={cn("bg-white/5 rounded-3xl p-8 border border-white/5", className)}>
       <div className="flex justify-between items-center mb-10">
         <div>
           <div className="text-white font-bold text-lg mb-1">{label}</div>

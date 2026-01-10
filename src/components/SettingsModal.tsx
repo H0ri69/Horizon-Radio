@@ -355,32 +355,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
             {/* 02b SCHEDULER SETTINGS */}
             <SettingsSection icon={Sliders} title="Scheduler Settings">
-              <div className="space-y-8">
-                {/* Sweeper Settings */}
-                <div className="space-y-6">
-                  <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">🔊 Sweeper Settings</h3>
-                  <SettingsSlider
-                    label="Sweeper Probability"
-                    description="Chance of playing a sweeper jingle before DJ segment"
-                    value={settings.scheduler?.sweeperProbability ?? 0.2}
-                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), sweeperProbability: val } })}
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    formatValue={(val) => `${(val * 100).toFixed(0)}%`}
-                  />
-                  <SettingsSlider
-                    label="Sweeper Cooldown"
-                    description="Minimum time between sweepers"
-                    value={settings.scheduler?.sweeperCooldownMin ?? 2}
-                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), sweeperCooldownMin: val } })}
-                    min={1}
-                    max={10}
-                    step={0.5}
-                    formatValue={(val) => `${val} min`}
-                  />
-                </div>
-
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Segment Weights */}
                 <div className="space-y-6">
                   <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">📊 Segment Weights (Relative)</h3>
@@ -393,6 +368,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     max={30}
                     step={1}
                     formatValue={(val) => val.toString()}
+                    className="p-5"
                   />
                   <SettingsSlider
                     label="Short Intro Weight"
@@ -403,6 +379,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     max={80}
                     step={5}
                     formatValue={(val) => val.toString()}
+                    className="p-5"
                   />
                   <SettingsSlider
                     label="Long Intro Weight"
@@ -413,6 +390,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     max={60}
                     step={5}
                     formatValue={(val) => val.toString()}
+                    className="p-5"
                   />
                 </div>
 
@@ -428,6 +406,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     max={180}
                     step={15}
                     formatValue={(val) => `${val} min`}
+                    className="p-5"
                   />
                   <SettingsSlider
                     label="News Cooldown"
@@ -438,6 +417,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     max={300}
                     step={30}
                     formatValue={(val) => `${val} min`}
+                    className="p-5"
                   />
                   <SettingsSlider
                     label="Max News History"
@@ -448,6 +428,34 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     max={5}
                     step={1}
                     formatValue={(val) => `${val} items`}
+                    className="p-5"
+                  />
+                </div>
+
+                {/* Sweeper Settings */}
+                <div className="space-y-6">
+                  <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em] ml-1">🔊 Sweeper Settings</h3>
+                  <SettingsSlider
+                    label="Sweeper Probability"
+                    description="Chance of playing a sweeper jingle before DJ segment"
+                    value={settings.scheduler?.sweeperProbability ?? 0.2}
+                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), sweeperProbability: val } })}
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    formatValue={(val) => `${(val * 100).toFixed(0)}%`}
+                    className="p-5"
+                  />
+                  <SettingsSlider
+                    label="Sweeper Cooldown"
+                    description="Minimum time between sweepers"
+                    value={settings.scheduler?.sweeperCooldownMin ?? 2}
+                    onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), sweeperCooldownMin: val } })}
+                    min={1}
+                    max={10}
+                    step={0.5}
+                    formatValue={(val) => `${val} min`}
+                    className="p-5"
                   />
                 </div>
               </div>
