@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  Settings2, PhoneForwarded,
-  Radio, Sparkles, Mic2, Zap, Hourglass
-} from "lucide-react";
+import { Settings2, PhoneForwarded, Radio, Sparkles, Mic2, Zap, Hourglass } from "lucide-react";
 
 interface PlayerControlsProps {
   onOpenSettings: () => void;
@@ -102,9 +99,7 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ onOpenSettings, 
   return createPortal(
     <div className="flex items-center gap-3">
       {/* Dynamic Status Badge */}
-      <div className="hidden lg:block">
-        {getStatusBadge()}
-      </div>
+      <div className="hidden lg:block">{getStatusBadge()}</div>
 
       <div className="flex items-center gap-0.5 p-0.5 rounded-2xl horis-glass-pill">
         {/* Call Button */}

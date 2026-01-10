@@ -14,7 +14,6 @@ trigger: always_on
 """
 Logger Context Usage (Recommended for Modules/Services)
  ```typescript
- // At the top of your service/component file
  import { logger } from '@/utils/Logger';
  const log = logger.withContext('Scheduler');
  
