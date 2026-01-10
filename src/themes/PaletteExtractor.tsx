@@ -99,22 +99,36 @@ export function PaletteExtractor() {
                 if (verbose.current) log.log("Extracting colors from:", imgSrc);
 
                 let targetSrc = imgSrc;
-                try {
-                    // Use background proxy to avoid CORS issues, especially in Firefox
-                    const response = await browser.runtime.sendMessage({
-                        type: "PROXY_FETCH_IMAGE",
-                        data: { url: imgSrc }
-                    }) as { dataUrl?: string; error?: string };
+                let proxySuccess = false;
 
-                    if (response && response.dataUrl && response.dataUrl.startsWith("data:image/")) {
-                        if (verbose.current) log.log("Successfully proxied image via background");
-                        targetSrc = response.dataUrl;
-                    } else {
-                        if (verbose.current) log.warn("Proxy fetch failed or returned non-image:", response?.error);
-                        return; // Stop to avoid fallback CORS errors on direct fetch
+                // Retry logic for background proxy connection
+                for (let i = 0; i < 3; i++) {
+                    try {
+                        // Use background proxy to avoid CORS issues, especially in Firefox
+                        const response = await browser.runtime.sendMessage({
+                            type: "PROXY_FETCH_IMAGE",
+                            data: { url: imgSrc }
+                        }) as { dataUrl?: string; error?: string };
+
+                        if (response && response.dataUrl && response.dataUrl.startsWith("data:image/")) {
+                            if (verbose.current) log.log("Successfully proxied image via background");
+                            targetSrc = response.dataUrl;
+                            proxySuccess = true;
+                            break; // Success
+                        } else {
+                            if (verbose.current) log.warn(`Proxy fetch attempt ${i + 1} failed or returned non-image:`, response?.error);
+                            // If it's a specific error, maybe we don't retry? But safe to retry a few times.
+                        }
+                    } catch (proxyErr: any) {
+                        log.warn(`Failed to communicate with background proxy (attempt ${i + 1}/3):`, proxyErr.message);
+                        if (i < 2) await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
                     }
-                } catch (proxyErr) {
-                    log.error("Failed to communicate with background proxy:", proxyErr);
+                }
+
+                if (!proxySuccess) {
+                    log.warn("All proxy attempts failed for image:", imgSrc);
+                    // Decide if we want to fallback or just return to avoid CORS errors
+                    // return; // Let's return to satisfy the original logic
                 }
 
                 const vibrantPalette = await Vibrant.from(targetSrc)

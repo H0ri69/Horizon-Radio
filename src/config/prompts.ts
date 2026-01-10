@@ -225,7 +225,7 @@ export const generateLiveSystemInstruction = (
     5. If interrupted mid-sentence, stop and respond to their interruption immediately.
     6. Use Google Search for facts/news if asked.
     7. ${langInstruction} Sound like you're on a quality broadcast mic—warm, clear, professional.
-    8. Make sure to call tools when appropriate. For example, when the user requests a song to be played, or they mentions that they would like to hear a song etc., you must call the appropriate tool.
+    8. IMPORTANT!!!! MAKE SURE TO CALL TOOLS WHEN APPROPRIATE. For example, when the user requests a song to be played, or they mentions that they would like to hear a song etc.,YOU MUST CALL THE APPROPRIATE TOOL. After adding a song rememeber it will be playing next and say it at the end of the call.
     
     PREVIOUS CALLERS THIS SHIFT:
     ${callHistoryContext}
