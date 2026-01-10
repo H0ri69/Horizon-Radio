@@ -332,26 +332,26 @@ function getContentPromptForPlan(plan: TransitionPlan, timezone: string, newsHis
   switch (plan.segment) {
     case 'SILENCE':
       return { isLong: false, themePrompt: '' };
-    
+
     case 'SHORT_INTRO':
       return { isLong: false, themePrompt: '' };
-    
+
     case 'LONG_INTRO':
       if (plan.longTheme) {
         return { isLong: true, themePrompt: LONG_INTRO_THEME_PROMPTS[plan.longTheme] };
       }
       return { isLong: true, themePrompt: LONG_INTRO_THEME_PROMPTS.TRIVIA };
-    
+
     case 'WEATHER':
       return { isLong: true, themePrompt: WEATHER_PROMPT(timezone) };
-    
+
     case 'NEWS':
       let newsPrompt = NEWS_PROMPT(timezone);
       if (newsHistory && newsHistory.length > 0) {
         newsPrompt += `\n\nRECENTLY COVERED NEWS (DO NOT REPEAT THESE):\n"""\n${newsHistory.join('\n---\n')}\n"""\n\nCRITICAL INSTRUCTION: You MUST NOT repeat the stories listed above. Find DIFFERENT headlines or newer developments. If the above covered "Tech", focus on "Science" or "World News" this time.`;
       }
       return { isLong: true, themePrompt: newsPrompt };
-    
+
     default:
       return { isLong: false, themePrompt: '' };
   }
@@ -374,7 +374,8 @@ export const generateDJIntro = async (
   debugSettings?: { skipTTS: boolean; verboseLogging: boolean },
   textModelTier: GeminiModelTier = "FLASH",
   ttsModelTier: GeminiModelTier = "FLASH",
-  newsHistory: string[] = []
+  newsHistory: string[] = [],
+  onProgress?: (stage: "WRITING_SCRIPT" | "GENERATING_AUDIO") => void
 ): Promise<{ audio: ArrayBuffer | null; script?: string; prompt?: string }> => {
   // Handle SILENCE - no generation needed
   if (plan.segment === 'SILENCE') {
@@ -440,8 +441,9 @@ export const generateDJIntro = async (
     } else {
       log.log(`🤖 Prompt: (Enable Verbose Logging to see full text)`);
     }
-    
+
     const scriptStartTime = performance.now();
+    if (onProgress) onProgress("WRITING_SCRIPT");
     const script = await generateScript(prompt, textModel);
     const scriptEndTime = performance.now();
     if (!script) return { audio: null };
@@ -449,12 +451,13 @@ export const generateDJIntro = async (
     log.log(`📝 Script: "${script}" (Generated in ${((scriptEndTime - scriptStartTime) / 1000).toFixed(2)}s)`);
 
     if (debugSettings?.skipTTS) return { audio: null, script };
-    
+
     const ttsStartTime = performance.now();
+    if (onProgress) onProgress("GENERATING_AUDIO");
     const audio = await speakText(script, voice, undefined, undefined, undefined, style, ttsModel);
     const ttsEndTime = performance.now();
     log.log(`🔊 TTS Generated in ${((ttsEndTime - ttsStartTime) / 1000).toFixed(2)}s`);
-    
+
     return { audio, script, prompt };
   } catch (e) {
     log.error("Intro generation failed", e);

@@ -169,7 +169,7 @@ if (process.env.TARGET_BROWSER === "firefox") {
 }
 
 // --- TYPES & STATE ---
-type DJState = "IDLE" | "GENERATING" | "READY" | "PLAYING" | "COOLDOWN" | "LIVE_CALL";
+type DJState = "IDLE" | "GENERATING" | "WRITING_SCRIPT" | "GENERATING_AUDIO" | "READY" | "PLAYING" | "COOLDOWN" | "LIVE_CALL";
 
 interface State {
   status: DJState;
@@ -226,6 +226,14 @@ window.addEventListener("HORIS_MANUAL_TRIGGER", () => {
   log.log("⚡ Manual Trigger Event Detected!");
   if (state.status === "IDLE" || state.status === "COOLDOWN") {
     (state as any).forceGenerate = true;
+  }
+});
+
+// --- GENERATION PROGRESS LISTENER ---
+browser.runtime.onMessage.addListener(async (message: any) => {
+  if (message && message.type === "GENERATION_PROGRESS") {
+    log.log(`📈 Generation Progress: ${message.data}`);
+    updateStatus(message.data);
   }
 });
 
@@ -377,7 +385,13 @@ eventBus.on("HORIS_CALL_SUBMITTED", (detail) => {
 });
 
 const broadcastStatusUpdate = () => {
-  window.dispatchEvent(new CustomEvent("HORIS_STATUS_UPDATE", { detail: state.status }));
+  // Send both status and current plan for UI to show "Up Next" info
+  window.dispatchEvent(new CustomEvent("HORIS_STATUS_UPDATE", {
+    detail: {
+      status: state.status,
+      plan: state.currentPlan
+    }
+  }));
 };
 
 const updateStatus = (newStatus: DJState) => {

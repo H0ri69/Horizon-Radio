@@ -17,7 +17,7 @@ interface ExtensionMessage {
 }
 
 // Handler functions that return Promises directly
-async function handleGenerateIntro(data: any) {
+async function handleGenerateIntro(data: any, sender: browser.Runtime.MessageSender) {
   const {
     currentSong,
     nextSong,
@@ -53,7 +53,16 @@ async function handleGenerateIntro(data: any) {
       debugSettings,
       textModel || "FLASH",
       ttsModel || "FLASH",
-      newsHistory || []
+      newsHistory || [],
+      // Progress Callback
+      (stage) => {
+        if (sender.tab?.id) {
+          browser.tabs.sendMessage(sender.tab.id, {
+            type: "GENERATION_PROGRESS",
+            data: stage
+          }).catch(() => { }); // Ignore errors if tab closed
+        }
+      }
     );
 
     if (result.audio) {
@@ -194,7 +203,7 @@ browser.runtime.onMessage.addListener((message: any, _sender: browser.Runtime.Me
       // Keep-alive ping to wake up the background script
       return Promise.resolve({ pong: true, timestamp: Date.now() });
     case "GENERATE_INTRO":
-      return handleGenerateIntro(msg.data);
+      return handleGenerateIntro(msg.data, _sender);
     case "TEST_VOICE":
       return handleTestVoice(msg.data);
     case "CLEAR_VOICE_CACHE":
