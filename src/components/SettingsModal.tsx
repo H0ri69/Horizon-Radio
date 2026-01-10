@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Settings, Radio, Globe, Mic,
   Palette, Zap, Cpu, Key, AlertTriangle,
-  ChevronDown, CheckCircle2, Sliders, Trash2, Search
+  ChevronDown, CheckCircle2, Sliders, Trash2, Search, Shield
 } from "lucide-react";
 import { DJStyle, VOICE_PROFILES, DEFAULT_SCHEDULER_SETTINGS, type SchedulerSettings } from "../config";
 import { VoiceCard } from "./settings/VoiceCard";
@@ -37,6 +37,7 @@ interface Settings {
   };
   textModel: "FLASH" | "PRO";
   ttsModel: "FLASH" | "PRO";
+  protectTransitions?: boolean;
 }
 
 const containerVariants = {
@@ -71,6 +72,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     },
     textModel: "FLASH",
     ttsModel: "FLASH",
+    protectTransitions: true,
   });
   const [status, setStatus] = useState("");
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
@@ -368,7 +370,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 </AnimatePresence>
               </SettingsSection>
 
-              {/* 03 DUAL DJ MODE */}
+              {/* 03 INTERACTIVE SYSTEMS */}
               <SettingsSection icon={Zap} title="Interactive Systems">
                 <SettingsToggle
                   label="Enable Co-Host (Dual DJ)"
@@ -400,6 +402,21 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
             {/* ==================== ADVANCED TAB ==================== */}
             {activeTab === "advanced" && (<>
+
+              {/* Playback Protection */}
+              <SettingsSection icon={Shield} title="Playback Protection">
+                <SettingsToggle
+                  label="Protect DJ Transitions"
+                  description="Prevent seeking into the last 15 seconds of a song"
+                  enabled={settings.protectTransitions ?? true}
+                  onChange={(enabled) => {
+                    saveSettings({ ...settings, protectTransitions: enabled });
+                    // Broadcast to inject.ts
+                    window.dispatchEvent(new CustomEvent("HORIS_SEEK_PROTECTION_TOGGLE", { detail: { enabled } }));
+                  }}
+                  icon={<Shield className="w-6 h-6" />}
+                />
+              </SettingsSection>
 
               {/* Scheduler Settings */}
               <SettingsSection icon={Sliders} title="Scheduler Settings">

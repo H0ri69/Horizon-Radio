@@ -89,6 +89,78 @@ if (process.env.TARGET_BROWSER === "firefox") {
                   }
                } catch(err) { /* ignore */ }
           });
+
+          // --- SEEK PROTECTION (FIREFOX) ---
+          let seekProtectionEnabled = true;
+          const PROTECTED_ZONE_SECONDS = 15;
+
+          window.addEventListener("HORIS_SEEK_PROTECTION_TOGGLE", (e) => {
+              const detail = e.detail;
+              if (typeof detail?.enabled === 'boolean') {
+                  seekProtectionEnabled = detail.enabled;
+              }
+          });
+
+          const getVideoInfo = () => {
+              const video = document.querySelector("video");
+              return { video, duration: video?.duration || 0 };
+          };
+
+          const calculateSeekPosition = (event, progressBar) => {
+              const rect = progressBar.getBoundingClientRect();
+              const clickX = event.clientX - rect.left;
+              const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+              const { duration } = getVideoInfo();
+              if (!duration || duration <= 0) return null;
+              return ratio * duration;
+          };
+
+          const handleSeekAttempt = (event) => {
+              if (!seekProtectionEnabled) return;
+
+              const progressBar = event.target.closest("#progress-bar");
+              if (!progressBar) return;
+
+              const { video, duration } = getVideoInfo();
+              if (!video || !duration || duration <= 0) return;
+
+              const targetPosition = calculateSeekPosition(event, progressBar);
+              if (targetPosition === null) return;
+
+              const safeZoneStart = duration - PROTECTED_ZONE_SECONDS;
+
+              if (duration <= PROTECTED_ZONE_SECONDS) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  event.stopImmediatePropagation();
+                  window.dispatchEvent(new CustomEvent("HORIS_SEEK_BLOCKED", {
+                      detail: { reason: "Song too short", duration, targetPosition }
+                  }));
+                  return;
+              }
+
+              if (targetPosition > safeZoneStart) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  event.stopImmediatePropagation();
+                  video.currentTime = safeZoneStart;
+                  window.dispatchEvent(new CustomEvent("HORIS_SEEK_BLOCKED", {
+                      detail: { reason: "protected_zone", duration, targetPosition, snappedTo: safeZoneStart }
+                  }));
+              }
+          };
+
+          const attachSeekProtection = () => {
+              const progressBar = document.querySelector("#progress-bar");
+              if (!progressBar) {
+                  setTimeout(attachSeekProtection, 2000);
+                  return;
+              }
+              progressBar.addEventListener("mousedown", handleSeekAttempt, { capture: true });
+              progressBar.addEventListener("click", handleSeekAttempt, { capture: true });
+          };
+          
+          setTimeout(attachSeekProtection, 1500);
       })();
     `;
     (document.head || document.documentElement).appendChild(script);
@@ -193,8 +265,98 @@ chrome.storage.local.get(["horisHostId", "horisFmSettings"], (result) => {
       // TODO: Optional UI interaction (Toast notification?)
     });
     // Connect immediately (AudioContext is null initially, but that's fine for control messages)
-    remoteSource.connect(null as any, () => {});
+    remoteSource.connect(null as any, () => { });
   }
+
+  // --- SEEK PROTECTION INIT ---
+  // Broadcast initial setting to inject.ts
+  const protectTransitions = settings.protectTransitions ?? true;
+  setTimeout(() => {
+    window.dispatchEvent(new CustomEvent("HORIS_SEEK_PROTECTION_TOGGLE", {
+      detail: { enabled: protectTransitions }
+    }));
+  }, 2000); // Delay to ensure inject.ts is ready
+});
+
+// --- SEEK BLOCKED TOAST LISTENER ---
+let toastTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const showSeekBlockedToast = () => {
+  // Remove existing toast if any
+  const existingToast = document.getElementById("horis-seek-toast");
+  if (existingToast) existingToast.remove();
+  if (toastTimeout) clearTimeout(toastTimeout);
+
+  // Create toast element with theme-aware styling
+  const toast = document.createElement("div");
+  toast.id = "horis-seek-toast";
+  toast.innerHTML = `
+    <div class="horis-seek-toast-inner">
+      <span style="font-size: 18px;">🛡️</span>
+      <span>Transition zone protected</span>
+      <span style="opacity: 0.7; font-weight: 400;">• Disable in settings</span>
+    </div>
+    <style>
+      .horis-seek-toast-inner {
+        position: fixed;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        /* Default: Standard theme (indigo gradient) */
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.95), rgba(139, 92, 246, 0.95));
+        color: white;
+        padding: 14px 24px;
+        border-radius: 16px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        box-shadow: 0 8px 32px rgba(99, 102, 241, 0.4), 0 0 0 1px rgba(255,255,255,0.1);
+        z-index: 999999;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        animation: horis-toast-in 0.3s ease-out;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+      
+      /* Apple Music theme: use palette-based colors */
+      [data-theme="Apple Music"] .horis-seek-toast-inner,
+      html[data-theme="Apple Music"] .horis-seek-toast-inner {
+        background: linear-gradient(
+          135deg, 
+          oklch(var(--ts-palette-dominant-l, 0.5) calc(var(--ts-palette-dominant-c, 0.15) * 0.8) var(--ts-palette-dominant-h, 270) / 0.9),
+          oklch(calc(var(--ts-palette-dominant-l, 0.5) * 0.8) calc(var(--ts-palette-dominant-c, 0.15) * 0.6) var(--ts-palette-dominant-h, 270) / 0.9)
+        );
+        box-shadow: 0 8px 32px oklch(var(--ts-palette-dominant-l, 0.5) var(--ts-palette-dominant-c, 0.15) var(--ts-palette-dominant-h, 270) / 0.4), 
+                    0 0 0 1px rgba(255,255,255,0.15);
+      }
+      
+      @keyframes horis-toast-in {
+        from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+        to { opacity: 1; transform: translateX(-50%) translateY(0); }
+      }
+      @keyframes horis-toast-out {
+        from { opacity: 1; transform: translateX(-50%) translateY(0); }
+        to { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      }
+    </style>
+  `;
+  document.body.appendChild(toast);
+
+  // Auto-remove after 3 seconds
+  toastTimeout = setTimeout(() => {
+    const toastEl = document.getElementById("horis-seek-toast");
+    if (toastEl) {
+      const inner = toastEl.querySelector(".horis-seek-toast-inner") as HTMLElement;
+      if (inner) inner.style.animation = "horis-toast-out 0.3s ease-out forwards";
+      setTimeout(() => toastEl.remove(), 300);
+    }
+  }, 3000);
+};
+
+window.addEventListener("HORIS_SEEK_BLOCKED", (e: any) => {
+  showSeekBlockedToast();
 });
 
 // --- EVENT BUS LISTENER ---
@@ -430,7 +592,7 @@ class WebAudioDucker {
   private isDucked: boolean = false;
   private targetGainWhileDucked: number = AUDIO.DUCK_GAIN;
 
-  constructor() {}
+  constructor() { }
 
   /**
    * Initialize or reinitialize the audio routing.
@@ -787,8 +949,8 @@ const startLiveCall = async () => {
         dualDjMode: settings.dualDjMode || false,
         secondaryPersonaName: settings.dualDjMode
           ? DJ_PERSONA_NAMES[settings.secondaryDjVoice as DJVoice]?.[
-              settings.language as AppLanguage
-            ] || "Partner"
+          settings.language as AppLanguage
+          ] || "Partner"
           : undefined,
         onStatusChange: (s) => log.log(`[LiveCall] ${s}`),
         onUnrecoverableError: () => {
@@ -1087,8 +1249,7 @@ const mainLoop = setInterval(() => {
         logSchedulerDecision(plan, state.scheduler);
 
         log.log(
-          `✨ Generation started (Text: ${settings.textModel || "FLASH"}, TTS: ${
-            settings.ttsModel || "FLASH"
+          `✨ Generation started (Text: ${settings.textModel || "FLASH"}, TTS: ${settings.ttsModel || "FLASH"
           })`
         );
 
