@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Settings, Radio, Globe, Mic,
   Palette, Zap, Cpu, Key, AlertTriangle,
-  ChevronDown, CheckCircle2, Sliders, Trash2, Search, Shield
+  ChevronDown, CheckCircle2, Sliders, Trash2, Search, Shield, RotateCcw
 } from "lucide-react";
 import { DJStyle, VOICE_PROFILES, DEFAULT_SCHEDULER_SETTINGS, type SchedulerSettings } from "../config";
 import { VoiceCard } from "./settings/VoiceCard";
@@ -523,6 +523,16 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                       className="p-5"
                     />
                   </div>
+                </div>
+
+                <div className="mt-6 flex justify-end border-t border-white/5 pt-6">
+                  <button
+                    onClick={() => saveSettings({ ...settings, scheduler: DEFAULT_SCHEDULER_SETTINGS })}
+                    className="flex items-center gap-2 px-5 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl text-sm font-bold text-white/50 hover:text-white transition-all group"
+                  >
+                    <RotateCcw className="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+                    Restore Defaults
+                  </button>
                 </div>
               </SettingsSection>
 
