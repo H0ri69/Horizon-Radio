@@ -50,6 +50,7 @@ export interface AppSettings {
   longMessageProbability: number;
   textModel: GeminiModelTier;
   ttsModel: GeminiModelTier;
+  protectTransitions?: boolean; // Prevent seeking into last 15s of songs
   debug?: {
     enabledThemes: boolean[];      // 6 items, one per theme
     skipTTS: boolean;               // Skip audio generation (text only)

@@ -42,6 +42,10 @@ export const ThemeManager: React.FC<ThemeManagerProps> = ({ theme }) => {
     `;
   }, [theme]);
 
+  React.useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
   if (!css) return null;
 
   return <style id="horis-theme-manager">{css}</style>;
