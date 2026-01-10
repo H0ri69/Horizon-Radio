@@ -34,13 +34,13 @@ import "./index.css"; // Inject Tailwind Styles
 
 // Prevent running in iframes
 if (window !== window.top) {
-  throw new Error("Hori-s.FM: Content script blocked in iframe.");
+  throw new Error("Horizon: Content script blocked in iframe.");
 }
 
 log.log("Content Script Loaded (v2.6 - Clean Logs)");
 
 import { liveCallService } from "./services/liveCallService";
-import { RemoteSocketSource } from "./services/RemoteSocketSource";
+import { RemoteSocketSource } from "./services/remoteSocketSource";
 import { YtmApiService } from "./services/ytmApiService";
 import {
   getPendingDomAction,

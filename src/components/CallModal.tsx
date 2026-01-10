@@ -16,7 +16,7 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import QRCode from "react-qr-code";
-import { RemoteSocketSource } from "../services/RemoteSocketSource";
+import { RemoteSocketSource } from "../services/remoteSocketSource";
 import { SongSearchService } from "../services/songSearchService";
 import { logger } from "@/utils/Logger";
 

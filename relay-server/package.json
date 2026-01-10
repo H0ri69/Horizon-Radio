@@ -1,7 +1,7 @@
 {
-  "name": "horis-relay-server",
+  "name": "horizon-relay-server",
   "version": "1.0.0",
-  "description": "WebSocket relay server for Hori-s.FM Remote Live Calls",
+  "description": "WebSocket relay server for Horizon Remote Live Calls",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
