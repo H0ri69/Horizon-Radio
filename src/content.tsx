@@ -3,9 +3,23 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { InjectedApp } from "./components/InjectedApp";
 import { Song, DJVoice, AppLanguage } from "./types";
-import { DJStyle, DJ_PERSONA_NAMES, TIMING, AUDIO } from "./config";
+import { DJStyle, DJ_PERSONA_NAMES, TIMING, AUDIO, DEFAULT_SCHEDULER_SETTINGS } from "./config";
+import type { SchedulerState, TransitionPlan, SchedulerSettings } from "./config";
 import { eventBus } from "./services/eventBus";
 import { logger } from "./utils/Logger";
+import { 
+  decideTransition, 
+  updateStateAfterTransition, 
+  createInitialState, 
+  logSchedulerDecision,
+  logSchedulerConfig
+} from "./services/schedulerService";
+import {
+  getSweeperPaths,
+  hasSweeperPaths,
+  playSweeperWithGap,
+  initializeSweeperPaths
+} from "./services/sweeperService";
 import "./index.css"; // Inject Tailwind Styles
 
 // Prevent running in iframes
@@ -77,20 +91,18 @@ interface State {
   generatedForSig: string | null; // CONTEXT VALIDATION
   lastTime: number;
   lastSongChangeTs: number;
-  recentThemeIndices: number[]; // Track last 2 theme indices
-  themeUsageHistory: Record<number, number>; // themeIndex -> timestamp
+  scheduler: SchedulerState; // Scheduler state for tracking cooldowns etc.
+  currentPlan: TransitionPlan | null; // Current transition plan for playback
+  currentSweeperIndex: number | null; // Index of scheduled sweeper for state update
   pendingCall: { name: string; message: string; song: any; inputSource?: any } | null;
 }
 
 // --- INITIAL LOAD ---
-browser.storage.local.get(["recentThemes", "themeUsageHistory"]).then((result) => {
-  if (Array.isArray(result.recentThemes)) {
-    state.recentThemeIndices = result.recentThemes as number[];
-  }
-  if (result.themeUsageHistory) {
-    state.themeUsageHistory = result.themeUsageHistory as Record<number, number>;
-  }
-});
+// Initialize sweeper paths at load time
+initializeSweeperPaths();
+
+// Log scheduler config for debugging
+logSchedulerConfig();
 
 // --- PENDING DOM ACTION HANDLER ---
 // Check if there's a pending action from searchAndPlayNext() that navigated to this page
@@ -204,8 +216,9 @@ let state: State = {
   generatedForSig: null,
   lastTime: 0,
   lastSongChangeTs: 0,
-  recentThemeIndices: [],
-  themeUsageHistory: {},
+  scheduler: createInitialState(),
+  currentPlan: null,
+  currentSweeperIndex: null,
   pendingCall: null,
 };
 
@@ -559,10 +572,26 @@ const playBufferedAudio = async () => {
     updateStatus("IDLE");
     state.bufferedAudio = null;
     state.generatedForSig = null;
+    state.currentPlan = null;
+    state.currentSweeperIndex = null;
     return;
   }
 
   updateStatus("PLAYING");
+
+  // Duck music BEFORE sweeper plays (both sweeper and DJ play over ducked music)
+  ducker.duck(TIMING.DUCK_DURATION);
+
+  // Play sweeper first if scheduled in the plan
+  if (state.currentPlan?.sweeper) {
+    try {
+      console.log('[Hori-s] 🔊 Playing sweeper before DJ audio');
+      await playSweeperWithGap(state.currentPlan.sweeper);
+    } catch (e) {
+      console.error('[Hori-s] Sweeper playback failed:', e);
+    }
+  }
+
   const url = `data:audio/wav;base64,${state.bufferedAudio}`;
   audioEl.src = url;
   audioEl.volume = AUDIO.FULL_GAIN;
@@ -576,7 +605,7 @@ const playBufferedAudio = async () => {
   const isLongMessage = djDuration > TIMING.MUSIC_STOP_THRESHOLD;
 
   if (isLongMessage) {
-    ducker.duck(TIMING.DUCK_DURATION);
+    // Music already ducked above, just handle pause/resume timing
     const freshTime = getScrapedTime();
     let musicPauseDelay: number = TIMING.DUCK_DURATION;
     if (freshTime) {
@@ -598,9 +627,8 @@ const playBufferedAudio = async () => {
         if (video) video.play();
       }
     }, resumeDelay);
-  } else {
-    ducker.duck(TIMING.DUCK_DURATION);
   }
+  // For short messages, music is already ducked above
 
   try {
     await audioEl.play();
@@ -614,8 +642,16 @@ const playBufferedAudio = async () => {
 
   audioEl.onended = () => {
     ducker.unduck(TIMING.UNDUCK_DURATION);
+    
+    // Update scheduler state NOW (at playback time, not generation time)
+    if (state.currentPlan) {
+      state.scheduler = updateStateAfterTransition(state.scheduler, state.currentPlan, state.currentSweeperIndex);
+    }
+    
     updateStatus("COOLDOWN");
     state.bufferedAudio = null;
+    state.currentPlan = null;
+    state.currentSweeperIndex = null;
     setTimeout(() => {
       if (state.status === "COOLDOWN") updateStatus("IDLE");
     }, TIMING.COOLDOWN_PERIOD);
@@ -951,18 +987,59 @@ const mainLoop = setInterval(() => {
       updateStatus("GENERATING");
       state.generatedForSig = sig;
 
-      browser.storage.local.get(["horisFmSettings"]).then((result) => {
+      browser.storage.local.get(["horisFmSettings"]).then(async (result) => {
         const settings = (result as any).horisFmSettings || { enabled: true, djVoice: "sadachbia" };
-        console.log(`[Hori-s] ✨ Generation started (Text: ${settings.textModel || "FLASH"}, TTS: ${settings.ttsModel || "FLASH"})`);
-
+        
         if (settings.debug?.triggerPoint) (state as any).debugTriggerPoint = settings.debug.triggerPoint;
         if (!settings.enabled) {
           updateStatus("COOLDOWN");
           return;
         }
 
-        const prob = settings.longMessageProbability ?? 0.5;
-        const isLong = Math.random() < prob;
+        // Get sweeper paths for current language
+        const language = (settings.language || "en") as AppLanguage;
+        let sweeperPaths: string[] = [];
+        try {
+          if (hasSweeperPaths(language)) {
+            sweeperPaths = getSweeperPaths(language);
+          }
+        } catch (e) {
+          console.warn('[Hori-s] No sweepers available for language:', language);
+        }
+
+        // Get scheduler settings from storage (with defaults)
+        const schedulerSettings: SchedulerSettings = settings.scheduler || DEFAULT_SCHEDULER_SETTINGS;
+
+        // Use scheduler to decide what to play
+        const plan = decideTransition(state.scheduler, sweeperPaths, schedulerSettings);
+        state.currentPlan = plan;
+        state.currentSweeperIndex = plan.sweeper ? sweeperPaths.indexOf(plan.sweeper) : null;
+        logSchedulerDecision(plan, state.scheduler);
+
+        console.log(`[Hori-s] ✨ Generation started (Text: ${settings.textModel || "FLASH"}, TTS: ${settings.ttsModel || "FLASH"})`);
+
+        // Handle SILENCE segment - no generation needed
+        if (plan.segment === 'SILENCE') {
+          console.log('[Hori-s] 🔇 Segment is SILENCE - skipping generation');
+          // Still play sweeper if scheduled (with ducking!)
+          if (plan.sweeper) {
+            try {
+              ducker.duck(TIMING.DUCK_DURATION);
+              await playSweeperWithGap(plan.sweeper);
+              ducker.unduck(TIMING.UNDUCK_DURATION);
+            } catch (e) {
+              console.error('[Hori-s] Sweeper playback failed:', e);
+              ducker.unduck(TIMING.UNDUCK_DURATION); // Unduck on error
+            }
+          }
+          // Update scheduler state (SILENCE is handled immediately, not at playback)
+          state.scheduler = updateStateAfterTransition(state.scheduler, plan, state.currentSweeperIndex);
+          updateStatus("COOLDOWN");
+          setTimeout(() => {
+            if (state.status === "COOLDOWN") updateStatus("IDLE");
+          }, TIMING.COOLDOWN_PERIOD);
+          return;
+        }
 
         try {
           browser.runtime.sendMessage({
@@ -974,6 +1051,7 @@ const mainLoop = setInterval(() => {
                 artist: next.artist || "Unknown",
                 id: "ytm-next",
               },
+              plan,
               playlistContext,
               style: settings.djStyle || "STANDARD",
               voice: settings.djVoice,
@@ -981,9 +1059,6 @@ const mainLoop = setInterval(() => {
               customPrompt: settings.customStylePrompt,
               dualDjMode: settings.dualDjMode,
               secondaryVoice: settings.secondaryDjVoice,
-              isLongMessage: isLong,
-              recentThemeIndices: state.recentThemeIndices,
-              themeUsageHistory: state.themeUsageHistory,
               debugSettings: settings.debug,
               textModel: settings.textModel,
               ttsModel: settings.ttsModel,
@@ -993,15 +1068,7 @@ const mainLoop = setInterval(() => {
 
             if (response && response.audio) {
               state.bufferedAudio = response.audio;
-
-              if (response.themeIndex !== null && typeof response.themeIndex === "number") {
-                state.recentThemeIndices = [response.themeIndex, ...state.recentThemeIndices].slice(0, 2);
-                state.themeUsageHistory[response.themeIndex] = Date.now();
-                browser.storage.local.set({
-                  recentThemes: state.recentThemeIndices,
-                  themeUsageHistory: state.themeUsageHistory
-                });
-              }
+              // Note: Scheduler state is updated at playback time in audioEl.onended
 
               if (response.script) {
                 console.log(`[Hori-s] 🤖 Script: "${response.script}"`);

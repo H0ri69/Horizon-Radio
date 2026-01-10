@@ -2,6 +2,7 @@ import { HarmBlockThreshold, HarmCategory, SafetySetting } from "@google/genai";
 import { AppSettings } from "../types";
 export * from "./constants";
 export * from "./prompts";
+export * from "./scheduler";
 import { AppLanguage, DJVoice, VoiceProfile } from "../types";
 import { COLORS, DJStyle } from "./constants";
 

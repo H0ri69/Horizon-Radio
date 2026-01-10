@@ -4,23 +4,25 @@ import { Song, DJVoice, AppLanguage } from "../types";
 import {
   GEMINI_CONFIG,
   DJ_STYLE_PROMPTS,
-  DJ_STYLE_TTS_SYSTEM_PROMPTS,
   getLanguageInstruction,
   LENGTH_CONSTRAINT,
-  DJ_PERSONA_NAMES,
   TTS_DUAL_DJ_DIRECTION,
   DEFAULT_DJ_STYLE,
   DJStyle,
   getMarkupTagGuidance,
   lowestSafetySettings,
   MODEL_MAPPING,
-  TIMING,
   AUDIO,
   VOICE_PROFILES,
-  LONG_MESSAGE_THEMES,
   SHORT_MESSAGE_INSTRUCTION,
   generateDjIntroPrompt,
-  MINIMAL_MARKUP_GUIDANCE
+  MINIMAL_MARKUP_GUIDANCE,
+  // Scheduler types
+  type TransitionPlan,
+  type DJSegmentType,
+  LONG_INTRO_THEME_PROMPTS,
+  WEATHER_PROMPT,
+  NEWS_PROMPT,
 } from "../config";
 import { GeminiModelTier } from "../types";
 
@@ -319,64 +321,73 @@ const getTimeOfDay = (): { context: string; greeting: string } => {
   return { context: "Late Night", greeting: "Hey night owls" };
 };
 
-const selectTheme = (
-  recentIndices: number[],
-  enabledThemes: boolean[],
-  forceTheme: number | null,
-  verboseLogging: boolean,
-  themeUsageHistory: Record<number, number> = {}
-): { index: number; theme: string } => {
-  if (forceTheme !== null && forceTheme >= 0 && forceTheme < LONG_MESSAGE_THEMES.length) {
-    return { index: forceTheme, theme: LONG_MESSAGE_THEMES[forceTheme] };
+/**
+ * Get the theme/content prompt based on the transition plan
+ */
+function getContentPromptForPlan(plan: TransitionPlan, timezone: string): { isLong: boolean; themePrompt: string } {
+  switch (plan.segment) {
+    case 'SILENCE':
+      return { isLong: false, themePrompt: '' };
+    
+    case 'SHORT_INTRO':
+      return { isLong: false, themePrompt: '' };
+    
+    case 'LONG_INTRO':
+      if (plan.longTheme) {
+        return { isLong: true, themePrompt: LONG_INTRO_THEME_PROMPTS[plan.longTheme] };
+      }
+      return { isLong: true, themePrompt: LONG_INTRO_THEME_PROMPTS.TRIVIA };
+    
+    case 'WEATHER':
+      return { isLong: true, themePrompt: WEATHER_PROMPT(timezone) };
+    
+    case 'NEWS':
+      return { isLong: true, themePrompt: NEWS_PROMPT(timezone) };
+    
+    default:
+      return { isLong: false, themePrompt: '' };
   }
-  const COOLDOWN_MS = TIMING.THEME_COOLDOWN;
-  const now = Date.now();
-  let availableIndices = LONG_MESSAGE_THEMES.map((_, i) => i).filter(i => {
-    if (recentIndices.includes(i)) return false;
-    if (!enabledThemes[i]) return false;
-    if (i === 4 || i === 5) {
-      if (now - (themeUsageHistory[i] || 0) < COOLDOWN_MS) return false;
-    }
-    return true;
-  });
-  if (availableIndices.length === 0) {
-    availableIndices = enabledThemes.map((enabled, i) => enabled ? i : -1).filter(i => i !== -1);
-  }
-  if (availableIndices.length === 0) return { index: 0, theme: LONG_MESSAGE_THEMES[0] };
-  const index = availableIndices[Math.floor(Math.random() * availableIndices.length)];
-  return { index, theme: LONG_MESSAGE_THEMES[index] };
-};
+}
 
+/**
+ * Generate DJ intro audio based on a TransitionPlan from the scheduler
+ */
 export const generateDJIntro = async (
   currentSong: Song,
   nextSong: Song | null,
+  plan: TransitionPlan,
   style: DJStyle,
   voice: DJVoice,
   language: AppLanguage,
   customPrompt?: string,
   playlistContext: string[] = [],
-  history: string[] = [],
   dualDjMode: boolean = false,
   secondaryVoice: DJVoice = "Puck",
-  isLongMessage: boolean = false,
-  recentThemeIndices: number[] = [],
-  debugSettings?: { enabledThemes: boolean[]; skipTTS: boolean; forceTheme: number | null; verboseLogging: boolean; },
-  themeUsageHistory: Record<number, number> = {},
+  debugSettings?: { skipTTS: boolean; verboseLogging: boolean },
   textModelTier: GeminiModelTier = "FLASH",
   ttsModelTier: GeminiModelTier = "FLASH"
-): Promise<{ audio: ArrayBuffer | null; themeIndex: number | null; script?: string; prompt?: string }> => {
+): Promise<{ audio: ArrayBuffer | null; script?: string; prompt?: string }> => {
+  // Handle SILENCE - no generation needed
+  if (plan.segment === 'SILENCE') {
+    console.log('[Hori-s] 🔇 Segment is SILENCE - skipping generation');
+    return { audio: null };
+  }
+
   try {
     const langInstruction = getLanguageInstruction(language);
     const timeString = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
     const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Unknown Location";
     const { context } = getTimeOfDay();
 
+    // Get content details from the plan
+    const { isLong, themePrompt } = getContentPromptForPlan(plan, userTimezone);
+
     const textModel = MODEL_MAPPING.TEXT[textModelTier] || DEFAULT_TEXT_MODEL;
     const ttsModelTierToUse = ttsModelTier || "FLASH";
     const ttsModel = MODEL_MAPPING.TTS[ttsModelTierToUse] || DEFAULT_TTS_MODEL;
-    const dynamicMarkupGuidance = isLongMessage ? getMarkupTagGuidance(ttsModelTierToUse) : MINIMAL_MARKUP_GUIDANCE;
+    const dynamicMarkupGuidance = isLong ? getMarkupTagGuidance(ttsModelTierToUse) : MINIMAL_MARKUP_GUIDANCE;
 
-    console.log(`[Hori-s] 🧠 Models: Text=${textModel}, TTS=${ttsModel} | Type: ${isLongMessage ? "LONG" : "SHORT"}`);
+    console.log(`[Hori-s] 🧠 Models: Text=${textModel}, TTS=${ttsModel} | Segment: ${plan.segment}${plan.longTheme ? ` (${plan.longTheme})` : ''}`);
 
     let styleInstruction = "";
     if (style === DJStyle.CUSTOM) {
@@ -388,7 +399,6 @@ export const generateDJIntro = async (
 
     const playlistBlock = playlistContext.length > 0 ? `PLAYLIST CONTEXT: \n${playlistContext.join("\n")}` : "";
 
-    let selectedThemeIndex: number | null = null;
     const host1Profile = VOICE_PROFILES.find(p => p.id === voice);
     const host2Profile = secondaryVoice ? VOICE_PROFILES.find(p => p.id === secondaryVoice) : null;
 
@@ -397,22 +407,14 @@ export const generateDJIntro = async (
     const host1Gender = host1Profile?.gender || "Male";
     const host2Gender = host2Profile?.gender || "Male";
 
-    let longMessageTheme = "";
-    if (isLongMessage) {
-      const themeSelection = selectTheme(recentThemeIndices, debugSettings?.enabledThemes || [true, true, true, true, true, true], debugSettings?.forceTheme ?? null, debugSettings?.verboseLogging || false, themeUsageHistory);
-      selectedThemeIndex = themeSelection.index;
-      longMessageTheme = themeSelection.theme.replaceAll("${location}", userTimezone);
-    }
-
-
     const prompt = generateDjIntroPrompt(
       host1Name,
       host1Gender,
       currentSong.title,
       nextSong?.title || "Next Song",
       styleInstruction,
-      isLongMessage,
-      longMessageTheme,
+      isLong,
+      themePrompt,
       playlistBlock,
       dynamicMarkupGuidance,
       langInstruction,
@@ -424,28 +426,30 @@ export const generateDJIntro = async (
       nextSong ? { requestedBy: nextSong.requestedBy, requestMessage: nextSong.requestMessage, title: nextSong.title } : undefined
     );
 
-
     if (debugSettings?.verboseLogging) {
       console.log(`[Hori-s] 🤖 Prompt: ${prompt}`);
     } else {
       console.log(`[Hori-s] 🤖 Prompt: (Enable Verbose Logging to see full text)`);
     }
+    
     const scriptStartTime = performance.now();
     const script = await generateScript(prompt, textModel);
     const scriptEndTime = performance.now();
-    if (!script) return { audio: null, themeIndex: null };
+    if (!script) return { audio: null };
 
     console.log(`[Hori-s] 📝 Script: "${script}" (Generated in ${((scriptEndTime - scriptStartTime) / 1000).toFixed(2)}s)`);
 
-    if (debugSettings?.skipTTS) return { audio: null, themeIndex: selectedThemeIndex, script };
+    if (debugSettings?.skipTTS) return { audio: null, script };
+    
     const ttsStartTime = performance.now();
     const audio = await speakText(script, voice, undefined, undefined, undefined, style, ttsModel);
     const ttsEndTime = performance.now();
     console.log(`[Hori-s] 🔊 TTS Generated in ${((ttsEndTime - ttsStartTime) / 1000).toFixed(2)}s`);
-    return { audio, themeIndex: selectedThemeIndex, script, prompt };
+    
+    return { audio, script, prompt };
   } catch (e) {
     console.error("[Hori-s] Intro generation failed", e);
-    return { audio: null, themeIndex: null };
+    return { audio: null };
   }
 };
 
