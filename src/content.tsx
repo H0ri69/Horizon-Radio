@@ -7,10 +7,10 @@ import { DJStyle, DJ_PERSONA_NAMES, TIMING, AUDIO, DEFAULT_SCHEDULER_SETTINGS } 
 import type { SchedulerState, TransitionPlan, SchedulerSettings } from "./config";
 import { eventBus } from "./services/eventBus";
 import { logger } from "./utils/Logger";
-import { 
-  decideTransition, 
-  updateStateAfterTransition, 
-  createInitialState, 
+import {
+  decideTransition,
+  updateStateAfterTransition,
+  createInitialState,
   logSchedulerDecision,
   logSchedulerConfig
 } from "./services/schedulerService";
@@ -33,6 +33,7 @@ import { liveCallService } from "./services/liveCallService";
 import { RemoteSocketSource } from "./services/RemoteSocketSource";
 import { YtmApiService } from "./services/ytmApiService";
 import { getPendingDomAction, clearPendingDomAction, playFirstResultNext } from "./utils/ytmDomUtils";
+import { sendMessageWithRetry } from "./utils/messaging";
 
 // --- YTM INJECTION BRIDGE (FALLBACK FOR FIREFOX) ---
 // Note: In Chrome (MV3), we use world: "MAIN" in manifest.json for src/inject.ts 
@@ -567,7 +568,12 @@ if (document.readyState === "loading") {
 }
 
 const playBufferedAudio = async () => {
-  if (!state.bufferedAudio) return;
+  const hasDjAudio = !!state.bufferedAudio;
+  const hasSweeper = !!state.currentPlan?.sweeper;
+
+  // Need either DJ audio or sweeper to proceed
+  if (!hasDjAudio && !hasSweeper) return;
+
   if (state.generatedForSig !== state.currentSongSig) {
     updateStatus("IDLE");
     state.bufferedAudio = null;
@@ -583,15 +589,34 @@ const playBufferedAudio = async () => {
   ducker.duck(TIMING.DUCK_DURATION);
 
   // Play sweeper first if scheduled in the plan
-  if (state.currentPlan?.sweeper) {
+  if (hasSweeper) {
     try {
-      console.log('[Hori-s] 🔊 Playing sweeper before DJ audio');
-      await playSweeperWithGap(state.currentPlan.sweeper);
+      console.log('[Hori-s] 🔊 Playing sweeper' + (hasDjAudio ? ' before DJ audio' : ' (SILENCE segment)'));
+      await playSweeperWithGap(state.currentPlan!.sweeper!);
     } catch (e) {
       console.error('[Hori-s] Sweeper playback failed:', e);
     }
   }
 
+  // If sweeper-only (SILENCE segment), finish up here
+  if (!hasDjAudio) {
+    ducker.unduck(TIMING.UNDUCK_DURATION);
+
+    // Update scheduler state
+    if (state.currentPlan) {
+      state.scheduler = updateStateAfterTransition(state.scheduler, state.currentPlan, state.currentSweeperIndex);
+    }
+
+    updateStatus("COOLDOWN");
+    state.currentPlan = null;
+    state.currentSweeperIndex = null;
+    setTimeout(() => {
+      if (state.status === "COOLDOWN") updateStatus("IDLE");
+    }, TIMING.COOLDOWN_PERIOD);
+    return;
+  }
+
+  // DJ audio playback
   const url = `data:audio/wav;base64,${state.bufferedAudio}`;
   audioEl.src = url;
   audioEl.volume = AUDIO.FULL_GAIN;
@@ -635,6 +660,12 @@ const playBufferedAudio = async () => {
   } catch (e) {
     console.error("[Hori-s] Playback failed:", e);
     ducker.unduck(TIMING.SONG_CHECK_INTERVAL);
+    // Clean up scheduler state on failure
+    if (state.currentPlan) {
+      state.scheduler = updateStateAfterTransition(state.scheduler, state.currentPlan, state.currentSweeperIndex);
+    }
+    state.currentPlan = null;
+    state.currentSweeperIndex = null;
     updateStatus("IDLE");
     const video = getMoviePlayer();
     if (video && isLongMessage) video.play();
@@ -642,12 +673,12 @@ const playBufferedAudio = async () => {
 
   audioEl.onended = () => {
     ducker.unduck(TIMING.UNDUCK_DURATION);
-    
+
     // Update scheduler state NOW (at playback time, not generation time)
     if (state.currentPlan) {
       state.scheduler = updateStateAfterTransition(state.scheduler, state.currentPlan, state.currentSweeperIndex);
     }
-    
+
     updateStatus("COOLDOWN");
     state.bufferedAudio = null;
     state.currentPlan = null;
@@ -953,6 +984,8 @@ const mainLoop = setInterval(() => {
     updateStatus("IDLE");
     state.bufferedAudio = null;
     state.generatedForSig = null;
+    state.currentPlan = null;
+    state.currentSweeperIndex = null;
     state.lastSongChangeTs = Date.now();
 
     // Ensure ducker reconnects to any new video element to prevent volume spikes
@@ -989,7 +1022,7 @@ const mainLoop = setInterval(() => {
 
       browser.storage.local.get(["horisFmSettings"]).then(async (result) => {
         const settings = (result as any).horisFmSettings || { enabled: true, djVoice: "sadachbia" };
-        
+
         if (settings.debug?.triggerPoint) (state as any).debugTriggerPoint = settings.debug.triggerPoint;
         if (!settings.enabled) {
           updateStatus("COOLDOWN");
@@ -1018,31 +1051,29 @@ const mainLoop = setInterval(() => {
 
         console.log(`[Hori-s] ✨ Generation started (Text: ${settings.textModel || "FLASH"}, TTS: ${settings.ttsModel || "FLASH"})`);
 
-        // Handle SILENCE segment - no generation needed
+        // Handle SILENCE segment - no DJ generation needed, but still need proper timing
         if (plan.segment === 'SILENCE') {
-          console.log('[Hori-s] 🔇 Segment is SILENCE - skipping generation');
-          // Still play sweeper if scheduled (with ducking!)
+          console.log('[Hori-s] 🔇 Segment is SILENCE - skipping DJ generation');
+
           if (plan.sweeper) {
-            try {
-              ducker.duck(TIMING.DUCK_DURATION);
-              await playSweeperWithGap(plan.sweeper);
-              ducker.unduck(TIMING.UNDUCK_DURATION);
-            } catch (e) {
-              console.error('[Hori-s] Sweeper playback failed:', e);
-              ducker.unduck(TIMING.UNDUCK_DURATION); // Unduck on error
-            }
+            // Buffer the plan for sweeper-only playback at the right time
+            // We'll use bufferedAudio = null but currentPlan has the sweeper
+            state.bufferedAudio = null; // No DJ audio
+            updateStatus("READY"); // Wait for timing trigger
+            // The playBufferedAudio function will handle sweeper-only case
+          } else {
+            // No sweeper and no DJ - just update state and go to cooldown
+            state.scheduler = updateStateAfterTransition(state.scheduler, plan, null);
+            updateStatus("COOLDOWN");
+            setTimeout(() => {
+              if (state.status === "COOLDOWN") updateStatus("IDLE");
+            }, TIMING.COOLDOWN_PERIOD);
           }
-          // Update scheduler state (SILENCE is handled immediately, not at playback)
-          state.scheduler = updateStateAfterTransition(state.scheduler, plan, state.currentSweeperIndex);
-          updateStatus("COOLDOWN");
-          setTimeout(() => {
-            if (state.status === "COOLDOWN") updateStatus("IDLE");
-          }, TIMING.COOLDOWN_PERIOD);
           return;
         }
 
         try {
-          browser.runtime.sendMessage({
+          sendMessageWithRetry({
             type: "GENERATE_INTRO",
             data: {
               currentSong: { title: current.title, artist: current.artist, id: "ytm-current" },
@@ -1063,6 +1094,12 @@ const mainLoop = setInterval(() => {
               textModel: settings.textModel,
               ttsModel: settings.ttsModel,
             },
+          }, {
+            maxRetries: 3,
+            retryDelayMs: 300,
+            onRetry: (attempt, error) => {
+              console.warn(`[Hori-s] ⚠️ Background connection failed (attempt ${attempt}/3), retrying...`);
+            }
           }).then((response: any) => {
             if (state.currentSongSig !== sig) return;
 
@@ -1082,7 +1119,7 @@ const mainLoop = setInterval(() => {
               updateStatus("COOLDOWN");
             }
           }).catch((err) => {
-            console.error("[Hori-s] sendMessage error:", err);
+            console.error("[Hori-s] sendMessage error after retries:", err);
             updateStatus("IDLE");
             // Do NOT reset generatedForSig - if it failed, we skip this song to prevent infinite loops
           });
