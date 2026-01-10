@@ -84,6 +84,11 @@ export const TIMING = {
    * CALL_CLEANUP_DELAY: Extra delay after audio queue finishes before cleanup
    */
   CALL_CLEANUP_DELAY: 1000,
+
+  /**
+   * MUSIC_STOP_THRESHOLD: Audio duration (in seconds) above which the music should be paused instead of just ducked.
+   */
+  MUSIC_STOP_THRESHOLD: 15,
 } as const;
 
 // ============================================================================

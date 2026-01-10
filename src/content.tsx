@@ -75,7 +75,6 @@ interface State {
   currentSongSig: string; // ID to track if song changed
   bufferedAudio: string | null; // Base64 audio
   generatedForSig: string | null; // CONTEXT VALIDATION
-  bufferedAudioType: "SHORT" | "LONG"; // New State
   lastTime: number;
   lastSongChangeTs: number;
   recentThemeIndices: number[]; // Track last 2 theme indices
@@ -203,7 +202,6 @@ let state: State = {
   currentSongSig: "",
   bufferedAudio: null,
   generatedForSig: null,
-  bufferedAudioType: "SHORT",
   lastTime: 0,
   lastSongChangeTs: 0,
   recentThemeIndices: [],
@@ -575,7 +573,9 @@ const playBufferedAudio = async () => {
 
   const djDuration = audioEl.duration;
 
-  if (state.bufferedAudioType === "LONG") {
+  const isLongMessage = djDuration > TIMING.MUSIC_STOP_THRESHOLD;
+
+  if (isLongMessage) {
     ducker.duck(TIMING.DUCK_DURATION);
     const freshTime = getScrapedTime();
     let musicPauseDelay: number = TIMING.DUCK_DURATION;
@@ -609,7 +609,7 @@ const playBufferedAudio = async () => {
     ducker.unduck(TIMING.SONG_CHECK_INTERVAL);
     updateStatus("IDLE");
     const video = getMoviePlayer();
-    if (video && state.bufferedAudioType === "LONG") video.play();
+    if (video && isLongMessage) video.play();
   }
 
   audioEl.onended = () => {
@@ -993,7 +993,6 @@ const mainLoop = setInterval(() => {
 
             if (response && response.audio) {
               state.bufferedAudio = response.audio;
-              state.bufferedAudioType = isLong ? "LONG" : "SHORT";
 
               if (response.themeIndex !== null && typeof response.themeIndex === "number") {
                 state.recentThemeIndices = [response.themeIndex, ...state.recentThemeIndices].slice(0, 2);
