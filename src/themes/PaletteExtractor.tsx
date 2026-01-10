@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { Vibrant } from "node-vibrant/browser";
 import Color from "colorjs.io";
 import browser from "webextension-polyfill";
+import { logger } from "@/utils/Logger";
+
+const log = logger.withContext("Palette");
+
 
 interface PaletteColor {
     hex: string;
@@ -75,24 +79,24 @@ export function PaletteExtractor() {
                 ) as HTMLImageElement | null;
 
                 if (!imgElement) {
-                    // console.log("[Palette] Image element not found");
+                    // log.log("Image element not found");
                     return;
                 }
 
                 const imgSrc = imgElement.src;
 
                 if (!isValidImageUrl(imgSrc)) {
-                    if (verbose.current) console.log("[Palette] Invalid image URL:", imgSrc);
+                    if (verbose.current) log.log("Invalid image URL:", imgSrc);
                     return;
                 }
 
                 // Skip if we already extracted from this image
                 if (lastExtractedSrc.current === imgSrc) {
-                    if (verbose.current) console.log("[Palette] Already extracted from this image");
+                    if (verbose.current) log.log("Already extracted from this image");
                     return;
                 }
 
-                if (verbose.current) console.log("[Palette] Extracting colors from:", imgSrc);
+                if (verbose.current) log.log("Extracting colors from:", imgSrc);
 
                 let targetSrc = imgSrc;
                 try {
@@ -103,14 +107,14 @@ export function PaletteExtractor() {
                     }) as { dataUrl?: string; error?: string };
 
                     if (response && response.dataUrl && response.dataUrl.startsWith("data:image/")) {
-                        if (verbose.current) console.log("[Palette] Successfully proxied image via background");
+                        if (verbose.current) log.log("Successfully proxied image via background");
                         targetSrc = response.dataUrl;
                     } else {
-                        if (verbose.current) console.warn("[Palette] Proxy fetch failed or returned non-image:", response?.error);
+                        if (verbose.current) log.warn("Proxy fetch failed or returned non-image:", response?.error);
                         return; // Stop to avoid fallback CORS errors on direct fetch
                     }
                 } catch (proxyErr) {
-                    console.error("[Palette] Failed to communicate with background proxy:", proxyErr);
+                    log.error("Failed to communicate with background proxy:", proxyErr);
                 }
 
                 const vibrantPalette = await Vibrant.from(targetSrc)
@@ -118,7 +122,7 @@ export function PaletteExtractor() {
                     .getPalette();
 
                 if (!vibrantPalette) {
-                    if (verbose.current) console.log("[Palette] No palette extracted");
+                    if (verbose.current) log.log("No palette extracted");
                     return;
                 }
 
@@ -167,13 +171,13 @@ export function PaletteExtractor() {
                     .sort((a, b) => b.pop - a.pop)
                     .map(({ hex, hsl, oklch }) => ({ hex, hsl, oklch }));
 
-                if (verbose.current) console.log("[Palette] Colors extracted:", newPalette.Vibrant.hex);
+                if (verbose.current) log.log("Colors extracted:", newPalette.Vibrant.hex);
                 setState({
                     palette: newPalette,
                     sorted
                 });
             } catch (err) {
-                console.error("[Palette] Error extracting colors:", err);
+                log.error("Error extracting colors:", err);
             }
         };
 
@@ -191,7 +195,7 @@ export function PaletteExtractor() {
                     if (mutation && mutation.attributeName === "src") {
                         const target = mutation.target as HTMLImageElement;
                         if (isValidImageUrl(target.src)) {
-                            if (verbose.current) console.log("[Palette] Song image changed, debouncing extraction...");
+                            if (verbose.current) log.log("Song image changed, debouncing extraction...");
                             clearTimeout(debounceTimer);
                             debounceTimer = setTimeout(getPalette, 400);
                         }
@@ -202,12 +206,13 @@ export function PaletteExtractor() {
                     attributeFilter: ["src"],
                     attributeOldValue: true,
                 });
-                if (verbose.current) console.log("[Palette] Observer attached to:", THUMBNAIL_SELECTOR);
+                if (verbose.current) log.log("Observer attached to:", THUMBNAIL_SELECTOR);
             } else {
                 // Retry if element not found yet
-                // console.log("[Palette] Image not found, retrying...");
+                // log.log("Image not found, retrying...");
                 setTimeout(setupObserver, 2000);
             }
+
         };
 
         setTimeout(setupObserver, 1500);
