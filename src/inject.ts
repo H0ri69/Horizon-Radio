@@ -1,5 +1,8 @@
 import { logger } from "./utils/Logger";
 
+const log = logger.withContext('Inject');
+
+
 (function () {
     function broadcastContext() {
         try {
@@ -13,7 +16,7 @@ import { logger } from "./utils/Logger";
                     })
                 }));
             }
-        } catch (e) { logger.error("Context broadcast failed", e); }
+        } catch (e) { log.error("Context broadcast failed", e); }
     }
 
     // Initial try and retry - increased frequency and range for reliability
@@ -29,12 +32,12 @@ import { logger } from "./utils/Logger";
         let data = e.detail;
         try {
             if (typeof data === 'string') data = JSON.parse(data);
-        } catch (err) { logger.error("Parse error", err); }
+        } catch (err) { log.error("Parse error", err); }
 
         const videoId = data?.videoId;
         if (!videoId) return;
 
-        logger.log("Requesting Play Next for:", videoId);
+        log.log("Requesting Play Next for:", videoId);
 
         try {
             // Method 1: Try accessing the Queue Service via DOM (Fragile)
@@ -43,11 +46,11 @@ import { logger } from "./utils/Logger";
                 queue.dispatch({ type: "ADD", payload: videoId });
             } else {
                 // Method 2: Navigation Fallback (Guaranteed to play)
-                logger.log("Standard queue access failed. Switching to direct navigation.");
+                log.log("Standard queue access failed. Switching to direct navigation.");
                 window.location.href = "/watch?v=" + videoId;
             }
         } catch (err) {
-            logger.error("Play action failed", err);
+            log.error("Play action failed", err);
         }
     });
 })();

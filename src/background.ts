@@ -4,6 +4,10 @@ import { Song, DJVoice } from "./types";
 import { DJStyle, TransitionPlan } from "./config";
 import { EXTENSION_CONFIG } from "./config";
 import { encodeAudio } from "./services/liveAudioUtils";
+import { logger } from "./utils/Logger";
+
+const log = logger.withContext('Background');
+
 
 const MAX_HISTORY = EXTENSION_CONFIG.MAX_HISTORY;
 
@@ -68,7 +72,7 @@ async function handleGenerateIntro(data: any) {
       return { error: "Failed to generate audio" };
     }
   } catch (err: any) {
-    console.error("[Hori-s:Background] ❌ Error:", err);
+    log.error("❌ Error:", err);
     return { error: err.message };
   }
 }
@@ -85,10 +89,10 @@ async function handleTestVoice(data: any) {
   if (cached && cached.timestamp && cached.audio) {
     const age = Date.now() - cached.timestamp;
     if (age < CACHE_EXPIRY_MS) {
-      console.log(`[Hori-s:Background] Using cached voice sample for ${voice}/${language} (age: ${Math.floor(age / (24 * 60 * 60 * 1000))} days)`);
+      log.log(`Using cached voice sample for ${voice}/${language} (age: ${Math.floor(age / (24 * 60 * 60 * 1000))} days)`);
       return { audio: cached.audio, fromCache: true };
     } else {
-      console.log(`[Hori-s:Background] Cache expired for ${voice}/${language}, regenerating...`);
+      log.log(`Cache expired for ${voice}/${language}, regenerating...`);
     }
   }
 
@@ -104,13 +108,13 @@ async function handleTestVoice(data: any) {
           timestamp: Date.now()
         }
       });
-      console.log(`[Hori-s:Background] Cached voice sample for ${voice}/${language}`);
+      log.log(`Cached voice sample for ${voice}/${language}`);
       return { audio: base64, fromCache: false };
     } else {
       return { error: "Failed to generate test audio" };
     }
   } catch (err: any) {
-    console.error("[Hori-s:Background] ❌ Test voice error:", err);
+    log.error("❌ Test voice error:", err);
     return { error: err.message };
   }
 }
@@ -120,7 +124,7 @@ async function handleClearVoiceCache() {
   const keysToRemove = Object.keys(items).filter(key => key.startsWith("voiceTestCache_"));
   if (keysToRemove.length > 0) {
     await browser.storage.local.remove(keysToRemove);
-    console.log(`[Hori-s:Background] Cleared ${keysToRemove.length} voice cache entries`);
+    log.log(`Cleared ${keysToRemove.length} voice cache entries`);
     return { cleared: keysToRemove.length };
   }
   return { cleared: 0 };
@@ -138,7 +142,7 @@ async function handleSearchSongs(data: any) {
     const parsedData = JSON.parse(jsonText);
     return { data: parsedData };
   } catch (err: any) {
-    console.error("Search failed", err);
+    log.error("Search failed", err);
     return { error: err.message };
   }
 }
@@ -150,7 +154,7 @@ async function handleProxyFetchImage(data: any) {
   browser.storage.local.get("horisFmSettings").then((result) => {
     const settings = (result as any).horisFmSettings;
     if (settings?.debug?.verboseLogging) {
-      console.log("[Hori-s:Background] Proxy fetching image:", url);
+      log.log("Proxy fetching image:", url);
     }
   });
 
@@ -173,13 +177,13 @@ async function handleProxyFetchImage(data: any) {
 
     return { dataUrl: `data:${contentType};base64,${base64}` };
   } catch (err: any) {
-    console.error("[Hori-s:Background] ❌ Image proxy fetch failed:", err);
+    log.error("❌ Image proxy fetch failed:", err);
     return { error: err.message };
   }
 }
 
 // Log when background script starts (helps debug Firefox event page issues)
-console.log("[Hori-s:Background] 🚀 Background script started");
+log.log("🚀 Background script started");
 
 // Main message listener - returns Promises directly (cleaner webextension-polyfill pattern)
 browser.runtime.onMessage.addListener((message: any, _sender: browser.Runtime.MessageSender): Promise<any> | false => {
@@ -210,24 +214,24 @@ browser.runtime.onMessage.addListener((message: any, _sender: browser.Runtime.Me
 // Bridges Content Script (Secure Context) <-> Relay Server (Insecure WebSocket)
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name === 'remote-socket-proxy') {
-    console.log('[Background] 🔌 Remote Socket Proxy connected');
+    log.log('🔌 Remote Socket Proxy connected');
 
     let isPortConnected = true;
     let ws: WebSocket | null = null;
     const RELAY_URL = import.meta.env.VITE_RELAY_URL || "ws://127.0.0.1:8765";
-    console.log('[Background] Using Relay URL:', RELAY_URL);
+    log.log('Using Relay URL:', RELAY_URL);
 
     try {
       ws = new WebSocket(RELAY_URL);
       ws.binaryType = 'arraybuffer';
 
       ws.onopen = () => {
-        console.log('[Background] WS Connected to Relay');
+        log.log('WS Connected to Relay');
         if (isPortConnected) {
           try {
             port.postMessage({ type: 'PROXY_STATUS', status: 'OPEN' });
           } catch (e) {
-            console.warn('[Background] Failed to post OPEN status:', e);
+            log.warn('Failed to post OPEN status:', e);
           }
         }
       };
@@ -247,7 +251,7 @@ chrome.runtime.onConnect.addListener((port) => {
             const base64 = arrayBufferToBase64(event.data);
             port.postMessage({ type: 'AUDIO_DATA', data: base64 });
           } catch (e) {
-            console.error('[Background] Failed to forward binary:', e);
+            log.error('Failed to forward binary:', e);
           }
         } else {
           // Forward text 1:1
@@ -255,37 +259,37 @@ chrome.runtime.onConnect.addListener((port) => {
             const msg = JSON.parse(event.data);
             port.postMessage({ type: 'CONTROL_MSG', data: msg });
           } catch (e) {
-            console.warn('[Background] Recv non-JSON text:', event.data);
+            log.warn('Recv non-JSON text:', event.data);
           }
         }
       };
 
       ws.onerror = (e) => {
-        console.error('[Background] WS Error:', e);
+        log.error('WS Error:', e);
         if (isPortConnected) {
           try {
             port.postMessage({ type: 'PROXY_ERROR', error: 'WebSocket Error' });
           } catch (err) {
-            console.warn('[Background] Failed to post ERROR:', err);
+            log.warn('Failed to post ERROR:', err);
           }
         }
       };
 
       ws.onclose = (event) => {
-        console.log('[Background] WS Closed:', event.code);
+        log.log('WS Closed:', event.code);
         if (isPortConnected) {
           try {
             port.postMessage({ type: 'PROXY_STATUS', status: 'CLOSED', code: event.code });
             port.disconnect(); // Close port if WS dies and port is still open
             isPortConnected = false;
           } catch (err) {
-            console.warn('[Background] Failed to post CLOSED status:', err);
+            log.warn('Failed to post CLOSED status:', err);
           }
         }
       };
 
     } catch (e) {
-      console.error('[Background] Failed to create WS:', e);
+      log.error('Failed to create WS:', e);
       if (isPortConnected) {
         try {
           port.disconnect();
@@ -307,7 +311,7 @@ chrome.runtime.onConnect.addListener((port) => {
     });
 
     port.onDisconnect.addListener(() => {
-      console.log('[Background] Proxy Port disconnected. Closing WS.');
+      log.log('Proxy Port disconnected. Closing WS.');
       isPortConnected = false;
       if (ws) ws.close();
     });
