@@ -15,12 +15,12 @@ export default defineConfig(({ mode }) => {
       outDir: browser === 'firefox' ? 'dist/firefox' : 'dist/chrome',
     },
     server: {
-      port: 3000,
+      port: browser === 'firefox' ? 3001 : 3000,
       host: '0.0.0.0',
     },
     plugins: [
       react(),
-      crx({ manifest })
+      crx({ manifest, browser: browser === 'firefox' ? 'firefox' : 'chrome' })
     ],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),

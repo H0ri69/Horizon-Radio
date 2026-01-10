@@ -10,6 +10,7 @@
     "start:extension": "vite",
     "dev": "vite",
     "dev:firefox": "cross-env TARGET_BROWSER=firefox vite",
+    "dev:all": "concurrently \"pnpm dev\" \"pnpm dev:firefox\"",
     "build:chrome": "vite build",
     "build:firefox": "cross-env TARGET_BROWSER=firefox vite build",
     "build": "pnpm build:chrome && pnpm build:firefox",
