@@ -1,10 +1,10 @@
 # GEMINI.md
 
-This file serves as a comprehensive guide for the Gemini agent working on the Hori-s.FM project.
+This file serves as a comprehensive guide for the Gemini agent working on the Horizon project.
 
 ## Project Overview
 
-**Hori-s.FM** is a Chrome Extension that acts as an AI Radio Host/DJ for YouTube Music (`music.youtube.com`). It uses Google's Gemini API to generate context-aware voice introductions for songs, mimicking a real radio experience.
+**Horizon** is a Chrome Extension that acts as an AI Radio Host/DJ for YouTube Music (`music.youtube.com`). It uses Google's Gemini API to generate context-aware voice introductions for songs, mimicking a real radio experience.
 
 **Key Technologies:**
 -   **Frontend:** React, TypeScript, Tailwind CSS, Framer Motion.
