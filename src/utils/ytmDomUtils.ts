@@ -193,3 +193,51 @@ export async function searchAndPlayNext(query: string, waitForResults = 2000): P
         return false;
     }
 }
+
+/** SVG path used by the player toggle button (same for both UP and DOWN states) */
+const PLAYER_TOGGLE_PATH = "M4.135 7a1 1 0 00-.768 1.64L12 19l8.633-10.36A1 1 0 0019.865 7H4.135Z";
+
+/**
+ * Ensures the YouTube Music player is in its maximized (expanded) state.
+ * 
+ * This function checks if the player is currently minimized and clicks
+ * the toggle button to expand it if necessary.
+ * 
+ * @returns true if player is now maximized (or was already), false if toggle failed
+ */
+export function ensurePlayerMaximized(): boolean {
+    try {
+        // 1. Check current state via the player-page-open attribute
+        const playerPage = document.querySelector('ytmusic-player-page');
+        const isMaximized = playerPage?.hasAttribute('player-page-open') ?? false;
+
+        if (isMaximized) {
+            logger.debug("[ytmDomUtils] Player is already maximized. No action needed.");
+            return true;
+        }
+
+        logger.debug("[ytmDomUtils] Player is minimized. Expanding now...");
+
+        // 2. Find the toggle button by matching its SVG path
+        // This is more robust than class names which can change
+        const allPaths = Array.from(document.querySelectorAll('path'));
+        const togglePath = allPaths.find(p =>
+            p.getAttribute('d') === PLAYER_TOGGLE_PATH &&
+            p.closest('.toggle-player-page-button')
+        );
+
+        const toggleButton = togglePath?.closest('.toggle-player-page-button') as HTMLElement | null;
+
+        if (toggleButton) {
+            toggleButton.click();
+            logger.debug("[ytmDomUtils] Player expanded.");
+            return true;
+        } else {
+            logger.error("[ytmDomUtils] Could not find the player toggle button.");
+            return false;
+        }
+    } catch (e) {
+        logger.error("[ytmDomUtils] Unexpected error in ensurePlayerMaximized:", e);
+        return false;
+    }
+}
