@@ -399,7 +399,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     description="Quick 1-2 sentence transitions"
                     value={settings.scheduler?.shortIntroWeight ?? 50}
                     onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), shortIntroWeight: val } })}
-                    min={10}
+                    min={0}
                     max={80}
                     step={5}
                     formatValue={(val) => val.toString()}
@@ -409,7 +409,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     description="Theme-based longer segments (jokes, trivia, stories)"
                     value={settings.scheduler?.longIntroWeight ?? 30}
                     onChange={(val) => saveSettings({ ...settings, scheduler: { ...(settings.scheduler || DEFAULT_SCHEDULER_SETTINGS), longIntroWeight: val } })}
-                    min={10}
+                    min={0}
                     max={60}
                     step={5}
                     formatValue={(val) => val.toString()}

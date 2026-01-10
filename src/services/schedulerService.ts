@@ -153,10 +153,22 @@ function decideSegment(
   now: number,
   settings: SchedulerSettings
 ): { segment: DJSegmentType; longTheme?: LongIntroTheme } {
+  // Filter out any segment with 0 weight (disabled by user)
   const available = getAvailableSegments(state, now, settings);
-  const weights = getSegmentWeights(available, settings);
+  const rawWeights = getSegmentWeights(available, settings);
   
-  const segment = weightedRandomPick(available, weights);
+  const filteredIndices = available.map((_, i) => i)
+    .filter(i => rawWeights[i] > 0);
+    
+  if (filteredIndices.length === 0) {
+    // Everything is disabled or 0 weight -> Fallback to SILENCE (just music)
+    return { segment: 'SILENCE' };
+  }
+  
+  const validSegments = filteredIndices.map(i => available[i]);
+  const validWeights = filteredIndices.map(i => rawWeights[i]);
+  
+  const segment = weightedRandomPick(validSegments, validWeights);
   
   // If LONG_INTRO, also pick a theme
   if (segment === 'LONG_INTRO') {

@@ -48,8 +48,8 @@ export interface SchedulerSettings {
   
   // Segment weights (relative)
   silenceWeight: number;           // 0-30
-  shortIntroWeight: number;        // 10-80
-  longIntroWeight: number;         // 10-60
+  shortIntroWeight: number;        // 0-80
+  longIntroWeight: number;         // 0-60
   weatherWeight: number;           // 1-10
   newsWeight: number;              // 1-10
   
