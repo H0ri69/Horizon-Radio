@@ -2,6 +2,9 @@ import { ILiveInputSource } from './liveCallService';
 import { Blob as GenAIBlob } from '@google/genai';
 import { logger } from "../utils/Logger";
 
+const log = logger.withContext('RemoteSocketSource');
+
+
 // Extension side code doesn't use 'ws' package directly usually (browser native WebSocket), 
 // but for type safety it's fine. We use native WebSocket here.
 
@@ -47,7 +50,7 @@ export class RemoteSocketSource implements ILiveInputSource {
 
     public sendGoLive() {
         if (this.port) {
-            logger.debug('[RemoteSocketSource] Sending GO_LIVE signal via Proxy');
+            log.debug('Sending GO_LIVE signal via Proxy');
             this.port.postMessage({ type: 'SEND_TEXT', payload: { type: 'GO_LIVE' } });
         }
     }
@@ -67,7 +70,7 @@ export class RemoteSocketSource implements ILiveInputSource {
     }
 
     private initProxyConnection() {
-        logger.debug('[RemoteSocketSource] Connecting to Background Proxy...');
+        log.debug('Connecting to Background Proxy...');
         this.emitStatus('CONNECTING_PROXY...');
 
         try {
@@ -78,13 +81,13 @@ export class RemoteSocketSource implements ILiveInputSource {
             });
 
             this.port.onDisconnect.addListener(() => {
-                logger.debug('[RemoteSocketSource] Proxy Port Disconnected');
+                log.debug('Proxy Port Disconnected');
                 this.emitStatus('PROXY_DISCONNECTED');
                 this.port = null;
             });
 
         } catch (e) {
-            logger.error('[RemoteSocketSource] Failed to connect to extension background:', e);
+            log.error('Failed to connect to extension background:', e);
             this.emitStatus('EXTENSION_ERROR');
         }
     }
@@ -93,7 +96,7 @@ export class RemoteSocketSource implements ILiveInputSource {
         switch (msg.type) {
             case 'PROXY_STATUS':
                 if (msg.status === 'OPEN') {
-                    logger.debug('[RemoteSocketSource] Proxy WS Open. Registering Host:', this.hostId);
+                    log.debug('Proxy WS Open. Registering Host:', this.hostId);
                     this.emitStatus('WAITING_FOR_CALL');
                     // Send Register Command
                     this.port?.postMessage({
@@ -101,7 +104,7 @@ export class RemoteSocketSource implements ILiveInputSource {
                         payload: { type: 'REGISTER_HOST', hostId: this.hostId }
                     });
                 } else if (msg.status === 'CLOSED') {
-                    logger.debug('[RemoteSocketSource] Proxy WS Closed. Code:', msg.code);
+                    log.debug('Proxy WS Closed. Code:', msg.code);
                     this.emitStatus('RELAY_DISCONNECTED');
                     // Also trigger disconnect callback to cleanup any active session
                     if (this.onDisconnectCallback) this.onDisconnectCallback();
@@ -124,7 +127,7 @@ export class RemoteSocketSource implements ILiveInputSource {
                 break;
 
             case 'PROXY_ERROR':
-                console.error('[RemoteSocketSource] Proxy reported error:', msg.error);
+                log.error('Proxy reported error:', msg.error);
                 break;
         }
     }
@@ -137,16 +140,16 @@ export class RemoteSocketSource implements ILiveInputSource {
 
     private handleControlMessage(msg: any) {
         if (msg.type === 'GUEST_CONNECTED') {
-            logger.debug('[RemoteSocketSource] Guest Connected:', msg.callerName);
+            log.debug('Guest Connected:', msg.callerName);
             this.emitStatus(`CALLER_CONNECTED:${msg.callerName}`);
         }
         else if (msg.type === 'GUEST_DISCONNECTED') {
-            logger.debug('[RemoteSocketSource] Guest Disconnected');
+            log.debug('Guest Disconnected');
             this.emitStatus('WAITING_FOR_CALL');
             if (this.onDisconnectCallback) this.onDisconnectCallback();
         }
         else if (msg.type === 'CALL_REQUEST') {
-            logger.debug('[RemoteSocketSource] Call Request:', msg);
+            log.debug('Call Request:', msg);
             this.emitCallRequest({ name: msg.name, message: msg.message });
         }
     }
@@ -155,11 +158,11 @@ export class RemoteSocketSource implements ILiveInputSource {
      * Terminate the connection and Notify the remote user (Hang up).
      */
     disconnect(): void {
-        logger.debug("[RemoteSocketSource] disconnect() called (Sending END_CALL)");
+        log.debug("disconnect() called (Sending END_CALL)");
 
         // Notify Relay -> Guest that we hung up
         if (this.port) {
-            logger.debug('[RemoteSocketSource] Sending END_CALL signal');
+            log.debug('Sending END_CALL signal');
             this.port.postMessage({ type: 'SEND_TEXT', payload: { type: 'END_CALL' } });
             // We DO NOT close the port here, because we want to remain online for the next call.
             // this.port.disconnect(); 
@@ -174,7 +177,7 @@ export class RemoteSocketSource implements ILiveInputSource {
      * Use this when transferring the session or just closing the UI.
      */
     detach(): void {
-        logger.debug("[RemoteSocketSource] detach() called (Silent Close)");
+        log.debug("detach() called (Silent Close)");
         if (this.port) {
             this.port.disconnect();
             this.port = null;

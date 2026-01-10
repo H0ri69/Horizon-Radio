@@ -1,5 +1,8 @@
 import { Blob } from '@google/genai';
 import { AUDIO } from '../config';
+import { logger } from '../utils/Logger';
+
+const log = logger.withContext('AudioUtils');
 
 export function decodeAudio(base64: string): Uint8Array {
     const binaryString = atob(base64);

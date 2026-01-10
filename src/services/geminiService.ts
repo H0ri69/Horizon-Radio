@@ -25,6 +25,10 @@ import {
   NEWS_PROMPT,
 } from "../config";
 import { GeminiModelTier } from "../types";
+import { logger } from "../utils/Logger";
+
+const log = logger.withContext('Gemini');
+
 
 const DEFAULT_TEXT_MODEL = MODEL_MAPPING.TEXT.FLASH;
 const DEFAULT_TTS_MODEL = MODEL_MAPPING.TTS.FLASH;
@@ -215,7 +219,7 @@ const generateScript = async (prompt: string, modelOverride?: string): Promise<s
     );
     return response.text || null;
   } catch (e) {
-    console.error("[Hori-s] Script generation failed", e);
+    log.error("Script generation failed", e);
     return null;
   }
 };
@@ -257,7 +261,7 @@ const speakText = async (
         }
         : { voiceConfig: { prebuiltVoiceConfig: { voiceName: host1Profile?.geminiVoiceName || voice } } };
 
-    console.log(`[Hori-s] 🔊 TTS Input: "${finalTextInput}"`);
+    log.debug(`🔊 TTS Input: "${finalTextInput}"`);
     const response = await callWithRetry(
       () =>
         ai.models.generateContent({
@@ -275,7 +279,7 @@ const speakText = async (
     );
     return processAudioResponse(response);
   } catch (e) {
-    console.error("[Hori-s] TTS generation failed", e);
+    log.error("TTS generation failed", e);
     return null;
   }
 };
@@ -308,7 +312,7 @@ export const testVoice = async (voice: DJVoice, language: string): Promise<Array
     );
     return processAudioResponse(response);
   } catch (e) {
-    console.error("[Hori-s] Test voice failed", e);
+    log.error("Test voice failed", e);
     return null;
   }
 };
@@ -374,7 +378,7 @@ export const generateDJIntro = async (
 ): Promise<{ audio: ArrayBuffer | null; script?: string; prompt?: string }> => {
   // Handle SILENCE - no generation needed
   if (plan.segment === 'SILENCE') {
-    console.log('[Hori-s] 🔇 Segment is SILENCE - skipping generation');
+    log.log('🔇 Segment is SILENCE - skipping generation');
     return { audio: null };
   }
 
@@ -392,7 +396,7 @@ export const generateDJIntro = async (
     const ttsModel = MODEL_MAPPING.TTS[ttsModelTierToUse] || DEFAULT_TTS_MODEL;
     const dynamicMarkupGuidance = isLong ? getMarkupTagGuidance(ttsModelTierToUse) : MINIMAL_MARKUP_GUIDANCE;
 
-    console.log(`[Hori-s] 🧠 Models: Text=${textModel}, TTS=${ttsModel} | Segment: ${plan.segment}${plan.longTheme ? ` (${plan.longTheme})` : ''}`);
+    log.log(`🧠 Models: Text=${textModel}, TTS=${ttsModel} | Segment: ${plan.segment}${plan.longTheme ? ` (${plan.longTheme})` : ''}`);
 
     let styleInstruction = "";
     if (style === DJStyle.CUSTOM) {
@@ -432,9 +436,9 @@ export const generateDJIntro = async (
     );
 
     if (debugSettings?.verboseLogging) {
-      console.log(`[Hori-s] 🤖 Prompt: ${prompt}`);
+      log.log(`🤖 Prompt: ${prompt}`);
     } else {
-      console.log(`[Hori-s] 🤖 Prompt: (Enable Verbose Logging to see full text)`);
+      log.log(`🤖 Prompt: (Enable Verbose Logging to see full text)`);
     }
     
     const scriptStartTime = performance.now();
@@ -442,18 +446,18 @@ export const generateDJIntro = async (
     const scriptEndTime = performance.now();
     if (!script) return { audio: null };
 
-    console.log(`[Hori-s] 📝 Script: "${script}" (Generated in ${((scriptEndTime - scriptStartTime) / 1000).toFixed(2)}s)`);
+    log.log(`📝 Script: "${script}" (Generated in ${((scriptEndTime - scriptStartTime) / 1000).toFixed(2)}s)`);
 
     if (debugSettings?.skipTTS) return { audio: null, script };
     
     const ttsStartTime = performance.now();
     const audio = await speakText(script, voice, undefined, undefined, undefined, style, ttsModel);
     const ttsEndTime = performance.now();
-    console.log(`[Hori-s] 🔊 TTS Generated in ${((ttsEndTime - ttsStartTime) / 1000).toFixed(2)}s`);
+    log.log(`🔊 TTS Generated in ${((ttsEndTime - ttsStartTime) / 1000).toFixed(2)}s`);
     
     return { audio, script, prompt };
   } catch (e) {
-    console.error("[Hori-s] Intro generation failed", e);
+    log.error("Intro generation failed", e);
     return { audio: null };
   }
 };

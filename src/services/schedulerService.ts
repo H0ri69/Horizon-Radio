@@ -15,6 +15,10 @@ import {
   type SchedulerState,
   type SchedulerSettings,
 } from '../config/scheduler';
+import { logger } from '../utils/Logger';
+
+const log = logger.withContext('Scheduler');
+
 
 // =============================================================================
 // UTILITY FUNCTIONS
@@ -82,7 +86,7 @@ function decideSweeper(
   
   // No sweepers available
   if (sweeperPaths.length === 0) {
-    console.error('[Scheduler] No sweepers available for language!');
+    log.error('No sweepers available for language!');
     return { sweeper: null, sweeperIndex: null };
   }
   
@@ -293,7 +297,7 @@ export function createInitialState(): SchedulerState {
  * Log the scheduler configuration at startup
  */
 export function logSchedulerConfig(settings: SchedulerSettings = DEFAULT_SCHEDULER_SETTINGS): void {
-  console.log(`
+  log.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║             🎙️ SCHEDULER CONFIG DEFAULTS                      ║
 ╠═══════════════════════════════════════════════════════════════╣
@@ -336,7 +340,7 @@ export function logSchedulerDecision(plan: TransitionPlan, state?: SchedulerStat
     parts.push(`🎯 Theme: ${plan.longTheme}`);
   }
   
-  console.log(`[Scheduler] 📋 Decision: ${parts.join(' | ')}`);
+  log.log(`📋 Decision: ${parts.join(' | ')}`);
   
   // If state provided, log additional context
   if (state) {
@@ -348,7 +352,7 @@ export function logSchedulerDecision(plan: TransitionPlan, state?: SchedulerStat
       stateInfo.push(`silence: ${state.consecutiveSilence}`);
     }
     if (stateInfo.length > 0) {
-      console.log(`[Scheduler] 📊 State: ${stateInfo.join(', ')}`);
+      log.log(`📊 State: ${stateInfo.join(', ')}`);
     }
   }
 }

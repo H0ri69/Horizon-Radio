@@ -1,4 +1,8 @@
 import { YtmApiService } from './ytmApiService';
+import { logger } from '../utils/Logger';
+
+const log = logger.withContext('Search');
+
 
 export class SongSearchService {
     /**
@@ -18,7 +22,7 @@ export class SongSearchService {
                 file: new File([], "placeholder")
             }));
         } catch (e) {
-            console.warn("[Hori-s] YTM API search failed, falling back to basic result", e);
+            log.warn("YTM API search failed, falling back to basic result", e);
             return [
                 {
                     id: 'manual-1',

@@ -6,6 +6,9 @@ import { MODEL_MAPPING, VOICE_PROFILES, DJStyle, AUDIO, generateLiveSystemInstru
 import { logger } from "../utils/Logger";
 import { searchAndPlayNextInPlace, ensurePlayerMaximized } from "../utils/ytmDomUtils";
 
+const log = logger.withContext('LiveCall');
+
+
 // --- Input Source Abstraction ---
 
 export interface ILiveInputSource {
@@ -53,7 +56,7 @@ export class LocalMicSource implements ILiveInputSource {
 
     connect(context: AudioContext, onAudioData: (pcmBlob: Blob) => void): void {
         if (!this.stream) {
-            console.error("[LocalMicSource] Cannot connect: Stream not initialized");
+            log.error("LocalMicSource: Cannot connect: Stream not initialized");
             return;
         }
 
@@ -153,7 +156,7 @@ export class LiveCallService {
         // Increment session ID to invalidate old event handlers
         this.currentSessionId++;
         const sessionId = this.currentSessionId;
-        console.log(`[Hori-s] Starting session #${sessionId}`);
+        log.log(`Starting session #${sessionId}`);
 
         this.config = config;
         this.isLiveActive = true;
@@ -165,16 +168,16 @@ export class LiveCallService {
 
         // Use custom input source if provided (for Remote Calls), otherwise default to LocalMic
         if (config.inputSource) {
-            logger.debug(`[Hori-s] Using custom input source: ${config.inputSource.name}`);
+            log.debug(`Using custom input source: ${config.inputSource.name}`);
             this.inputSource = config.inputSource;
         } else {
-            logger.debug(`[Hori-s] Using default Local Microphone source`);
+            log.debug(`Using default Local Microphone source`);
             // ensure fresh instance for fresh stream
             this.inputSource = new LocalMicSource();
         }
 
         try {
-            console.log(`[Hori-s] Creating AI client for session #${sessionId}`);
+            log.log(`Creating AI client for session #${sessionId}`);
 
             // Get Call History for context and settings for limit
             const storageResult = await browser.storage.local.get(["horisCallHistory", "horisFmSettings"]);
@@ -197,7 +200,7 @@ export class LiveCallService {
             const ai = new GoogleGenAI({ apiKey: config.apiKey });
             const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
 
-            logger.debug(`[Hori-s] Creating audio contexts for session #${sessionId}`);
+            log.debug(`Creating audio contexts for session #${sessionId}`);
 
             // CLEANUP: Close existing contexts if they were left open
             if (this.liveInputContext) {
@@ -212,9 +215,9 @@ export class LiveCallService {
             try {
                 this.liveInputContext = new AudioCtx();
                 this.liveOutputContext = new AudioCtx();
-                logger.debug(`[Hori-s] Contexts created. Input: ${this.liveInputContext.state}, Output: ${this.liveOutputContext.state}`);
+                log.debug(`Contexts created. Input: ${this.liveInputContext.state}, Output: ${this.liveOutputContext.state}`);
             } catch (ctxError) {
-                console.error("[Hori-s] CRITICAL: Failed to create AudioContext!", ctxError);
+                log.error("CRITICAL: Failed to create AudioContext!", ctxError);
                 throw ctxError;
             }
 
@@ -229,11 +232,11 @@ export class LiveCallService {
 
             // Initialize Input Source (e.g. Mic Permissions)
             try {
-                logger.debug(`[Hori-s] Initializing input source...`);
+                log.debug(`Initializing input source...`);
                 await this.inputSource.initialize(this.liveInputContext);
-                logger.debug(`[Hori-s] Input source initialized successfully.`);
+                log.debug(`Input source initialized successfully.`);
             } catch (inputError) {
-                console.error('[Hori-s] Input source initialization failed:', inputError);
+                log.error('Input source initialization failed:', inputError);
                 if (inputError instanceof Error && (inputError.name === 'NotAllowedError' || inputError.name === 'PermissionDeniedError')) {
                     this.config.onStatusChange('MIC ACCESS DENIED');
                 } else {
@@ -260,10 +263,10 @@ export class LiveCallService {
                 this.inputSource.setOnDisconnect(() => {
                     // Only act if this callback is from the current active session
                     if (sessionId !== this.currentSessionId) {
-                        console.log(`[Hori-s] Ignoring stale disconnect callback from session #${sessionId} (current: #${this.currentSessionId})`);
+                        log.log(`Ignoring stale disconnect callback from session #${sessionId} (current: #${this.currentSessionId})`);
                         return;
                     }
-                    console.log(`[Hori-s] Input source #${sessionId} disconnected unexpectedly. Ending session.`);
+                    log.log(`Input source #${sessionId} disconnected unexpectedly. Ending session.`);
                     // We assume the caller left, so we should clean up.
                     // Depending on UX, we might want Gemini to say "Goodbye" or just cut it.
                     // For now, let's just cut it gracefully.
@@ -321,7 +324,7 @@ export class LiveCallService {
                 voiceProfile
             );
 
-            console.log(`[Hori-s] 🎙️ Live Call Style: ${config.style}${config.style === DJStyle.CUSTOM && config.customPrompt ? ` (Custom: "${config.customPrompt}")` : ""}`);
+            log.log(`🎙️ Live Call Style: ${config.style}${config.style === DJStyle.CUSTOM && config.customPrompt ? ` (Custom: "${config.customPrompt}")` : ""}`);
 
 
             // Connect
@@ -344,7 +347,7 @@ export class LiveCallService {
                 },
                 callbacks: {
                     onopen: async () => {
-                        console.log(`[Hori-s] WebSocket opened for session #${sessionId}`);
+                        log.log(`WebSocket opened for session #${sessionId}`);
                         this.config?.onStatusChange('LIVE: ON AIR');
 
                         // Wait for session to be fully resolved
@@ -352,11 +355,11 @@ export class LiveCallService {
                         resolvedSession = session;
 
                         if (!this.liveInputContext) {
-                            console.warn(`[Hori-s] Missing input context for session #${sessionId}`);
+                            log.warn(`Missing input context for session #${sessionId}`);
                             return;
                         }
 
-                        logger.debug(`[Hori-s] Connecting input source for session #${sessionId}`);
+                        log.debug(`Connecting input source for session #${sessionId}`);
 
                         // Connect Input Source
                         this.inputSource.connect(this.liveInputContext, (pcmBlob) => {
@@ -378,7 +381,7 @@ export class LiveCallService {
                     },
                     onmessage: async (msg: LiveServerMessage) => {
                         if (msg.setupComplete) {
-                            console.log(`[Hori-s] Setup complete for session #${sessionId}. Triggering intro.`);
+                            log.log(`Setup complete for session #${sessionId}. Triggering intro.`);
                             // Trigger session start callback (e.g. for Remote GO LIVE signal)
                             this.config?.onSessionStart?.();
 
@@ -395,7 +398,7 @@ export class LiveCallService {
                         if (msg.serverContent) {
                             const { modelTurn, interrupted, turnComplete } = msg.serverContent;
                             if (interrupted) {
-                                console.log(`[Hori-s] 🛑 Model interrupted by user in session #${sessionId}`);
+                                log.log(`🛑 Model interrupted by user in session #${sessionId}`);
                                 this.liveSources.forEach(s => {
                                     try { s.stop(); } catch (e) { }
                                 });
@@ -405,7 +408,7 @@ export class LiveCallService {
                         }
 
                         if (msg.toolCall) {
-                            console.log(`[Hori-s] 🛠️ Tool call received in session #${sessionId}:`, msg.toolCall);
+                            log.log(`🛠️ Tool call received in session #${sessionId}:`, msg.toolCall);
                             for (const fc of msg.toolCall.functionCalls!) {
                                 if (fc.name === 'endCall') {
                                     if (resolvedSession) resolvedSession.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response: { result: "ok" } }] });
@@ -420,7 +423,7 @@ export class LiveCallService {
                                 } else if (fc.name === 'addPlayNext') {
                                     const songQuery = (fc.args as any)?.songQuery;
                                     if (songQuery) {
-                                        logger.debug(`[Hori-s] 🎵 AI requested to queue song: "${songQuery}"`);
+                                        log.debug(`🎵 AI requested to queue song: "${songQuery}"`);
                                         // Execute DOM manipulation (runs in content script context)
                                         // Use searchAndPlayNextInPlace to avoid page navigation during live call
                                         searchAndPlayNextInPlace(songQuery).then(success => {
@@ -435,13 +438,13 @@ export class LiveCallService {
                                                 resolvedSession.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response: result }] });
                                             }
                                         }).catch(err => {
-                                            logger.error(`[Hori-s] Error executing addPlayNext:`, err);
+                                            log.error(`Error executing addPlayNext:`, err);
                                             if (resolvedSession) {
                                                 resolvedSession.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response: { status: 'error', message: 'An unexpected error occurred while trying to queue the song.' } }] });
                                             }
                                         });
                                     } else {
-                                        logger.warn(`[Hori-s] addPlayNext called without songQuery argument.`);
+                                        log.warn(`addPlayNext called without songQuery argument.`);
                                         if (resolvedSession) {
                                             resolvedSession.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response: { status: 'failed', message: 'No song query was provided.' } }] });
                                         }
@@ -469,7 +472,7 @@ export class LiveCallService {
                                     if (sessionId !== this.currentSessionId) return;
 
                                     if (!this.isLiveActive && this.liveSources.size === 0) {
-                                        console.log("[Hori-s] All audio finished. Final cleanup.");
+                                        log.log("All audio finished. Final cleanup.");
                                         setTimeout(() => {
                                             if (this.liveSources.size === 0 && this.liveOutputContext) {
                                                 this.liveOutputContext.close();
@@ -487,17 +490,17 @@ export class LiveCallService {
                                 this.liveNextStartTime += audioBuffer.duration;
                                 this.liveSources.add(source);
                             } catch (e) {
-                                console.error("Audio decode error", e);
+                                log.error("Audio decode error", e);
                             }
                         }
                     },
                     onclose: (event?: any) => {
                         if (this.isLiveActive) {
-                            console.log(`[Hori-s] WebSocket connection closed for session #${sessionId}. Event:`, event);
+                            log.log(`WebSocket connection closed for session #${sessionId}. Event:`, event);
                             const ctx = this.liveOutputContext;
                             if (ctx) {
                                 const remaining = Math.max(0, this.liveNextStartTime - ctx.currentTime);
-                                console.log(`[Hori-s] ${remaining.toFixed(2)}s of audio remaining`);
+                                log.log(`${remaining.toFixed(2)}s of audio remaining`);
                                 setTimeout(() => this.cleanupSession(true), remaining * 1000 + 500);
                             } else {
                                 this.cleanupSession(true);
@@ -505,7 +508,7 @@ export class LiveCallService {
                         }
                     },
                     onerror: (e) => {
-                        console.error("Live session error", e);
+                        log.error("Live session error", e);
                         this.cleanupSession(false);
                         this.config?.onUnrecoverableError();
                     }
@@ -521,7 +524,7 @@ export class LiveCallService {
             });
 
         } catch (e) {
-            console.error("Failed to start live session", e);
+            log.error("Failed to start live session", e);
             this.config?.onUnrecoverableError();
             this.cleanupSession(false);
         }
@@ -530,7 +533,7 @@ export class LiveCallService {
     public cleanupSession(graceful: boolean = true) {
         if (!this.isLiveActive) return;
 
-        console.log("[Hori-s] Cleaning up live session...");
+        log.log("Cleaning up live session...");
         this.isLiveActive = false;
 
         if (this.liveSession) {
@@ -539,7 +542,7 @@ export class LiveCallService {
         }
 
         // Cleanup Input Source
-        logger.debug(`[Hori-s] Disconnecting input source: ${this.inputSource.name}`);
+        log.debug(`Disconnecting input source: ${this.inputSource.name}`);
         this.inputSource.disconnect();
 
         // Close input context
@@ -548,10 +551,10 @@ export class LiveCallService {
             this.liveInputContext = null;
         }
 
-        console.log(`[Hori-s] ${this.liveSources.size} audio sources still playing. Waiting for them to finish...`);
+        log.log(`${this.liveSources.size} audio sources still playing. Waiting for them to finish...`);
 
         if (this.liveSources.size === 0) {
-            console.log("[Hori-s] No audio playing. Cleaning up immediately.");
+            log.log("No audio playing. Cleaning up immediately.");
             if (this.liveOutputContext) {
                 this.liveOutputContext.close();
                 this.liveOutputContext = null;

@@ -6,6 +6,9 @@
 import browser from 'webextension-polyfill';
 import type { AppLanguage } from '../types';
 import { SCHEDULER } from '../config/scheduler';
+import { logger } from '../utils/Logger';
+
+const log = logger.withContext('Sweeper');
 
 // =============================================================================
 // SWEEPER ASSET REGISTRY
@@ -58,7 +61,7 @@ export function initializeSweeperPaths(): void {
   
   // Log discovery results
   for (const [lang, paths] of Object.entries(SWEEPER_PATHS)) {
-    console.log(`[Sweeper] Found ${paths.length} sweepers for language: ${lang}`);
+    log.info(`Found ${paths.length} sweepers for language: ${lang}`);
   }
 }
 
@@ -123,13 +126,13 @@ export async function playSweeper(path: string): Promise<void> {
     };
     
     audio.onerror = (e) => {
-      console.error('[Sweeper] Playback error:', e);
+      log.error('Playback error:', e);
       currentSweeperAudio = null;
       reject(new Error(`Failed to play sweeper: ${path}`));
     };
     
     audio.play().catch((e) => {
-      console.error('[Sweeper] Play failed:', e);
+      log.error('Play failed:', e);
       currentSweeperAudio = null;
       reject(e);
     });

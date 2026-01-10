@@ -1,3 +1,7 @@
+import { logger } from "../utils/Logger";
+
+const log = logger.withContext('EventBus');
+
 type HoriSEvents = {
   'HORIS_CALL_SUBMITTED': { name: string; song: any; message: string; useRemote?: boolean; remoteSource?: any };
   'HORIS_STATUS_UPDATE': string;
@@ -23,6 +27,7 @@ class EventBus {
   }
 
   emit<K extends keyof HoriSEvents>(event: K, detail: HoriSEvents[K]) {
+    log.debug(`Emitting event: ${event}`, detail);
     if (!this.listeners[event]) return;
     this.listeners[event].forEach(cb => cb(detail));
   }

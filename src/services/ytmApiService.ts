@@ -1,6 +1,9 @@
 
 import { logger } from "../utils/Logger";
 
+const log = logger.withContext("YTM API SERVICE");
+
+
 let ytmContext: any = null;
 
 // Listen for the context event from the injected script
@@ -11,9 +14,9 @@ if (typeof window !== "undefined") {
             try {
                 if (typeof data === 'string') data = JSON.parse(data);
                 ytmContext = data;
-                // logger.debug("[Hori-s] YTM Context received and parsed");
+                log.debug("YTM Context received and parsed");
             } catch (e) {
-                console.error("[Hori-s] Failed to parse YTM context", e);
+                log.error("Failed to parse YTM context", e);
             }
         }
     });
@@ -25,7 +28,7 @@ export const YtmApiService = {
             // Try to wait a bit
             await new Promise(r => setTimeout(r, 1000));
             if (!ytmContext) {
-                console.warn("[Hori-s] YTM Context missing for search");
+                log.warn("YTM Context missing for search");
                 throw new Error("YTM Context missing");
             }
         }
@@ -50,7 +53,7 @@ export const YtmApiService = {
             const data = await response.json();
             return parseSearchResponse(data);
         } catch (e) {
-            console.error("[Hori-s] YTM Search failed", e);
+            log.error("YTM Search failed", e);
             throw e;
         }
     },
@@ -179,7 +182,7 @@ function parseSearchResponse(data: any): any[] {
             }
         }
     } catch (e) {
-        console.warn("[Hori-s] Parse error in search", e);
+        log.warn("Parse error in search", e);
     }
     return results;
 }
