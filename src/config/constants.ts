@@ -1,5 +1,5 @@
 /**
- * Centralized Constants for Hori-s.FM
+ * Centralized Constants for Horizon
  * All timing, audio, color, and URL constants in one place
  */
 

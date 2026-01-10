@@ -78,7 +78,7 @@ const getClient = async () => {
   });
 
   if (!apiKey || apiKey === "your_api_key_here") {
-    throw new Error("Invalid API Key. Please configure it in the Hori-s.FM extension settings.");
+    throw new Error("Invalid API Key. Please configure it in the Horizon extension settings.");
   }
   return new GoogleGenAI({ apiKey });
 };
