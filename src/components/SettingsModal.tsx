@@ -7,7 +7,7 @@ import {
   Palette, Zap, Cpu, Key, AlertTriangle,
   ChevronDown, CheckCircle2, Sliders, Trash2, Search
 } from "lucide-react";
-import { DJStyle, VOICE_PROFILES, DEFAULT_SCHEDULER_SETTINGS } from "../config";
+import { DJStyle, VOICE_PROFILES, DEFAULT_SCHEDULER_SETTINGS, type SchedulerSettings } from "../config";
 import type { AppLanguage } from "../types";
 import { VoiceCard } from "./settings/VoiceCard";
 import { SettingsSection } from "./settings/SettingsSection";
@@ -27,17 +27,7 @@ interface Settings {
   secondaryDjVoice?: string;
   visualTheme?: string;
   apiKey?: string;
-  scheduler?: {
-    sweeperProbability: number;
-    sweeperCooldownMin: number;
-    silenceWeight: number;
-    shortIntroWeight: number;
-    longIntroWeight: number;
-    weatherWeight: number;
-    newsWeight: number;
-    weatherCooldownMin: number;
-    newsCooldownMin: number;
-  };
+  scheduler?: SchedulerSettings;
   debug?: {
     enabledThemes: boolean[];
     skipTTS: boolean;
@@ -71,17 +61,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     dualDjMode: false,
     secondaryDjVoice: "sulafat",
     apiKey: "",
-    scheduler: {
-      sweeperProbability: 0.2,
-      sweeperCooldownMin: 2,
-      silenceWeight: 15,
-      shortIntroWeight: 50,
-      longIntroWeight: 30,
-      weatherWeight: 5,
-      newsWeight: 3,
-      weatherCooldownMin: 60,
-      newsCooldownMin: 120,
-    },
+    scheduler: DEFAULT_SCHEDULER_SETTINGS,
     debug: {
       enabledThemes: [true, true, true, true, true, true],
       skipTTS: false,
