@@ -3,7 +3,14 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { InjectedApp } from "./components/InjectedApp";
 import { Song, DJVoice, AppLanguage } from "./types";
-import { DJStyle, DJ_PERSONA_NAMES, TIMING, AUDIO, DEFAULT_SCHEDULER_SETTINGS, SCHEDULER } from "./config";
+import {
+  DJStyle,
+  DJ_PERSONA_NAMES,
+  TIMING,
+  AUDIO,
+  DEFAULT_SCHEDULER_SETTINGS,
+  SCHEDULER,
+} from "./config";
 import type { SchedulerState, TransitionPlan, SchedulerSettings } from "./config";
 import { eventBus } from "./services/eventBus";
 import { logger } from "./utils/Logger";
@@ -12,13 +19,16 @@ import {
   updateStateAfterTransition,
   createInitialState,
   logSchedulerDecision,
-  logSchedulerConfig
+  logSchedulerConfig,
 } from "./services/schedulerService";
+
+const log = logger.withContext("Content");
+
 import {
   getSweeperPaths,
   hasSweeperPaths,
   playSweeperWithGap,
-  initializeSweeperPaths
+  initializeSweeperPaths,
 } from "./services/sweeperService";
 import "./index.css"; // Inject Tailwind Styles
 
@@ -27,20 +37,24 @@ if (window !== window.top) {
   throw new Error("Hori-s.FM: Content script blocked in iframe.");
 }
 
-console.log("Hori-s.FM Content Script Loaded (v2.6 - Clean Logs)");
+log.log("Content Script Loaded (v2.6 - Clean Logs)");
 
 import { liveCallService } from "./services/liveCallService";
 import { RemoteSocketSource } from "./services/RemoteSocketSource";
 import { YtmApiService } from "./services/ytmApiService";
-import { getPendingDomAction, clearPendingDomAction, playFirstResultNext } from "./utils/ytmDomUtils";
+import {
+  getPendingDomAction,
+  clearPendingDomAction,
+  playFirstResultNext,
+} from "./utils/ytmDomUtils";
 import { sendMessageWithRetry } from "./utils/messaging";
 
 // --- YTM INJECTION BRIDGE (FALLBACK FOR FIREFOX) ---
-// Note: In Chrome (MV3), we use world: "MAIN" in manifest.json for src/inject.ts 
+// Note: In Chrome (MV3), we use world: "MAIN" in manifest.json for src/inject.ts
 // which is much safer and avoids CSP violations.
-if (process.env.TARGET_BROWSER === 'firefox') {
+if (process.env.TARGET_BROWSER === "firefox") {
   const injectYtmInterceptor = () => {
-    const script = document.createElement('script');
+    const script = document.createElement("script");
     script.textContent = `
       (function() {
           function broadcastContext() {
@@ -54,7 +68,7 @@ if (process.env.TARGET_BROWSER === 'firefox') {
                           })
                       }));
                   }
-              } catch(e) { console.error("[Hori-s] Context broadcast failed", e); }
+              } catch(e) { /* ignore */ }
           }
           
           setTimeout(broadcastContext, 1000);
@@ -73,7 +87,7 @@ if (process.env.TARGET_BROWSER === 'firefox') {
                   } else {
                        window.location.href = "/watch?v=" + videoId;
                   }
-               } catch(err) { console.error("[Hori-s] Play action failed", err); }
+               } catch(err) { /* ignore */ }
           });
       })();
     `;
@@ -109,36 +123,35 @@ logSchedulerConfig();
 // Check if there's a pending action from searchAndPlayNext() that navigated to this page
 (async () => {
   // Only process on search results pages
-  if (!window.location.href.includes('/search?q=')) return;
+  if (!window.location.href.includes("/search?q=")) return;
 
   const pendingAction = await getPendingDomAction();
   if (!pendingAction) return;
 
-  console.log(`[Hori-s] 📋 Found pending action: ${pendingAction.type} for "${pendingAction.query}"`);
+  log.log(`📋 Found pending action: ${pendingAction.type} for "${pendingAction.query}"`);
 
   // Clear the action immediately to prevent re-execution on refresh
   await clearPendingDomAction();
 
   // Wait for search results to render
   const WAIT_FOR_RESULTS_MS = 2500;
-  await new Promise(resolve => setTimeout(resolve, WAIT_FOR_RESULTS_MS));
+  await new Promise((resolve) => setTimeout(resolve, WAIT_FOR_RESULTS_MS));
 
   // Execute the action
-  if (pendingAction.type === 'PLAY_FIRST_RESULT_NEXT') {
-    console.log(`[Hori-s] 🎵 Executing queued action: Play first result next`);
+  if (pendingAction.type === "PLAY_FIRST_RESULT_NEXT") {
+    log.log(`🎵 Executing queued action: Play first result next`);
     const success = await playFirstResultNext();
     if (success) {
-      console.log(`[Hori-s] ✅ Successfully queued song from search: "${pendingAction.query}"`);
+      log.log(`✅ Successfully queued song from search: "${pendingAction.query}"`);
     } else {
-      console.error(`[Hori-s] ❌ Failed to queue song from search: "${pendingAction.query}"`);
+      log.error(`❌ Failed to queue song from search: "${pendingAction.query}"`);
     }
   }
 })();
 
-
 // --- MANUAL TRIGGER LISTENER ---
 window.addEventListener("HORIS_MANUAL_TRIGGER", () => {
-  console.log("[Hori-s] ⚡ Manual Trigger Event Detected!");
+  log.log("⚡ Manual Trigger Event Detected!");
   if (state.status === "IDLE" || state.status === "COOLDOWN") {
     (state as any).forceGenerate = true;
   }
@@ -158,43 +171,43 @@ chrome.storage.local.get(["horisHostId", "horisFmSettings"], (result) => {
   if (!hostId) {
     const segment = () => Math.random().toString(36).substring(2, 5).toUpperCase();
     hostId = `${segment()}-${segment()}`;
-    console.log("[Hori-s] 🆕 Generated new Host ID:", hostId);
+    log.log("🆕 Generated new Host ID:", hostId);
     chrome.storage.local.set({ horisHostId: hostId });
   }
 
   // Connect with HostID
   if (hostId) {
-    logger.debug("[Hori-s] 📡 Initializing Remote Source for Host:", hostId);
+    log.debug("📡 Initializing Remote Source for Host:", hostId);
     remoteSource = new RemoteSocketSource(hostId);
 
-    remoteSource.addStatusListener((status) => logger.debug(`[Hori-s] [Remote] ${status}`));
+    remoteSource.addStatusListener((status) => log.debug(`[Remote] ${status}`));
     remoteSource.addCallRequestListener((callData) => {
-      logger.debug("[Hori-s] 📞 Incoming Call Request:" + JSON.stringify(callData));
+      log.debug("📞 Incoming Call Request:" + JSON.stringify(callData));
       state.pendingCall = {
         name: callData.name,
         message: callData.message,
         song: null, // No song request in simplified flow
-        inputSource: remoteSource
+        inputSource: remoteSource,
       };
 
       // TODO: Optional UI interaction (Toast notification?)
     });
     // Connect immediately (AudioContext is null initially, but that's fine for control messages)
-    remoteSource.connect(null as any, () => { });
+    remoteSource.connect(null as any, () => {});
   }
 });
 
 // --- EVENT BUS LISTENER ---
 eventBus.on("HORIS_CALL_SUBMITTED", (detail) => {
   if (detail) {
-    console.log("[Hori-s] 📞 Local Call Received:", detail);
+    log.log("📞 Local Call Received:", detail);
     state.pendingCall = detail;
 
     // If it's a remote call, we might want to update the status callback to something persistent
     // because the Modal is gone.
-    if (detail.remoteSource && typeof detail.remoteSource.setStatusCallback === 'function') {
+    if (detail.remoteSource && typeof detail.remoteSource.setStatusCallback === "function") {
       detail.remoteSource.setStatusCallback((s: string) => {
-        console.log(`[Hori-s] [RemoteSourceStatus] ${s}`);
+        log.log(`[RemoteSourceStatus] ${s}`);
         // Optionally broadcast this status to UI if we had a persistent status bar
       });
     }
@@ -227,9 +240,9 @@ const getMoviePlayer = () => {
   const videos = Array.from(document.querySelectorAll("video"));
   if (videos.length === 0) return null;
   if (videos.length === 1) return videos[0];
-  const playing = videos.filter(v => !v.paused);
+  const playing = videos.filter((v) => !v.paused);
   if (playing.length >= 1) return playing[0];
-  const valid = videos.filter(v => v.src && v.duration > 0);
+  const valid = videos.filter((v) => v.src && v.duration > 0);
   if (valid.length > 0) return valid[valid.length - 1];
   return videos[0];
 };
@@ -268,7 +281,9 @@ const getSongInfo = () => {
   }
 
   const queueContainer = document.querySelector("ytmusic-player-queue");
-  const queueItems = queueContainer ? Array.from(queueContainer.querySelectorAll("ytmusic-player-queue-item")) : [];
+  const queueItems = queueContainer
+    ? Array.from(queueContainer.querySelectorAll("ytmusic-player-queue-item"))
+    : [];
   let currentIndex = -1;
   const playlistContext: string[] = [];
   const normalizedCurrentTitle = normalizeString(title);
@@ -288,7 +303,10 @@ const getSongInfo = () => {
     queueItems.forEach((item, index) => {
       if (!isVisible(item)) return;
       const playBtn = item.querySelector("ytmusic-play-button-renderer");
-      if (playBtn && (playBtn.getAttribute("state") === "playing" || playBtn.getAttribute("state") === "paused")) {
+      if (
+        playBtn &&
+        (playBtn.getAttribute("state") === "playing" || playBtn.getAttribute("state") === "paused")
+      ) {
         currentIndex = index;
       }
     });
@@ -352,7 +370,6 @@ function itemIndexToLabel(index: number, current: number): string {
   return `[PREVIOUS -${current - index}]`;
 }
 
-
 const getScrapedTime = (): { currentTime: number; duration: number } | null => {
   const progressBar = document.querySelector("#progress-bar");
   if (progressBar) {
@@ -362,11 +379,11 @@ const getScrapedTime = (): { currentTime: number; duration: number } | null => {
   }
   const timeInfo = document.querySelector(".time-info");
   if (timeInfo?.textContent) {
-    const parts = timeInfo.textContent.split("/").map(s => s.trim());
+    const parts = timeInfo.textContent.split("/").map((s) => s.trim());
     if (parts.length === 2) {
       const parseTime = (str: string) => {
         const [m, s] = str.split(":").map(Number);
-        return (m * 60) + s;
+        return m * 60 + s;
       };
       const now = parseTime(parts[0]);
       const max = parseTime(parts[1]);
@@ -379,24 +396,24 @@ const getScrapedTime = (): { currentTime: number; duration: number } | null => {
 // HELPER: Find a suitable background image when no song is playing
 const findIdleBackground = (): string | null => {
   // 1. Hero / Immersive Header (Home Screen, Channel, etc.)
-  const immersive = document.querySelector('ytmusic-immersive-header-renderer .image img');
+  const immersive = document.querySelector("ytmusic-immersive-header-renderer .image img");
   if (immersive && (immersive as HTMLImageElement).src) return (immersive as HTMLImageElement).src;
 
   // 2. Playlist/Album Header
-  const header = document.querySelector('ytmusic-detail-header-renderer .image img');
+  const header = document.querySelector("ytmusic-detail-header-renderer .image img");
   if (header && (header as HTMLImageElement).src) return (header as HTMLImageElement).src;
 
   // 3. Artist/Channel Header
-  const channelHeader = document.querySelector('ytmusic-c4-tabbed-header-renderer .image img');
-  if (channelHeader && (channelHeader as HTMLImageElement).src) return (channelHeader as HTMLImageElement).src;
+  const channelHeader = document.querySelector("ytmusic-c4-tabbed-header-renderer .image img");
+  if (channelHeader && (channelHeader as HTMLImageElement).src)
+    return (channelHeader as HTMLImageElement).src;
 
   // 4. First item in the grid (Home screen recommendations) - Fallback
-  const firstItem = document.querySelector('ytmusic-two-row-item-renderer .image img');
+  const firstItem = document.querySelector("ytmusic-two-row-item-renderer .image img");
   if (firstItem && (firstItem as HTMLImageElement).src) return (firstItem as HTMLImageElement).src;
 
   return null;
 };
-
 
 let audioEl = document.getElementById("horis-fm-dj-voice") as HTMLAudioElement;
 if (!audioEl) {
@@ -404,7 +421,6 @@ if (!audioEl) {
   audioEl.id = "horis-fm-dj-voice";
   document.body.appendChild(audioEl);
 }
-
 
 class WebAudioDucker {
   public ctx: AudioContext | null = null;
@@ -414,7 +430,7 @@ class WebAudioDucker {
   private isDucked: boolean = false;
   private targetGainWhileDucked: number = AUDIO.DUCK_GAIN;
 
-  constructor() { }
+  constructor() {}
 
   /**
    * Initialize or reinitialize the audio routing.
@@ -439,7 +455,9 @@ class WebAudioDucker {
       if (this.source && this.connectedVideo !== video) {
         try {
           this.source.disconnect();
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         this.source = null;
       }
 
@@ -475,10 +493,10 @@ class WebAudioDucker {
         this.gainNode.gain.setValueAtTime(AUDIO.FULL_GAIN, this.ctx.currentTime);
       }
 
-      console.log("[Hori-s] 🔊 Audio routing initialized for video element");
+      log.log("🔊 Audio routing initialized for video element");
       return true;
     } catch (e) {
-      console.error("[Hori-s] Audio Init Failed:", e);
+      log.error("Audio Routing Init Failed:", e);
       return false;
     }
   }
@@ -591,10 +609,10 @@ const playBufferedAudio = async () => {
   // Play sweeper first if scheduled in the plan
   if (hasSweeper) {
     try {
-      console.log('[Hori-s] 🔊 Playing sweeper' + (hasDjAudio ? ' before DJ audio' : ' (SILENCE segment)'));
+      log.log("🔊 Playing sweeper" + (hasDjAudio ? " before DJ audio" : " (SILENCE segment)"));
       await playSweeperWithGap(state.currentPlan!.sweeper!);
     } catch (e) {
-      console.error('[Hori-s] Sweeper playback failed:', e);
+      log.error("Sweeper playback failed:", e);
     }
   }
 
@@ -604,7 +622,11 @@ const playBufferedAudio = async () => {
 
     // Update scheduler state
     if (state.currentPlan) {
-      state.scheduler = updateStateAfterTransition(state.scheduler, state.currentPlan, state.currentSweeperIndex);
+      state.scheduler = updateStateAfterTransition(
+        state.scheduler,
+        state.currentPlan,
+        state.currentSweeperIndex
+      );
     }
 
     updateStatus("COOLDOWN");
@@ -658,11 +680,15 @@ const playBufferedAudio = async () => {
   try {
     await audioEl.play();
   } catch (e) {
-    console.error("[Hori-s] Playback failed:", e);
+    log.error("Playback failed:", e);
     ducker.unduck(TIMING.SONG_CHECK_INTERVAL);
     // Clean up scheduler state on failure
     if (state.currentPlan) {
-      state.scheduler = updateStateAfterTransition(state.scheduler, state.currentPlan, state.currentSweeperIndex);
+      state.scheduler = updateStateAfterTransition(
+        state.scheduler,
+        state.currentPlan,
+        state.currentSweeperIndex
+      );
     }
     state.currentPlan = null;
     state.currentSweeperIndex = null;
@@ -676,7 +702,11 @@ const playBufferedAudio = async () => {
 
     // Update scheduler state NOW (at playback time, not generation time)
     if (state.currentPlan) {
-      state.scheduler = updateStateAfterTransition(state.scheduler, state.currentPlan, state.currentSweeperIndex);
+      state.scheduler = updateStateAfterTransition(
+        state.scheduler,
+        state.currentPlan,
+        state.currentSweeperIndex
+      );
     }
 
     updateStatus("COOLDOWN");
@@ -689,17 +719,16 @@ const playBufferedAudio = async () => {
   };
 };
 
-
 const startLiveCall = async () => {
-  logger.debug("[Hori-s] 🚀 startLiveCall TRIGGERED");
+  log.debug("🚀 startLiveCall TRIGGERED");
   if (!state.pendingCall) {
-    logger.debug("[Hori-s] ❌ startLiveCall aborted: No pending call");
+    log.debug("❌ startLiveCall aborted: No pending call");
     return;
   }
   const callData = state.pendingCall;
   state.pendingCall = null; // Clear queue
   updateStatus("LIVE_CALL");
-  logger.debug("[Hori-s] 📞 Live Call Status set. Preparing session...");
+  log.debug("📞 Live Call Status set. Preparing session...");
 
   ducker.duck(TIMING.SONG_CHECK_INTERVAL);
 
@@ -722,7 +751,7 @@ const startLiveCall = async () => {
     const apiKey = settings.apiKey;
 
     if (!apiKey) {
-      console.error("[Hori-s] Cannot start call: API Key missing.");
+      log.error("Cannot start call: API Key missing.");
       updateStatus("IDLE");
       ducker.unduck(TIMING.SONG_CHECK_INTERVAL);
       const video = getMoviePlayer();
@@ -730,61 +759,68 @@ const startLiveCall = async () => {
       return;
     }
 
-    logger.debug("[Hori-s] 🎬 Calling liveCallService.startSession...");
+    log.debug("🎬 Calling liveCallService.startSession...");
 
     // Queue the song if valid
     if (callData.song && callData.song.id && !callData.song.id.startsWith("manual-")) {
-      console.log(`[Hori-s] 🎵 Queuing Requested Song: ${callData.song.title}`);
+      log.log(`🎵 Queuing Requested Song: ${callData.song.title}`);
       YtmApiService.playNext(callData.song.id);
     }
 
-    liveCallService.startSession({
-      apiKey,
-      inputSource: callData.inputSource,
-      callerName: callData.name,
-      reason: callData.message,
-      previousSongTitle: current.title || "Unknown",
-      previousSongArtist: current.artist || "Unknown",
-      nextSongTitle: callData.song ? callData.song.title : (next.title || "Next Song"),
-      nextSongArtist: callData.song ? callData.song.artist : (next.artist || "Unknown"), // Prompt the DJ about the requested song as the "Next" one
-      voice: settings.djVoice || "sadachbia",
-      personaName: DJ_PERSONA_NAMES[settings.djVoice as DJVoice]?.[settings.language as AppLanguage] || "Host",
-      language: settings.language || "en",
-      style: settings.djStyle || "Standard (Radio Host)",
-      customPrompt: settings.customStylePrompt || "",
-      dualDjMode: settings.dualDjMode || false,
-      secondaryPersonaName: settings.dualDjMode ? (DJ_PERSONA_NAMES[settings.secondaryDjVoice as DJVoice]?.[settings.language as AppLanguage] || "Partner") : undefined,
-      onStatusChange: (s) => console.log(`[Hori-s] [LiveCall] ${s}`),
-      onUnrecoverableError: () => {
-        console.error("[Hori-s] [LiveCall] Unrecoverable Error Triggered.");
-        updateStatus("COOLDOWN");
-        ducker.unduck(TIMING.DUCK_DURATION);
-        const video = getMoviePlayer();
-        if (video) video.play();
-        setTimeout(() => updateStatus("IDLE"), TIMING.COOLDOWN_PERIOD);
-      },
-      onCallEnd: () => {
-        console.log("[Hori-s] [LiveCall] Ended normally.");
-        updateStatus("COOLDOWN");
-        const video = getMoviePlayer();
-        if (video) video.play();
-        ducker.unduck(TIMING.DUCK_DURATION);
-        setTimeout(() => updateStatus("IDLE"), TIMING.COOLDOWN_PERIOD);
-      },
-      onSessionStart: () => {
-        logger.debug("[Hori-s] [LiveCall] Session Started Callback.");
-        // Send GO LIVE signal to remote client
-        if (callData.inputSource instanceof RemoteSocketSource) {
-          callData.inputSource.sendGoLive();
-        }
-      }
-    }).catch(err => {
-      console.error("[Hori-s] 💥 liveCallService.startSession Promise Rejected:", err);
-      updateStatus("IDLE");
-    });
+    liveCallService
+      .startSession({
+        apiKey,
+        inputSource: callData.inputSource,
+        callerName: callData.name,
+        reason: callData.message,
+        previousSongTitle: current.title || "Unknown",
+        previousSongArtist: current.artist || "Unknown",
+        nextSongTitle: callData.song ? callData.song.title : next.title || "Next Song",
+        nextSongArtist: callData.song ? callData.song.artist : next.artist || "Unknown", // Prompt the DJ about the requested song as the "Next" one
+        voice: settings.djVoice || "sadachbia",
+        personaName:
+          DJ_PERSONA_NAMES[settings.djVoice as DJVoice]?.[settings.language as AppLanguage] ||
+          "Host",
+        language: settings.language || "en",
+        style: settings.djStyle || "Standard (Radio Host)",
+        customPrompt: settings.customStylePrompt || "",
+        dualDjMode: settings.dualDjMode || false,
+        secondaryPersonaName: settings.dualDjMode
+          ? DJ_PERSONA_NAMES[settings.secondaryDjVoice as DJVoice]?.[
+              settings.language as AppLanguage
+            ] || "Partner"
+          : undefined,
+        onStatusChange: (s) => log.log(`[LiveCall] ${s}`),
+        onUnrecoverableError: () => {
+          log.error("[LiveCall] Unrecoverable Error Triggered.");
+          updateStatus("COOLDOWN");
+          ducker.unduck(TIMING.DUCK_DURATION);
+          const video = getMoviePlayer();
+          if (video) video.play();
+          setTimeout(() => updateStatus("IDLE"), TIMING.COOLDOWN_PERIOD);
+        },
+        onCallEnd: () => {
+          log.log("[LiveCall] Ended normally.");
+          updateStatus("COOLDOWN");
+          const video = getMoviePlayer();
+          if (video) video.play();
+          ducker.unduck(TIMING.DUCK_DURATION);
+          setTimeout(() => updateStatus("IDLE"), TIMING.COOLDOWN_PERIOD);
+        },
+        onSessionStart: () => {
+          log.debug("[LiveCall] Session Started Callback.");
+          // Send GO LIVE signal to remote client
+          if (callData.inputSource instanceof RemoteSocketSource) {
+            callData.inputSource.sendGoLive();
+          }
+        },
+      })
+      .catch((err) => {
+        log.error("💥 liveCallService.startSession Promise Rejected:", err);
+        updateStatus("IDLE");
+      });
   });
 };
-
 
 /*
   Player state ↔ theme sync
@@ -935,7 +971,6 @@ const mainLoop = setInterval(() => {
     ducker.ensureConnected();
   }
 
-
   // 2. Continuous Background Update (Context Aware)
   // If music is paused, prioritizes hero/page content. If playing, prioritizes song art.
   const pageHero = findIdleBackground();
@@ -947,9 +982,9 @@ const mainLoop = setInterval(() => {
 
   if (activeArt) {
     const newVal = `url("${activeArt}")`;
-    const oldVal = document.documentElement.style.getPropertyValue('--horis-album-art');
+    const oldVal = document.documentElement.style.getPropertyValue("--horis-album-art");
     if (oldVal !== newVal) {
-      document.documentElement.style.setProperty('--horis-album-art', newVal);
+      document.documentElement.style.setProperty("--horis-album-art", newVal);
     }
   }
 
@@ -979,7 +1014,7 @@ const mainLoop = setInterval(() => {
   const timeLeft = duration - currentTime;
 
   if (sig !== state.currentSongSig) {
-    console.log(`[Hori-s] 🎵 Next song detected: "${current.title}" by ${current.artist}`);
+    log.log(`🎵 Next song detected: "${current.title}" by ${current.artist}`);
     state.currentSongSig = sig;
     updateStatus("IDLE");
     state.bufferedAudio = null;
@@ -1000,7 +1035,7 @@ const mainLoop = setInterval(() => {
 
   const alreadyGenerated = state.generatedForSig === sig;
   const triggerRatio = (state as any).debugTriggerPoint || 0.25;
-  const isPastTriggerPoint = currentTime > (duration * triggerRatio);
+  const isPastTriggerPoint = currentTime > duration * triggerRatio;
   const hasEnoughTime = timeLeft > 20;
   const forceGenerate = (state as any).forceGenerate === true;
 
@@ -1008,7 +1043,7 @@ const mainLoop = setInterval(() => {
   if (state.status === "IDLE" && !alreadyGenerated) {
     if (state.pendingCall) {
       state.generatedForSig = sig;
-      console.log("[Hori-s] 📞 Call pending. Skipping standard generation.");
+      log.log("📞 Call pending. Skipping standard generation.");
       return;
     }
 
@@ -1023,7 +1058,8 @@ const mainLoop = setInterval(() => {
       browser.storage.local.get(["horisFmSettings"]).then(async (result) => {
         const settings = (result as any).horisFmSettings || { enabled: true, djVoice: "sadachbia" };
 
-        if (settings.debug?.triggerPoint) (state as any).debugTriggerPoint = settings.debug.triggerPoint;
+        if (settings.debug?.triggerPoint)
+          (state as any).debugTriggerPoint = settings.debug.triggerPoint;
         if (!settings.enabled) {
           updateStatus("COOLDOWN");
           return;
@@ -1037,11 +1073,12 @@ const mainLoop = setInterval(() => {
             sweeperPaths = getSweeperPaths(language);
           }
         } catch (e) {
-          console.warn('[Hori-s] No sweepers available for language:', language);
+          log.warn("No sweepers available for language:", language);
         }
 
         // Get scheduler settings from storage (with defaults)
-        const schedulerSettings: SchedulerSettings = settings.scheduler || DEFAULT_SCHEDULER_SETTINGS;
+        const schedulerSettings: SchedulerSettings =
+          settings.scheduler || DEFAULT_SCHEDULER_SETTINGS;
 
         // Use scheduler to decide what to play
         const plan = decideTransition(state.scheduler, sweeperPaths, schedulerSettings);
@@ -1049,11 +1086,15 @@ const mainLoop = setInterval(() => {
         state.currentSweeperIndex = plan.sweeper ? sweeperPaths.indexOf(plan.sweeper) : null;
         logSchedulerDecision(plan, state.scheduler);
 
-        console.log(`[Hori-s] ✨ Generation started (Text: ${settings.textModel || "FLASH"}, TTS: ${settings.ttsModel || "FLASH"})`);
+        log.log(
+          `✨ Generation started (Text: ${settings.textModel || "FLASH"}, TTS: ${
+            settings.ttsModel || "FLASH"
+          })`
+        );
 
         // Handle SILENCE segment - no DJ generation needed, but still need proper timing
-        if (plan.segment === 'SILENCE') {
-          console.log('[Hori-s] 🔇 Segment is SILENCE - skipping DJ generation');
+        if (plan.segment === "SILENCE") {
+          log.log("🔇 Segment is SILENCE - skipping DJ generation");
 
           if (plan.sweeper) {
             // Buffer the plan for sweeper-only playback at the right time
@@ -1073,68 +1114,74 @@ const mainLoop = setInterval(() => {
         }
 
         try {
-          sendMessageWithRetry({
-            type: "GENERATE_INTRO",
-            data: {
-              currentSong: { title: current.title, artist: current.artist, id: "ytm-current" },
-              nextSong: {
-                title: next.title || "Next Track",
-                artist: next.artist || "Unknown",
-                id: "ytm-next",
+          sendMessageWithRetry(
+            {
+              type: "GENERATE_INTRO",
+              data: {
+                currentSong: { title: current.title, artist: current.artist, id: "ytm-current" },
+                nextSong: {
+                  title: next.title || "Next Track",
+                  artist: next.artist || "Unknown",
+                  id: "ytm-next",
+                },
+                plan,
+                playlistContext,
+                style: settings.djStyle || "STANDARD",
+                voice: settings.djVoice,
+                language: settings.language || "en",
+                customPrompt: settings.customStylePrompt,
+                dualDjMode: settings.dualDjMode,
+                secondaryVoice: settings.secondaryDjVoice,
+                debugSettings: settings.debug,
+                textModel: settings.textModel,
+                ttsModel: settings.ttsModel,
+                newsHistory: state.scheduler.recentNewsSummaries || [],
               },
-              plan,
-              playlistContext,
-              style: settings.djStyle || "STANDARD",
-              voice: settings.djVoice,
-              language: settings.language || "en",
-              customPrompt: settings.customStylePrompt,
-              dualDjMode: settings.dualDjMode,
-              secondaryVoice: settings.secondaryDjVoice,
-              debugSettings: settings.debug,
-              textModel: settings.textModel,
-              ttsModel: settings.ttsModel,
-              newsHistory: state.scheduler.recentNewsSummaries || [],
             },
-          }, {
-            maxRetries: 3,
-            retryDelayMs: 300,
-            onRetry: (attempt, error) => {
-              console.warn(`[Hori-s] ⚠️ Background connection failed (attempt ${attempt}/3), retrying...`);
+            {
+              maxRetries: 3,
+              retryDelayMs: 300,
+              onRetry: (attempt, error) => {
+                log.warn(`⚠️ Background connection failed (attempt ${attempt}/3), retrying...`);
+              },
             }
-          }).then((response: any) => {
-            if (state.currentSongSig !== sig) return;
+          )
+            .then((response: any) => {
+              if (state.currentSongSig !== sig) return;
 
-            if (response && response.audio) {
-              state.bufferedAudio = response.audio;
-              // Note: Scheduler state is updated at playback time in audioEl.onended
+              if (response && response.audio) {
+                state.bufferedAudio = response.audio;
+                // Note: Scheduler state is updated at playback time in audioEl.onended
 
-              if (response.script) {
-                console.log(`[Hori-s] 🤖 Script: "${response.script}"`);
+                if (response.script) {
+                  log.log(`🤖 Script: "${response.script}"`);
 
-                // If this was a NEWS segment, save the summary to history to avoid repetition
-                if (plan.segment === 'NEWS') {
-                  const currentHistory = state.scheduler.recentNewsSummaries || [];
-                  const limit = settings.scheduler?.maxNewsHistory || DEFAULT_SCHEDULER_SETTINGS.maxNewsHistory;
-                  const newHistory = [response.script, ...currentHistory]
-                    .slice(0, limit);
-                  
-                  state.scheduler.recentNewsSummaries = newHistory;
-                  console.log(`[Hori-s] 📰 History updated, count: ${newHistory.length}`);
+                  // If this was a NEWS segment, save the summary to history to avoid repetition
+                  if (plan.segment === "NEWS") {
+                    const currentHistory = state.scheduler.recentNewsSummaries || [];
+                    const limit =
+                      settings.scheduler?.maxNewsHistory ||
+                      DEFAULT_SCHEDULER_SETTINGS.maxNewsHistory;
+                    const newHistory = [response.script, ...currentHistory].slice(0, limit);
+
+                    state.scheduler.recentNewsSummaries = newHistory;
+                    log.log(`📰 History updated, count: ${newHistory.length}`);
+                  }
                 }
+                if (settings.debug?.verboseLogging && response.prompt) {
+                  log.log(`🤖 Prompt: "${response.prompt}"`);
+                }
+                log.log(`✅ Generation ready`);
+                updateStatus("READY");
+              } else {
+                updateStatus("COOLDOWN");
               }
-              if (settings.debug?.verboseLogging && response.prompt) {
-                console.log(`[Hori-s] 🤖 Prompt: "${response.prompt}"`);
-              }
-              console.log(`[Hori-s] ✅ Generation ready`);
-              updateStatus("READY");
-            } else {
-              updateStatus("COOLDOWN");
-            }
-          }).catch((err) => {
-            console.error("[Hori-s] sendMessage error after retries:", err);
-            updateStatus("IDLE");
-            // Do NOT reset generatedForSig - if it failed, we skip this song to prevent infinite loops
-          });
+            })
+            .catch((err) => {
+              log.error("sendMessage error after retries:", err);
+              updateStatus("IDLE");
+              // Do NOT reset generatedForSig - if it failed, we skip this song to prevent infinite loops
+            });
         } catch (e) {
           state.status = "IDLE";
           // Do NOT reset generatedForSig
@@ -1148,7 +1195,8 @@ const mainLoop = setInterval(() => {
     const freshTime = getScrapedTime();
     if (freshTime) {
       const freshLeft = freshTime.duration - freshTime.currentTime;
-      if (freshLeft < 10 && freshLeft > 1) { // 10s trigger
+      if (freshLeft < 10 && freshLeft > 1) {
+        // 10s trigger
         startLiveCall();
       }
     }
@@ -1158,7 +1206,7 @@ const mainLoop = setInterval(() => {
   const freshTime = getScrapedTime();
   if (state.status === "READY" && freshTime) {
     const freshLeft = freshTime.duration - freshTime.currentTime;
-    if (freshLeft < (TIMING.DJ_TRIGGER_TIME / 1000) && freshLeft > 1) {
+    if (freshLeft < TIMING.DJ_TRIGGER_TIME / 1000 && freshLeft > 1) {
       playBufferedAudio();
     }
   }
