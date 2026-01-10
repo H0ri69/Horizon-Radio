@@ -1,3 +1,5 @@
+import { logger } from "./utils/Logger";
+
 (function () {
     function broadcastContext() {
         try {
@@ -11,7 +13,7 @@
                     })
                 }));
             }
-        } catch (e) { console.error("[Hori-s] Context broadcast failed", e); }
+        } catch (e) { logger.error("Context broadcast failed", e); }
     }
 
     // Initial try and retry - increased frequency and range for reliability
@@ -27,12 +29,12 @@
         let data = e.detail;
         try {
             if (typeof data === 'string') data = JSON.parse(data);
-        } catch (err) { console.error("Parse error", err); }
+        } catch (err) { logger.error("Parse error", err); }
 
         const videoId = data?.videoId;
         if (!videoId) return;
 
-        console.log("[Hori-s] Requesting Play Next for:", videoId);
+        logger.log("Requesting Play Next for:", videoId);
 
         try {
             // Method 1: Try accessing the Queue Service via DOM (Fragile)
@@ -41,11 +43,11 @@
                 queue.dispatch({ type: "ADD", payload: videoId });
             } else {
                 // Method 2: Navigation Fallback (Guaranteed to play)
-                console.log("[Hori-s] Standard queue access failed. Switching to direct navigation.");
+                logger.log("Standard queue access failed. Switching to direct navigation.");
                 window.location.href = "/watch?v=" + videoId;
             }
         } catch (err) {
-            console.error("[Hori-s] Play action failed", err);
+            logger.error("Play action failed", err);
         }
     });
 })();
