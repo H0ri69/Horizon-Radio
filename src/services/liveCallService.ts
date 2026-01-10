@@ -135,6 +135,7 @@ export class LiveCallService {
     private liveSession: any = null; // Resolved session object
     private liveSources: Set<AudioBufferSourceNode> = new Set();
     private liveNextStartTime: number = 0;
+    private lastAiSpeechEndTime: number = 0;
     private isLiveActive: boolean = false;
 
     private config: LiveCallConfig | null = null;
@@ -158,6 +159,7 @@ export class LiveCallService {
         this.isLiveActive = true;
         this.liveNextStartTime = 0;
         this.liveSources.clear();
+        this.lastAiSpeechEndTime = 0;
         this.callEndFired = false; // Reset for new session
         this.config.onStatusChange('CONNECTING CALL...');
 
@@ -359,6 +361,18 @@ export class LiveCallService {
                         // Connect Input Source
                         this.inputSource.connect(this.liveInputContext, (pcmBlob) => {
                             if (!resolvedSession) return;
+
+                            // Prevent AI from hearing itself (Echo Gating)
+                            // We block input if the AI is currently speaking (has active sources)
+                            // or if it just finished speaking (within 500ms) to catch acoustic tail.
+                            const isAiSpeaking = this.liveSources.size > 0;
+                            const timeSinceSpeech = Date.now() - this.lastAiSpeechEndTime;
+                            const isInEchoTail = timeSinceSpeech < 500; // 500ms safety buffer
+
+                            if (isAiSpeaking || isInEchoTail) {
+                                return;
+                            }
+
                             resolvedSession.sendRealtimeInput({ media: pcmBlob });
                         });
                     },
@@ -448,6 +462,8 @@ export class LiveCallService {
 
                                 source.addEventListener('ended', () => {
                                     this.liveSources.delete(source);
+                                    // Track when AI finished speaking for echo gating
+                                    this.lastAiSpeechEndTime = Date.now();
 
                                     if (sessionId !== this.currentSessionId) return;
 
