@@ -15,7 +15,21 @@
     "host_permissions": [
         "https://music.youtube.com/*",
         "https://generativelanguage.googleapis.com/*",
-        "https://suggestqueries.google.com/*"
+        "https://suggestqueries.google.com/*",
+        "*://*.ytimg.com/*",
+        "*://*.googleusercontent.com/*",
+        "*://*.ggpht.com/*",
+        "*://localhost:*/*",
+        "wss://horizon-api.matejpesl.cz/*"
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "assets/*",
+                "src/assets/sweepers/*/*.mp3"
+            ],
+            "matches": ["https://music.youtube.com/*"]
+        }
     ],
     "background": {
         "scripts": [
