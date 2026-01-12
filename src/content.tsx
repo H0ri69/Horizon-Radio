@@ -768,6 +768,12 @@ const playBufferedAudio = async () => {
   // Need either DJ audio or sweeper to proceed
   if (!hasDjAudio && !hasSweeper) return;
 
+  // Fetch volume settings
+  const storageResult = await browser.storage.local.get(["horisFmSettings"]);
+  const settings = (storageResult as any).horisFmSettings || {};
+  const djVolume = settings.djVolume ?? AUDIO.DEFAULT_VOLUME;
+  const sweeperVolume = settings.sweeperVolume ?? AUDIO.DEFAULT_VOLUME;
+
   if (state.generatedForSig !== state.currentSongSig) {
     updateStatus("IDLE");
     state.bufferedAudio = null;
@@ -786,7 +792,7 @@ const playBufferedAudio = async () => {
   if (hasSweeper) {
     try {
       log.log("🔊 Playing sweeper" + (hasDjAudio ? " before DJ audio" : " (SILENCE segment)"));
-      await playSweeperWithGap(state.currentPlan!.sweeper!);
+      await playSweeperWithGap(state.currentPlan!.sweeper!, sweeperVolume);
     } catch (e) {
       log.error("Sweeper playback failed:", e);
     }
@@ -817,7 +823,7 @@ const playBufferedAudio = async () => {
   // DJ audio playback
   const url = `data:audio/wav;base64,${state.bufferedAudio}`;
   audioEl.src = url;
-  audioEl.volume = AUDIO.FULL_GAIN;
+  audioEl.volume = djVolume;
 
   await new Promise((resolve) => {
     audioEl.onloadedmetadata = resolve;

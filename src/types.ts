@@ -51,6 +51,8 @@ export interface AppSettings {
   textModel: GeminiModelTier;
   ttsModel: GeminiModelTier;
   protectTransitions?: boolean; // Prevent seeking into last 15s of songs
+  djVolume?: number; // DJ voice volume (0.1-1.0, default 1.0)
+  sweeperVolume?: number; // Sweeper jingle volume (0.1-1.0, default 1.0)
   debug?: {
     enabledThemes: boolean[];      // 6 items, one per theme
     skipTTS: boolean;               // Skip audio generation (text only)

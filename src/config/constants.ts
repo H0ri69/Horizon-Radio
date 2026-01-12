@@ -124,6 +124,16 @@ export const AUDIO = {
    */
   FULL_GAIN: 1.0,
 
+  /**
+   * MIN_VOLUME: Minimum configurable volume for DJ/Sweeper (10%)
+   */
+  MIN_VOLUME: 0.1,
+
+  /**
+   * DEFAULT_VOLUME: Default volume for DJ/Sweeper (100%)
+   */
+  DEFAULT_VOLUME: 1.0,
+
   // Audio Normalization
   /**
    * PCM_MAX_VALUE: Maximum value for 16-bit PCM audio samples
