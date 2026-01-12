@@ -34,15 +34,15 @@ let sweeperPathsInitialized = false;
  */
 export function initializeSweeperPaths(): void {
   if (sweeperPathsInitialized) return;
-  
+
   // Use Vite's import.meta.glob to get all sweeper files at build time
   // This creates a map of file paths at compile time
-  const sweeperModules = import.meta.glob('/src/assets/sweepers/**/*.mp3', { 
-    eager: true, 
+  const sweeperModules = import.meta.glob('/src/assets/sweepers/**/*.mp3', {
+    eager: true,
     query: '?url',
-    import: 'default' 
+    import: 'default'
   });
-  
+
   // Parse the paths and organize by language
   for (const [path, url] of Object.entries(sweeperModules)) {
     // Path format: /src/assets/sweepers/{lang}/{filename}.mp3
@@ -56,9 +56,9 @@ export function initializeSweeperPaths(): void {
       }
     }
   }
-  
+
   sweeperPathsInitialized = true;
-  
+
   // Log discovery results
   for (const [lang, paths] of Object.entries(SWEEPER_PATHS)) {
     log.info(`Found ${paths.length} sweepers for language: ${lang}`);
@@ -73,13 +73,13 @@ export function getSweeperPaths(language: AppLanguage): string[] {
   if (!sweeperPathsInitialized) {
     initializeSweeperPaths();
   }
-  
+
   const paths = SWEEPER_PATHS[language];
-  
+
   if (!paths || paths.length === 0) {
     throw new Error(`[Sweeper] No sweepers available for language: ${language}`);
   }
-  
+
   return paths;
 }
 
@@ -90,7 +90,7 @@ export function hasSweeperPaths(language: AppLanguage): boolean {
   if (!sweeperPathsInitialized) {
     initializeSweeperPaths();
   }
-  
+
   const paths = SWEEPER_PATHS[language];
   return paths && paths.length > 0;
 }
@@ -104,9 +104,10 @@ let currentSweeperAudio: HTMLAudioElement | null = null;
 /**
  * Play a sweeper audio file
  * @param path - URL/path to the sweeper audio file
+ * @param volume - Optional volume level (0.1-1.0, defaults to 1.0)
  * @returns Promise that resolves when playback completes
  */
-export async function playSweeper(path: string): Promise<void> {
+export async function playSweeper(path: string, volume: number = 1.0): Promise<void> {
   return new Promise((resolve, reject) => {
     // Clean up any existing sweeper audio
     if (currentSweeperAudio) {
@@ -114,23 +115,23 @@ export async function playSweeper(path: string): Promise<void> {
       currentSweeperAudio.src = '';
       currentSweeperAudio = null;
     }
-    
+
     const audio = new Audio(path);
     currentSweeperAudio = audio;
-    
-    audio.volume = 1.0;
-    
+
+    audio.volume = volume;
+
     audio.onended = () => {
       currentSweeperAudio = null;
       resolve();
     };
-    
+
     audio.onerror = (e) => {
       log.error('Playback error:', e);
       currentSweeperAudio = null;
       reject(new Error(`Failed to play sweeper: ${path}`));
     };
-    
+
     audio.play().catch((e) => {
       log.error('Play failed:', e);
       currentSweeperAudio = null;
@@ -159,8 +160,10 @@ export function delay(ms: number): Promise<void> {
 
 /**
  * Play sweeper with the standard gap before DJ starts
+ * @param path - URL/path to the sweeper audio file
+ * @param volume - Optional volume level (0.1-1.0, defaults to 1.0)
  */
-export async function playSweeperWithGap(path: string): Promise<void> {
-  await playSweeper(path);
+export async function playSweeperWithGap(path: string, volume: number = 1.0): Promise<void> {
+  await playSweeper(path, volume);
   await delay(SCHEDULER.SWEEPER_GAP_MS);
 }

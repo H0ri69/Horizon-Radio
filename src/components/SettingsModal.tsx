@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Settings, Radio, Globe, Mic,
   Palette, Zap, Cpu, Key, AlertTriangle,
-  ChevronDown, CheckCircle2, Sliders, Trash2, Search, Shield, RotateCcw
+  ChevronDown, CheckCircle2, Sliders, Trash2, Search, Shield, RotateCcw, Volume2
 } from "lucide-react";
 import { DJStyle, VOICE_PROFILES, DEFAULT_SCHEDULER_SETTINGS, type SchedulerSettings } from "../config";
 import { VoiceCard } from "./settings/VoiceCard";
@@ -38,6 +38,8 @@ interface Settings {
   textModel: "FLASH" | "PRO";
   ttsModel: "FLASH" | "PRO";
   protectTransitions?: boolean;
+  djVolume?: number;
+  sweeperVolume?: number;
 }
 
 const containerVariants = {
@@ -73,6 +75,8 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     textModel: "FLASH",
     ttsModel: "FLASH",
     protectTransitions: true,
+    djVolume: 1.0,
+    sweeperVolume: 1.0,
   });
   const [status, setStatus] = useState("");
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
@@ -416,6 +420,34 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                   }}
                   icon={<Shield className="w-6 h-6" />}
                 />
+              </SettingsSection>
+
+              {/* Audio Levels */}
+              <SettingsSection icon={Volume2} title="Audio Levels">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <SettingsSlider
+                    label="DJ Voice Volume"
+                    description="Volume level for DJ speech and announcements"
+                    value={settings.djVolume ?? 1.0}
+                    onChange={(val) => saveSettings({ ...settings, djVolume: val })}
+                    min={0.1}
+                    max={1}
+                    step={0.05}
+                    formatValue={(val) => `${Math.round(val * 100)}%`}
+                    className="p-5"
+                  />
+                  <SettingsSlider
+                    label="Sweeper Volume"
+                    description="Volume level for sweeper jingles"
+                    value={settings.sweeperVolume ?? 1.0}
+                    onChange={(val) => saveSettings({ ...settings, sweeperVolume: val })}
+                    min={0.1}
+                    max={1}
+                    step={0.05}
+                    formatValue={(val) => `${Math.round(val * 100)}%`}
+                    className="p-5"
+                  />
+                </div>
               </SettingsSection>
 
               {/* Scheduler Settings */}

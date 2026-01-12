@@ -38,6 +38,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   longMessageProbability: 0.3,
   textModel: "FLASH",
   ttsModel: "FLASH",
+  djVolume: 1.0, // 100% DJ voice volume
+  sweeperVolume: 1.0, // 100% sweeper volume
   debug: {
     enabledThemes: [true, true, true, true, true, true], // All themes enabled
     skipTTS: false,
