@@ -29,4 +29,37 @@ Logger Context Usage (Recommended for Modules/Services)
  - ✅ Complex components with significant logging
  - ❌ Simple utility functions (just use `logger` directly)
  - ❌ One-off debug statements (context adds unnecessary noise)
+
+# Code Style & Formatting
+
+## TypeScript
+- Use strict TypeScript typing; avoid `any` unless absolutely necessary.
+- Prefer `interface` over `type` for object shapes.
+- Use descriptive variable names (`songInfo` not `si`).
+
+## React Components
+- Use functional components with hooks exclusively.
+- Destructure props in the function signature.
+- Use Framer Motion for animations.
+
+## Imports & Paths
+- Use `@/` alias for all internal imports.
+- Group imports: React → External libs → Internal → Types → CSS.
+
+## File Organization
+- Keep files < 400 lines; split large files.
+- Services → `src/services/`
+- Config → `src/config/`
+- Utils → `src/utils/`
+
+# Testing Requirements
+- Critical services should have unit tests.
+- Add regression tests when fixing bugs.
+- Manual testing required for browser-specific features.
+
+# Safety Constraints
+- Never commit `.env` or API keys.
+- Warn before changing content/background messaging.
+- Test both Chrome and Firefox before pushing.
+- Extra scrutiny for manifest changes.
 """
