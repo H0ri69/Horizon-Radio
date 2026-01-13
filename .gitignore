@@ -24,3 +24,9 @@ dist-ssr
 *.sw?
 .env
 .cecli*
+
+# Mozilla submission artifacts (can be regenerated)
+horizon-radio-source-*.zip
+horizon-radio-sweepers-*.zip
+temp-src-*
+*-backup-temp

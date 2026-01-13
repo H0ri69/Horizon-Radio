@@ -298,13 +298,35 @@ const showSeekBlockedToast = () => {
   // Create toast element with theme-aware styling
   const toast = document.createElement("div");
   toast.id = "horis-seek-toast";
-  toast.innerHTML = `
-    <div class="horis-seek-toast-inner">
-      <span style="font-size: 18px;">🛡️</span>
-      <span>Transition zone protected</span>
-      <span style="opacity: 0.7; font-weight: 400;">• Disable in settings</span>
-    </div>
-    <style>
+
+  // Create inner container
+  const inner = document.createElement("div");
+  inner.className = "horis-seek-toast-inner";
+
+  // Create emoji span
+  const emoji = document.createElement("span");
+  emoji.style.fontSize = "18px";
+  emoji.textContent = "🛡️";
+
+  // Create message span
+  const message = document.createElement("span");
+  message.textContent = "Transition zone protected";
+
+  // Create hint span
+  const hint = document.createElement("span");
+  hint.style.opacity = "0.7";
+  hint.style.fontWeight = "400";
+  hint.textContent = "• Disable in settings";
+
+  // Assemble structure
+  inner.appendChild(emoji);
+  inner.appendChild(message);
+  inner.appendChild(hint);
+  toast.appendChild(inner);
+
+  // Create and append styles
+  const style = document.createElement("style");
+  style.textContent = `
       .horis-seek-toast-inner {
         position: fixed;
         bottom: 100px;
@@ -348,8 +370,8 @@ const showSeekBlockedToast = () => {
         from { opacity: 1; transform: translateX(-50%) translateY(0); }
         to { opacity: 0; transform: translateX(-50%) translateY(20px); }
       }
-    </style>
   `;
+  toast.appendChild(style);
   document.body.appendChild(toast);
 
   // Auto-remove after 3 seconds

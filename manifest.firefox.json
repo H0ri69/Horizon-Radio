@@ -4,9 +4,6 @@
     "version": "1.0.0",
     "description": "AI generated Host and DJ voice-overs for YouTube Music",
     "icons": {
-        "16": "icon.png",
-        "32": "icon.png",
-        "48": "icon.png",
         "128": "icon.png"
     },
     "permissions": [
@@ -57,7 +54,12 @@
     "browser_specific_settings": {
         "gecko": {
             "id": "{b310998f-712a-4173-9158-ecd97539f6a6}",
-            "strict_min_version": "109.0"
+            "strict_min_version": "140.0",
+            "data_collection_permissions": {
+                "required": [
+                    "none"
+                ]
+            }
         }
     },
     "content_security_policy": {
