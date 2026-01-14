@@ -112,6 +112,6 @@ For build issues, please contact the developer through the Firefox Add-on Develo
 ---
 
 **Package Date**: 2026-01-13  
-**Extension Version**: 1.0.0  
+**Extension Version**: 1.0.1  
 **Target**: Firefox 140+  
 **Build Tool**: Vite 6.2 + TypeScript 5.8
