@@ -80,20 +80,6 @@ The project consists of three main components:
       GEMINI_API_KEY=your_key_here
       ```
 
-### Running the Ecosystem
-
-To start everything (Extension, Relay, and Remote Client) concurrently:
-```bash
-pnpm start
-```
-
-### Loading the Extension
-1. Go to `chrome://extensions/`
-2. Enable **Developer mode**.
-3. Click **Load unpacked** and select the `dist` folder.
-4. Open [YouTube Music](https://music.youtube.com/) and enjoy your new AI radio.
-
----
 
 ## 🛠️ Tech Stack
 
