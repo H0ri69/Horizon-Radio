@@ -80,6 +80,24 @@ The project consists of three main components:
       GEMINI_API_KEY=your_key_here
       ```
 
+    > **⚠️ Important Note**: Free Google Gemini API keys have **extremely low** rate limits. If the DJ stops speaking, you have likely hit your daily quota.
+    
+    ### Free Tier Rate Limits (Estimated)
+    | Component | Model | RPM (Requests/Min) | RPD (Requests/Day) |
+    | :--- | :--- | :--- | :--- |
+    | **DJ Voice (TTS)** | `gemini-2.5-flash-tts` | **3** | **10** |
+    | **Script Generation** | `gemini-2.5-flash` | **5** | **20** |
+
+    ### Paid Tier Rate Limits (Estimated)
+    | Component | Model | RPM (Requests/Min) | RPD (Requests/Day) |
+    | :--- | :--- | :--- | :--- |
+    | **DJ Voice (Flash TTS)** | `gemini-2.5-flash-tts` | **10** | **100** |
+    | **DJ Voice (Pro TTS)** | `gemini-2.5-pro-tts` | **10** | **50** |
+    | **Script Generation (Flash)** | `gemini-2.5-flash` | **1,000** | **10,000** |
+    | **Script Generation (Pro)** | `gemini-2.5-pro` | **150** | **10,000** |
+    
+    *> Limits are subject to change. Check your usage on the [Google AI Studio Dashboard](https://aistudio.google.com/).*
+
 ### 🏃 Running & Loading
 
 The easiest way to get started is to build the extension for both browsers at once.
