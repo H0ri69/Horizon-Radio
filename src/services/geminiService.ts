@@ -454,7 +454,15 @@ export const generateDJIntro = async (
 
     const ttsStartTime = performance.now();
     if (onProgress) onProgress("GENERATING_AUDIO");
-    const audio = await speakText(script, voice, undefined, undefined, undefined, style, ttsModel);
+    const audio = await speakText(
+      script,
+      voice,
+      dualDjMode ? secondaryVoice : undefined,
+      dualDjMode ? host1Name : undefined,
+      dualDjMode ? host2Name : undefined,
+      style,
+      ttsModel
+    );
     const ttsEndTime = performance.now();
     log.log(`🔊 TTS Generated in ${((ttsEndTime - ttsStartTime) / 1000).toFixed(2)}s`);
 
