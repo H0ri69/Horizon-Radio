@@ -11,6 +11,7 @@
 ### 🎧 Persistent AI DJ
 - **Contextual Scripting**: Uses `gemini-2.5-flash` to generate scripts based on your current song, next track, and even the "vibe" of your artist history.
 - **High-Fidelity TTS**: Powered by `gemini-2.5-flash-preview-tts` for natural-sounding, expressive radio host voices.
+- **Dynamic Dual DJ Mode**: Experience lively banter between two hosts (e.g., Nataly & Alex) with distinct personalities and authentic conversational flow.
 - **Smart Transitions**: The DJ "ducks" the music volume just like a real station when speaking, using smooth UI-integrated volume transitions.
 
 ### 📞 Live Call Ecosystem
@@ -39,7 +40,19 @@ The project consists of three main components:
 
 ---
 
-## 🚀 Getting Started
+## 📥 Downloads
+
+
+| Browser | Download Link | Installation Guide |
+| :--- | :--- | :--- |
+| **Firefox** 🦊 | [**Download Latest Release**](https://github.com/H0ri69/Horizon-Radio/releases/latest) | 1. Go to `about:addons` <br> 2. Gear Icon ⚙️ → "Install Add-on From File" |
+| **Chrome** 🔵 | [**Download Latest Release**](https://github.com/H0ri69/Horizon-Radio/releases/latest) | 1. Extract ZIP <br> 2. `chrome://extensions` → "Load Unpacked" |
+
+> **Note**: Firefox users on the standard release channel may need to wait for store approval or use **Firefox Developer Edition** to install unsigned extensions.
+
+---
+
+## 🚀 Developer Guide
 
 ### Prerequisites
 - [Node.js](https://nodejs.org/) (v18+)
