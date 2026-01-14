@@ -80,6 +80,33 @@ The project consists of three main components:
       GEMINI_API_KEY=your_key_here
       ```
 
+### 🏃 Running & Loading
+
+The easiest way to get started is to build the extension for both browsers at once.
+
+1.  **Build the Project**:
+    ```bash
+    pnpm build
+    ```
+    This creates:
+    - `dist/chrome/` (for Chrome)
+    - `dist/firefox/` (for Firefox)
+
+2.  **Load Extension**:
+
+    **🔵 Chrome**:
+    - Go to `chrome://extensions/`
+    - Enable **Developer mode** (top right).
+    - Click **Load unpacked**.
+    - Select the `dist/chrome` folder.
+
+    **🦊 Firefox**:
+    - Go to `about:debugging#/runtime/this-firefox`
+    - Click **Load Temporary Add-on...**
+    - Select `dist/firefox/manifest.json`.
+    - *(Note: For permanent install in Firefox Developer Edition, set `xpinstall.signatures.required` to `false` in `about:config`, then install via `about:addons` > "Install from file" selecting the zip created in dist/firefox).*
+
+
 
 ## 🛠️ Tech Stack
 
