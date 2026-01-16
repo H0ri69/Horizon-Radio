@@ -10,8 +10,7 @@ This archive contains the complete source code for the **AI Radio for YouTube Mu
 
 ### Automated Build (Recommended)
 ```bash
-# 1. Extract sweepers archive (horizon-radio-sweepers-YYYYMMDD.zip)
-unzip horizon-radio-sweepers-YYYYMMDD.zip
+
 
 # 2. Build extension
 node build-firefox.js
@@ -43,7 +42,7 @@ pnpm build:firefox
 - ✅ `build-firefox.js` - Automated build script
 - ✅ `BUILD_INSTRUCTIONS_FIREFOX.md` - Detailed build guide
 - ✅ `icon.png` - Extension icon
-- ❌ `src/assets/sweepers/` - **Provided in separate archive** (`horizon-radio-sweepers-YYYYMMDD.zip`) ⚠️
+- ✅ `src/assets/sweepers/` - Audio assets (included)
 
 ### Excluded from This Archive
 - ❌ `node_modules/` - Third-party dependencies (installed via `pnpm install`)
@@ -52,7 +51,7 @@ pnpm build:firefox
 - ❌ `.git/` - Version control history
 - ❌ `.env` - Local environment variables (not needed for build)
 
-**Note**: The sweeper audio files are NOT excluded - they're provided in a separate archive to comply with Mozilla's file validator.
+
 
 ---
 
@@ -111,7 +110,7 @@ For build issues, please contact the developer through the Firefox Add-on Develo
 
 ---
 
-**Package Date**: 2026-01-13  
-**Extension Version**: 1.0.1  
+**Package Date**: 2026-01-16  
+**Extension Version**: 1.0.2  
 **Target**: Firefox 140+  
 **Build Tool**: Vite 6.2 + TypeScript 5.8
