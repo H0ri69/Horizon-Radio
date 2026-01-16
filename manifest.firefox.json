@@ -10,18 +10,22 @@
         "storage"
     ],
     "host_permissions": [
-        "https://music.youtube.com/*",
-        "https://generativelanguage.googleapis.com/*",
-        "https://suggestqueries.google.com/*",
-        "*://*.ytimg.com/*",
-        "*://*.googleusercontent.com/*",
-        "*://*.ggpht.com/*",
-        "http://localhost/*",
-        "https://localhost/*",
-        "ws://localhost/*",
-        "http://127.0.0.1/*",
-        "ws://127.0.0.1/*",
-        "wss://horizon-api.matejpesl.cz/*"
+      "https://music.youtube.com/*",
+      "https://generativelanguage.googleapis.com/*",
+      "https://suggestqueries.google.com/*",
+      "*://*.ytimg.com/*",
+      "*://*.googleusercontent.com/*",
+      "*://*.ggpht.com/*",
+
+      "wss://horizon-api.matejpesl.cz/*",
+
+      "*://localhost/*",
+      "ws://localhost/*",
+      "wss://localhost/*",
+
+      "*://127.0.0.1/*",
+      "ws://127.0.0.1/*",
+      "wss://127.0.0.1/*"
     ],
     "web_accessible_resources": [
         {
