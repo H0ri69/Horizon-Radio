@@ -309,6 +309,11 @@ browser.runtime.onConnect.addListener((port: any) => {
 
     // Handle messages FROM Content Script
     port.onMessage.addListener((msg: any) => {
+      // Keep-alive heartbeat
+      if (msg.type === 'PING') {
+        return;
+      }
+
       if (ws && ws.readyState === WebSocket.OPEN) {
         // Check if we need to send binary or text
         // Implementation currently only sends Text control messages (REGISTER, GO_LIVE)

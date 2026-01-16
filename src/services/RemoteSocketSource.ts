@@ -17,6 +17,7 @@ export class RemoteSocketSource implements ILiveInputSource {
 
     // We hold the 'onAudioData' callback provided by the Service
     private propagateAudio: ((blob: GenAIBlob) => void) | null = null;
+    private heartbeatInterval: any = null;
 
     constructor(
         hostId: string
@@ -76,6 +77,9 @@ export class RemoteSocketSource implements ILiveInputSource {
         try {
             this.port = chrome.runtime.connect({ name: 'remote-socket-proxy' });
 
+            // Start heartbeat to keep SW alive
+            this.startHeartbeat();
+
             this.port.onMessage.addListener((msg) => {
                 this.handleProxyMessage(msg);
             });
@@ -83,6 +87,7 @@ export class RemoteSocketSource implements ILiveInputSource {
             this.port.onDisconnect.addListener(() => {
                 log.debug('Proxy Port Disconnected');
                 this.emitStatus('PROXY_DISCONNECTED');
+                this.stopHeartbeat();
                 this.port = null;
             });
 
@@ -182,6 +187,7 @@ export class RemoteSocketSource implements ILiveInputSource {
             this.port.disconnect();
             this.port = null;
         }
+        this.stopHeartbeat();
         this.propagateAudio = null;
     }
 
@@ -190,5 +196,26 @@ export class RemoteSocketSource implements ILiveInputSource {
      */
     public destroy() {
         this.detach();
+    }
+
+    private startHeartbeat() {
+        this.stopHeartbeat();
+        // Send a ping every 20s to keep the service worker alive (limit is ~30s)
+        this.heartbeatInterval = setInterval(() => {
+            if (this.port) {
+                try {
+                    this.port.postMessage({ type: 'PING' });
+                } catch (e) {
+                    this.stopHeartbeat();
+                }
+            }
+        }, 20000);
+    }
+
+    private stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
     }
 }

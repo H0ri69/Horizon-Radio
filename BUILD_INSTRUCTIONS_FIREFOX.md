@@ -29,21 +29,7 @@ pnpm install
 
 This will install all dependencies listed in `package.json` using the exact versions specified in `pnpm-lock.yaml`.
 
-### 3. **IMPORTANT**: Extract Sweeper Audio Files
-
-The sweeper audio files are provided in a **separate archive** (`horizon-radio-sweepers-YYYYMMDD.zip`) uploaded alongside this source code package.
-
-```bash
-# 1. Extract the sweepers archive
-unzip horizon-radio-sweepers-YYYYMMDD.zip
-
-# 2. This will create src/assets/ directory with all sweeper files
-#    The directory structure is already correct - no need to move files
-```
-
-**Why separate?** Mozilla's file validator rejects the `src/assets/` directory name, so the audio files must be provided separately.
-
-### 4. Build the Firefox Extension
+### 3. Build the Firefox Extension
 ```bash
 pnpm build:firefox
 ```
@@ -57,7 +43,7 @@ This command:
 
 **Build time**: Approximately 5-15 seconds on modern hardware.
 
-### 5. Verify the Build
+### 4. Verify the Build
 The output directory `dist/firefox/` should contain:
 - `manifest.json` - Extension manifest (Firefox-specific)
 - `icon.png` - Extension icon (128x128px)
@@ -159,7 +145,7 @@ For build-related questions, please contact the extension maintainer through the
 
 ---
 
-**Build Date**: 2026-01-13  
-**Extension Version**: 1.0.0  
+**Build Date**: 2026-01-16  
+**Extension Version**: 1.0.2  
 **Builder**: Vite 6.2.0  
 **Target**: Firefox 140+
