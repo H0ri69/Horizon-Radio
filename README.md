@@ -1,5 +1,5 @@
 # <p align="center"><img src="public/banner.png" alt="Horizon Radio Banner" width="100%"></p>
-
+ 
 # 🎙️ Horizon Radio: The AI Radio Revolution
 
 **Horizon Radio** is a premium Chrome Extension that transforms your YouTube Music experience into a live, professional radio broadcast. Powered by Google's cutting-edge **Gemini 2.5** models, Horizon Radio acts as your personal AI Radio Host/DJ, providing context-aware intros, charismatic banter, and seamless transitions between your favorite tracks.
